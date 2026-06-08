@@ -2,26 +2,158 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --navy:        #1a2e4a;
+  --navy-dark:   #0f1e30;
+  --navy-light:  #243d5c;
+  --gold:        #c8a84b;
+  --gold-light:  #f5ecd4;
+  --gold-dark:   #a8893a;
+  --azul:        #2563eb;
+  --azul-light:  #eff6ff;
+  --verde:       #059669;
+  --verde-light: #ecfdf5;
+  --rojo:        #dc2626;
+  --rojo-light:  #fef2f2;
+  --amber:       #d97706;
+  --amber-light: #fffbeb;
+  --fondo:       #f1f5f9;
+  --superficie:  #ffffff;
+  --borde:       #e2e8f0;
+  --borde-dark:  #cbd5e1;
+  --texto:       #0f172a;
+  --texto-2:     #334155;
+  --texto-muted: #64748b;
+  --sombra:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --sombra-md:   0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -1px rgba(0,0,0,.05);
+  --sombra-lg:   0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+  --radio:       10px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--fondo); }
+::-webkit-scrollbar-thumb { background: var(--borde-dark); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--texto-muted); }
+
+/* Botones base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  border: none;
+  outline: none;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--navy);
+  color: white;
+}
+.btn-primary:hover:not(:disabled) { background: var(--navy-dark); box-shadow: var(--sombra-md); }
+
+.btn-gold {
+  background: var(--gold);
+  color: white;
+}
+.btn-gold:hover:not(:disabled) { background: var(--gold-dark); box-shadow: var(--sombra-md); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--texto-muted);
+  border: 1.5px solid var(--borde);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--fondo); border-color: var(--borde-dark); color: var(--texto); }
+
+.btn-danger {
+  background: var(--rojo-light);
+  color: var(--rojo);
+  border: 1.5px solid #fecaca;
+}
+.btn-danger:hover:not(:disabled) { background: #fee2e2; }
+
+.btn-success {
+  background: var(--verde-light);
+  color: var(--verde);
+  border: 1.5px solid #a7f3d0;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  gap: 4px;
+}
+
+/* Inputs */
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26,46,74,.08); }
+.input::placeholder { color: var(--texto-muted); }
+.input:disabled { background: var(--fondo); opacity: .6; cursor: not-allowed; }
+
+/* Cards */
+.card {
+  background: var(--superficie);
+  border-radius: var(--radio);
+  border: 1px solid var(--borde);
+  box-shadow: var(--sombra);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-green  { background: var(--verde-light); color: var(--verde); }
+.badge-amber  { background: var(--amber-light); color: var(--amber); }
+.badge-blue   { background: var(--azul-light); color: var(--azul); }
+.badge-red    { background: var(--rojo-light); color: var(--rojo); }
+
+/* Table */
+.table-row-hover:hover { background: #f8fafc !important; }
+
+/* Label */
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--texto-muted);
+  margin-bottom: 6px;
 }
