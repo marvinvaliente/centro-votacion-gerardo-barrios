@@ -11,6 +11,9 @@ import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
 
+const LOGO_BUCKET = 'fotos-dui'
+const LOGO_PATH   = 'configuracion/logo.jpg'
+
 const SESSION_KEY    = 'portal_usuario'
 const ADMIN_DUI      = '04325191-7'
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? ''
@@ -79,6 +82,7 @@ export default function PortalPage() {
   const [errorLogin, setErrorLogin] = useState('')
   const [cargandoLogin, setCargandoLogin] = useState(false)
   const [seccion, setSeccion] = useState<Seccion>('perfil')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   // Cuenta regresiva — 28 feb 2027
   const ELECCION = new Date('2027-02-28T06:00:00-06:00').getTime()
@@ -97,6 +101,13 @@ export default function PortalPage() {
     setCuenta(calcularRestante())
     const t = setInterval(() => setCuenta(calcularRestante()), 1000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const url = supabase.storage.from(LOGO_BUCKET).getPublicUrl(LOGO_PATH).data.publicUrl
+    fetch(url, { method: 'HEAD' })
+      .then(r => { if (r.ok) setLogoUrl(url) })
+      .catch(() => {})
   }, [])
 
   // Estados pre-login extendidos
@@ -513,9 +524,9 @@ export default function PortalPage() {
           {/* Header institucional */}
           <div>
             <div className="flex items-center gap-4 mb-10">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                 style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
-                <LogoUrna size={30} />
+                {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={30} />}
               </div>
               <div>
                 <div className="font-bold text-white text-base leading-tight">SIRCEV</div>
@@ -606,9 +617,9 @@ export default function PortalPage() {
 
           {/* Logo móvil */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
               style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
-              <LogoUrna size={22} />
+              {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={22} />}
             </div>
             <div>
               <div className="font-bold text-white text-sm">Portal del Colaborador</div>
@@ -824,9 +835,9 @@ export default function PortalPage() {
               {modoFormReg !== 'guardado' ? (
                 <>
                   <div className="px-7 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)', background: 'rgba(200,168,75,.08)' }}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                       style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.3)' }}>
-                      <LogoUrna size={20} />
+                      {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={20} />}
                     </div>
                     <div>
                       <h2 className="font-bold text-white text-base leading-tight">Nuevo registro</h2>
