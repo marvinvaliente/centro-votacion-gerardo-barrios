@@ -369,7 +369,14 @@ export default function PortalPage() {
           if (mismaJrv) {
             const ids = mismaJrv.map((p: { id: string }) => p.id)
             const { data: compJrv } = await supabase.from('registros_dui').select('*, padron(*)').in('padron_id', ids).neq('id', reg.id)
-            if (compJrv) setCompaneros(compJrv)
+            if (compJrv) {
+              // Enriquecer con foto_perfil_url desde usuarios
+              const duis = compJrv.map((c: RegistroDUI) => c.dui)
+              const { data: usrsComp } = await supabase.from('usuarios').select('dui, foto_perfil_url').in('dui', duis)
+              const fotoMap: Record<string, string | null> = {}
+              usrsComp?.forEach((u: { dui: string; foto_perfil_url: string | null }) => { fotoMap[u.dui] = u.foto_perfil_url })
+              setCompaneros(compJrv.map((c: RegistroDUI) => ({ ...c, foto_perfil_url: fotoMap[c.dui] ?? null })))
+            }
           }
         }
       }
@@ -1267,9 +1274,12 @@ export default function PortalPage() {
                     ) : companeros.map((c, i) => (
                       <div key={c.id} className="px-5 py-4 flex gap-4"
                         style={{ borderBottom: i < companeros.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5"
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5"
                           style={{ background: 'var(--azul-light)', color: 'var(--azul)' }}>
-                          {c.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()}
+                          {(c as RegistroDUI & { foto_perfil_url?: string | null }).foto_perfil_url
+                            ? <img src={(c as RegistroDUI & { foto_perfil_url?: string | null }).foto_perfil_url!} alt={c.nombre} className="w-full h-full object-cover" />
+                            : c.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                          }
                         </div>
                         <div className="flex-1 min-w-0 space-y-3">
                           <div>
