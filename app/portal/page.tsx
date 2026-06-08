@@ -546,10 +546,37 @@ export default function PortalPage() {
 
             {/* Info del centro */}
             <div className="space-y-4">
+              {/* Centro de votación + botón cómo llegar */}
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.2)' }}>
+                  <MapPin size={14} style={{ color: 'var(--gold)' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs" style={{ color: 'rgba(255,255,255,.38)' }}>Centro de Votación</div>
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,.82)' }}>
+                      C.E. Capitán General Gerardo Barrios
+                    </span>
+                    <a
+                      href="https://maps.app.goo.gl/7MBiZdwQmH5XBFJg7"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-150 flex-shrink-0"
+                      style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.4)', color: 'var(--gold)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,168,75,.32)'; e.currentTarget.style.borderColor = 'rgba(200,168,75,.7)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(200,168,75,.18)'; e.currentTarget.style.borderColor = 'rgba(200,168,75,.4)' }}
+                    >
+                      <MapPin size={11} />
+                      Cómo llegar
+                    </a>
+                  </div>
+                </div>
+              </div>
+
               {[
-                { icon: MapPin,    label: 'Centro de Votación',  value: 'C.E. Capitán General Gerardo Barrios' },
-                { icon: MapPin,    label: 'Municipio',            value: 'Santa Ana Centro · Departamento de Santa Ana' },
-                { icon: Calendar,  label: 'Proceso Electoral',    value: 'Elecciones Presidenciales, Legislativas y Municipales 2027' },
+                { icon: MapPin,   label: 'Municipio',         value: 'Santa Ana Centro · Departamento de Santa Ana' },
+                { icon: Calendar, label: 'Proceso Electoral', value: 'Elecciones Presidenciales, Legislativas y Municipales 2027' },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
@@ -563,30 +590,6 @@ export default function PortalPage() {
                 </div>
               ))}
             </div>
-
-            {/* Botón cómo llegar */}
-            <a
-              href="https://maps.app.goo.gl/7MBiZdwQmH5XBFJg7"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 w-full rounded-2xl px-5 py-4 transition-all duration-200 group"
-              style={{ background: 'rgba(200,168,75,.13)', border: '1px solid rgba(200,168,75,.35)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,168,75,.22)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(200,168,75,.13)')}
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(200,168,75,.2)', border: '1px solid rgba(200,168,75,.4)' }}>
-                <MapPin size={18} style={{ color: 'var(--gold)' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-white leading-tight">¿Cómo llegar?</div>
-                <div className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,.45)' }}>
-                  Ver en Google Maps · C.E. Gerardo Barrios
-                </div>
-              </div>
-              <ChevronRight size={16} style={{ color: 'rgba(200,168,75,.6)', flexShrink: 0 }}
-                className="group-hover:translate-x-0.5 transition-transform" />
-            </a>
           </div>
 
           {/* Cuenta regresiva */}
@@ -640,7 +643,7 @@ export default function PortalPage() {
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
           {/* Logo móvil */}
-          <div className="flex items-center gap-3 mb-4 lg:hidden">
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
               style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
               {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={22} />}
@@ -651,21 +654,6 @@ export default function PortalPage() {
             </div>
           </div>
 
-          {/* Botón cómo llegar — solo móvil */}
-          <a
-            href="https://maps.app.goo.gl/7MBiZdwQmH5XBFJg7"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="lg:hidden flex items-center gap-3 w-full max-w-md rounded-xl px-4 py-3 mb-6"
-            style={{ background: 'rgba(200,168,75,.13)', border: '1px solid rgba(200,168,75,.35)' }}
-          >
-            <MapPin size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-white leading-tight">¿Cómo llegar al centro?</div>
-              <div className="text-xs truncate" style={{ color: 'rgba(255,255,255,.45)' }}>Ver en Google Maps</div>
-            </div>
-            <ChevronRight size={14} style={{ color: 'rgba(200,168,75,.6)', flexShrink: 0 }} />
-          </a>
 
         {/* ── INGRESO DUI ── */}
         {vistaLogin === 'dui' && (
