@@ -93,7 +93,23 @@ export default function MiPerfilAdminPage() {
       setCargando(false); return
     }
     const nombre = usr?.nombre ?? (reg as any)?.nombre ?? dui
-    setUsuario(usr ?? {
+
+    // Si no existe en usuarios, crearlo automáticamente para poder subir foto de perfil
+    let usuarioFinal = usr
+    if (!usr) {
+      const { data: nuevo } = await supabase.from('usuarios').upsert({
+        dui,
+        nombre,
+        email: (reg as any)?.correo ?? null,
+        telefono: (reg as any)?.telefono ?? null,
+        rol: 'administrador',
+        activo: true,
+        autorizado: true,
+      }, { onConflict: 'dui' }).select('id,nombre,dui,email,telefono,rol,foto_perfil_url').maybeSingle()
+      usuarioFinal = nuevo
+    }
+
+    setUsuario(usuarioFinal ?? {
       id: '', nombre, dui,
       email: (reg as any)?.correo ?? null,
       telefono: (reg as any)?.telefono ?? null,
