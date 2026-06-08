@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Link2, BookOpen, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera } from 'lucide-react'
+import { LayoutGrid, Link2, BookOpen, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 
@@ -26,6 +26,10 @@ const NAV = [
   { href: '/admin/usuarios',     label: 'Usuarios',                icon: Users },
 ]
 
+const CATALOGO_ITEMS = [
+  { href: '/admin/catalogo/parametros-generales', label: 'Parámetros Generales', icon: Settings2 },
+]
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router   = useRouter()
@@ -37,6 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [bloqueado,         setBloqueado]         = useState(false)
   const [segundosRestantes, setSegundosRestantes] = useState(0)
   const [collapsed,         setCollapsed]         = useState(false)
+  const [catalogoAbierto,   setCatalogoAbierto]   = useState(false)
   const [logoUrl,           setLogoUrl]           = useState<string | null>(null)
   const [subiendoLogo,      setSubiendoLogo]      = useState(false)
 
@@ -211,7 +216,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 py-3 space-y-1 px-2">
+        <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
           {NAV.map(({ href, label, icon: Icon }) => {
             const activo = pathname === href
             return (
@@ -228,6 +233,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </a>
             )
           })}
+
+          {/* Catálogo */}
+          <button
+            onClick={() => { if (!collapsed) setCatalogoAbierto(o => !o) }}
+            title={collapsed ? 'Catálogo' : undefined}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium"
+            style={{
+              background: pathname.startsWith('/admin/catalogo') ? 'rgba(200,168,75,.18)' : 'transparent',
+              color: pathname.startsWith('/admin/catalogo') ? '#c8a84b' : 'rgba(255,255,255,.6)',
+              borderLeft: pathname.startsWith('/admin/catalogo') ? '3px solid #c8a84b' : '3px solid transparent',
+            }}>
+            <FolderOpen size={16} className="flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="truncate flex-1 text-left">Catálogo</span>
+                <ChevronRight size={13} style={{ transform: catalogoAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
+              </>
+            )}
+          </button>
+
+          {!collapsed && catalogoAbierto && (
+            <div className="pl-4 space-y-1">
+              {CATALOGO_ITEMS.map(({ href, label, icon: Icon }) => {
+                const activo = pathname === href
+                return (
+                  <a key={href} href={href}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm"
+                    style={{
+                      background: activo ? 'rgba(200,168,75,.18)' : 'transparent',
+                      color: activo ? '#c8a84b' : 'rgba(255,255,255,.5)',
+                      borderLeft: activo ? '3px solid #c8a84b' : '3px solid transparent',
+                    }}>
+                    <Icon size={14} className="flex-shrink-0" />
+                    <span className="truncate">{label}</span>
+                  </a>
+                )
+              })}
+            </div>
+          )}
         </nav>
 
         {/* Footer sidebar */}
@@ -260,7 +304,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span style={{ color: 'var(--texto-muted)' }}>Admin</span>
             <ChevronRight size={13} style={{ color: 'var(--borde-dark)' }} />
             <span className="font-medium" style={{ color: 'var(--texto)' }}>
-              {NAV.find(n => n.href === pathname)?.label ?? 'Panel'}
+              {NAV.find(n => n.href === pathname)?.label ?? CATALOGO_ITEMS.find(n => n.href === pathname)?.label ?? 'Panel'}
             </span>
           </div>
           <div className="ml-auto text-xs" style={{ color: 'var(--texto-muted)' }}>
