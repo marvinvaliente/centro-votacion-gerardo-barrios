@@ -7,6 +7,19 @@ import type { RegistroDUI, Padron } from '@/types'
 
 const JRV_ESTANDAR = new Set(['2429','2430','2431','2432','2433','2434','2435','2436','2437','2438','2439','2440','2441','2442','2443','2444','2445','2446'])
 
+function Avatar({ nombre, fotoUrl }: { nombre: string; fotoUrl?: string | null }) {
+  const iniciales = nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+  return (
+    <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center font-bold text-xs flex-shrink-0"
+      style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe' }}>
+      {fotoUrl
+        ? <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" />
+        : iniciales
+      }
+    </div>
+  )
+}
+
 /* ─── Combobox buscador ─── */
 function PersonaBuscador({ value, opciones, onChange }: {
   value: string; opciones: RegistroDUI[]; onChange: (id: string) => void
@@ -165,6 +178,7 @@ export default function AsignacionPage() {
   const [guardandoNuevo, setGuardandoNuevo] = useState(false)
   const [errorNuevo, setErrorNuevo] = useState('')
   const [eliminandoCargo, setEliminandoCargo] = useState<string | null>(null)
+  const [fotoMap, setFotoMap] = useState<Record<string, string | null>>({})
 
   useEffect(() => { cargarDatos() }, [])
 
@@ -180,6 +194,12 @@ export default function AsignacionPage() {
       const init: Record<string, string> = {}
       pad?.forEach(p => { init[p.id] = reg.find(r => r.padron_id === p.id)?.id ?? '' })
       setSeleccion(init)
+      // Cargar fotos de perfil desde usuarios
+      const duis = reg.map((r: RegistroDUI) => r.dui)
+      const { data: usrs } = await supabase.from('usuarios').select('dui, foto_perfil_url').in('dui', duis)
+      const map: Record<string, string | null> = {}
+      usrs?.forEach((u: { dui: string; foto_perfil_url: string | null }) => { map[u.dui] = u.foto_perfil_url })
+      setFotoMap(map)
     }
     setCargando(false)
   }
@@ -444,8 +464,11 @@ export default function AsignacionPage() {
                       style={{ background: idx % 2 === 0 ? 'var(--superficie)' : '#fafafa', borderBottom: '1px solid var(--borde)' }}>
                       <td className="px-4 py-3 font-semibold text-xs" style={{ color: 'var(--texto-2)' }}>{p.cargo}</td>
                       <td className="px-4 py-3">
-                        <PersonaBuscador value={seleccionActual} opciones={disponibles}
-                          onChange={id => setSeleccion(prev => ({ ...prev, [p.id]: id }))} />
+                        <div className="flex items-center gap-2">
+                          {persona && <Avatar nombre={persona.nombre} fotoUrl={fotoMap[persona.dui]} />}
+                          <PersonaBuscador value={seleccionActual} opciones={disponibles}
+                            onChange={id => setSeleccion(prev => ({ ...prev, [p.id]: id }))} />
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs whitespace-nowrap" style={{ color: 'var(--texto-muted)' }}>{persona?.dui ?? '—'}</td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--texto-muted)' }}>{persona?.telefono ?? '—'}</td>
@@ -536,8 +559,11 @@ export default function AsignacionPage() {
                                 <span className="font-semibold text-xs" style={{ color: 'var(--texto-2)' }}>{p.cargo}</span>
                               </td>
                               <td className="px-4 py-3">
-                                <PersonaBuscador value={seleccionActual} opciones={disponibles}
-                                  onChange={id => setSeleccion(prev => ({ ...prev, [p.id]: id }))} />
+                                <div className="flex items-center gap-2">
+                                  {persona && <Avatar nombre={persona.nombre} fotoUrl={fotoMap[persona.dui]} />}
+                                  <PersonaBuscador value={seleccionActual} opciones={disponibles}
+                                    onChange={id => setSeleccion(prev => ({ ...prev, [p.id]: id }))} />
+                                </div>
                               </td>
                               <td className="px-4 py-3 font-mono text-xs whitespace-nowrap" style={{ color: 'var(--texto-muted)' }}>
                                 {persona?.dui ?? '—'}

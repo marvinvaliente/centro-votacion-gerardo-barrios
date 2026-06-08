@@ -18,8 +18,23 @@ interface Usuario {
   rol: string
   activo: boolean
   autorizado: boolean
+  foto_perfil_url: string | null
   created_at: string
   updated_at: string
+}
+
+function Avatar({ nombre, fotoUrl, size = 9 }: { nombre: string; fotoUrl?: string | null; size?: number }) {
+  const iniciales = nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+  const dim = `${size * 4}px`
+  return (
+    <div className="rounded-lg overflow-hidden flex items-center justify-center font-bold flex-shrink-0"
+      style={{ width: dim, height: dim, fontSize: size < 9 ? 10 : 12, background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe' }}>
+      {fotoUrl
+        ? <img src={fotoUrl} alt={nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : iniciales
+      }
+    </div>
+  )
 }
 
 type Tab = 'pendientes' | 'activos' | 'inactivos' | 'todos'
@@ -254,7 +269,7 @@ export default function UsuariosPage() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ background: 'var(--fondo)', borderBottom: '2px solid var(--borde)' }}>
-                {['Nombre', 'DUI', 'Correo', 'Teléfono', 'Rol', 'Estado', 'Acciones'].map(h => (
+                {['', 'Nombre', 'DUI', 'Correo', 'Teléfono', 'Rol', 'Estado', 'Acciones'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -263,6 +278,9 @@ export default function UsuariosPage() {
               {filtradosPagina.map((u, idx) => (
                 <tr key={u.id} className="table-row-hover"
                   style={{ background: idx % 2 === 0 ? 'var(--superficie)' : '#fafafa', borderBottom: '1px solid var(--borde)' }}>
+                  <td className="px-3 py-2">
+                    <Avatar nombre={u.nombre} fotoUrl={u.foto_perfil_url} size={9} />
+                  </td>
                   <td className="px-4 py-3 font-medium">{u.nombre}</td>
                   <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--texto-2)' }}>{u.dui}</td>
                   <td className="px-4 py-3 text-xs" style={{ color: 'var(--texto-muted)' }}>{u.email ?? '—'}</td>

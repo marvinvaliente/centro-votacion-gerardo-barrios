@@ -11,6 +11,19 @@ function toNombrePropio(s: string) {
   return s.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ')
 }
 
+function Avatar({ nombre, fotoUrl }: { nombre: string; fotoUrl?: string | null }) {
+  const iniciales = nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+  return (
+    <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center font-bold text-xs flex-shrink-0"
+      style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe' }}>
+      {fotoUrl
+        ? <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" />
+        : iniciales
+      }
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const [registros, setRegistros] = useState<RegistroDUI[]>([])
   const [cargando, setCargando] = useState(false)
@@ -284,7 +297,7 @@ export default function AdminPage() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ background: 'var(--fondo)', borderBottom: '2px solid var(--borde)' }}>
-                {['DUI', 'Nombre', 'Estado', 'Fotos', 'Tipo', 'Fecha', ''].map(h => (
+                {['', 'DUI', 'Nombre', 'Estado', 'Fotos', 'Tipo', 'Fecha', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--texto-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -293,6 +306,7 @@ export default function AdminPage() {
               {registrosPagina.map((r, idx) => (
                 <tr key={r.id} className="table-row-hover transition-colors"
                   style={{ background: idx % 2 === 0 ? 'var(--superficie)' : '#fafafa', borderBottom: '1px solid var(--borde)' }}>
+                  <td className="px-3 py-2"><Avatar nombre={r.nombre} /></td>
                   <td className="px-4 py-3 font-mono text-xs font-medium" style={{ color: 'var(--texto-2)' }}>{r.dui}</td>
                   <td className="px-4 py-3 font-medium">{r.nombre}</td>
                   <td className="px-4 py-3">
