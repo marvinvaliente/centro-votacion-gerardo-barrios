@@ -419,16 +419,21 @@ export default function PortalPage() {
   async function subirFotoPerfil(file: File) {
     setSubiendoFotoPerfil(true); setErrorFotoPerfil('')
     const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `perfiles/${usuario!.id}.${ext}`
+    const idPath = usuario!.id || usuario!.dui.replace(/\D/g, '')
+    const path = `perfiles/${idPath}.${ext}`
     const { error } = await supabase.storage.from('fotos-dui').upload(path, file, { upsert: true })
     if (error) {
       setErrorFotoPerfil('No se pudo subir la foto. Intente con otra imagen.')
       setSubiendoFotoPerfil(false); return
     }
     const url = supabase.storage.from('fotos-dui').getPublicUrl(path).data.publicUrl + `?t=${Date.now()}`
-    const { error: dbErr } = await supabase.from('usuarios').update({ foto_perfil_url: url, updated_at: new Date().toISOString() }).eq('id', usuario!.id)
+    // Intentar update por id; si falla, intentar por dui
+    let dbErr = (await supabase.from('usuarios').update({ foto_perfil_url: url, updated_at: new Date().toISOString() }).eq('id', usuario!.id)).error
     if (dbErr) {
-      setErrorFotoPerfil('Foto subida pero no se pudo guardar. Intente de nuevo.')
+      dbErr = (await supabase.from('usuarios').update({ foto_perfil_url: url, updated_at: new Date().toISOString() }).eq('dui', usuario!.dui)).error
+    }
+    if (dbErr) {
+      setErrorFotoPerfil('Error al guardar: ' + dbErr.message)
       setSubiendoFotoPerfil(false); return
     }
     setUsuario(prev => prev ? { ...prev, foto_perfil_url: url } : prev)
