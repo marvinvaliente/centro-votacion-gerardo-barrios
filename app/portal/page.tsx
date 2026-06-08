@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
@@ -83,6 +83,10 @@ export default function PortalPage() {
   const [cargandoLogin, setCargandoLogin] = useState(false)
   const [seccion, setSeccion] = useState<Seccion>('perfil')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null)
+  const [lightboxNombre, setLightboxNombre] = useState<string>('')
+  const inputFotoRef = useRef<HTMLInputElement>(null)
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Cuenta regresiva — 28 feb 2027
   const ELECCION = new Date('2027-02-28T06:00:00-06:00').getTime()
@@ -1045,8 +1049,11 @@ export default function PortalPage() {
       <aside className="hidden md:flex w-56 flex-col flex-shrink-0"
         style={{ background: 'linear-gradient(180deg, var(--navy-dark), var(--navy))', borderRight: '1px solid rgba(255,255,255,.06)' }}>
         <div className="px-4 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 font-bold text-xs"
-            style={{ background: 'rgba(200,168,75,.2)', border: '1px solid rgba(200,168,75,.3)', color: 'var(--gold)' }}>
+          <div
+            className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 font-bold text-xs"
+            style={{ background: 'rgba(200,168,75,.2)', border: '1px solid rgba(200,168,75,.3)', color: 'var(--gold)', cursor: usuario.foto_perfil_url ? 'zoom-in' : 'default' }}
+            onClick={() => { if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }}
+          >
             {usuario.foto_perfil_url
               ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
               : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
@@ -1124,24 +1131,30 @@ export default function PortalPage() {
                 <div className="px-6 py-4 flex items-center justify-between"
                   style={{ background: 'linear-gradient(135deg, var(--navy-dark), var(--navy))', borderBottom: '3px solid var(--gold)' }}>
                   <div className="flex items-center gap-3">
-                    <label className="relative cursor-pointer group flex-shrink-0" title="Cambiar foto de perfil">
-                      <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center font-bold text-lg flex-shrink-0"
-                        style={{ background: 'rgba(200,168,75,.2)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.4)' }}>
+                    <div className="relative flex-shrink-0 group" title="Click para ampliar · Doble click para cambiar foto">
+                      <div
+                        className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center font-bold text-lg"
+                        style={{ background: 'rgba(200,168,75,.2)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.4)', cursor: 'pointer' }}
+                        onClick={() => {
+                          if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; inputFotoRef.current?.click(); return }
+                          clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }, 220)
+                        }}
+                      >
                         {usuario.foto_perfil_url
                           ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
                           : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
                         }
                       </div>
-                      <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                         style={{ background: 'rgba(0,0,0,.5)' }}>
                         {subiendoFotoPerfil
                           ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           : <Camera size={16} color="white" />
                         }
                       </div>
-                      <input type="file" accept="image/*" className="hidden"
+                      <input ref={inputFotoRef} type="file" accept="image/*" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoPerfil(f) }} />
-                    </label>
+                    </div>
                     <div>
                       <div className="font-bold text-white">{registro?.nombre ?? usuario.nombre}</div>
                       <div className="text-xs font-mono" style={{ color: 'rgba(255,255,255,.6)' }}>{usuario.dui}</div>
@@ -1274,13 +1287,21 @@ export default function PortalPage() {
                     ) : companeros.map((c, i) => (
                       <div key={c.id} className="px-5 py-4 flex gap-4"
                         style={{ borderBottom: i < companeros.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5"
-                          style={{ background: 'var(--azul-light)', color: 'var(--azul)' }}>
-                          {(c as RegistroDUI & { foto_perfil_url?: string | null }).foto_perfil_url
-                            ? <img src={(c as RegistroDUI & { foto_perfil_url?: string | null }).foto_perfil_url!} alt={c.nombre} className="w-full h-full object-cover" />
-                            : c.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
-                          }
-                        </div>
+                        {(() => {
+                          const fotoComp = (c as RegistroDUI & { foto_perfil_url?: string | null }).foto_perfil_url
+                          return (
+                            <div
+                              className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5"
+                              style={{ background: 'var(--azul-light)', color: 'var(--azul)', cursor: fotoComp ? 'zoom-in' : 'default' }}
+                              onDoubleClick={() => { if (fotoComp) { setLightboxUrl(fotoComp); setLightboxNombre(c.nombre) } }}
+                            >
+                              {fotoComp
+                                ? <img src={fotoComp} alt={c.nombre} className="w-full h-full object-cover" />
+                                : c.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                              }
+                            </div>
+                          )
+                        })()}
                         <div className="flex-1 min-w-0 space-y-3">
                           <div>
                             <div className="font-semibold text-sm">{c.nombre}</div>
@@ -1468,6 +1489,32 @@ export default function PortalPage() {
                 <Plus size={14} />{guardandoAct ? 'Guardando...' : 'Agregar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIGHTBOX ── */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,.85)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="relative max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <img
+              src={lightboxUrl}
+              alt={lightboxNombre}
+              className="w-full rounded-2xl object-cover shadow-2xl"
+              style={{ maxHeight: '75vh' }}
+            />
+            <div className="mt-3 text-center text-white font-semibold text-sm">{lightboxNombre}</div>
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)' }}
+            >
+              <X size={14} color="white" />
+            </button>
           </div>
         </div>
       )}
