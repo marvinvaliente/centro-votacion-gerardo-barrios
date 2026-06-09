@@ -126,6 +126,9 @@ export default function PortalPage() {
   const [errorReg, setErrorReg]         = useState('')
   const [modoFormReg, setModoFormReg]   = useState<'ver' | 'editar' | 'registrar' | 'guardado'>('ver')
   // Fotos registro pre-login
+  const [fotoPerfilReg, setFotoPerfilReg]     = useState<File | null>(null)
+  const [perfilPrevReg, setPerfilPrevReg]     = useState<string | null>(null)
+  const [perfilFaltReg, setPerfilFaltReg]     = useState(false)
   const [fotoFrenteReg, setFotoFrenteReg]     = useState<File | null>(null)
   const [fotoReversoReg, setFotoReversoReg]   = useState<File | null>(null)
   const [frentePrevReg, setFrentePrevReg]     = useState<string | null>(null)
@@ -261,11 +264,11 @@ export default function PortalPage() {
   }
 
   function resetFormReg() {
-    setFotoFrenteReg(null); setFotoReversoReg(null)
-    setFrentePrevReg(null); setReversoPrevReg(null)
+    setFotoFrenteReg(null); setFotoReversoReg(null); setFotoPerfilReg(null)
+    setFrentePrevReg(null); setReversoPrevReg(null); setPerfilPrevReg(null)
     setFrenteValReg(null); setReversoValReg(null)
     setFrenteRazonReg(''); setReversoRazonReg('')
-    setFrenteFaltReg(false); setReversoFaltReg(false)
+    setFrenteFaltReg(false); setReversoFaltReg(false); setPerfilFaltReg(false)
   }
 
   function validarImagenLocalReg(file: File): Promise<{ valido: boolean; razon: string }> {
@@ -313,6 +316,7 @@ export default function PortalPage() {
     if (!fotoReversoReg && !tieneReversoGuardada) { setReversoFaltReg(true); setErrorReg('Cargue la fotografía del reverso del DUI'); return }
     if (fotoFrenteReg && !frenteValReg) { setErrorReg(`Frente: ${frenteRazonReg}`); return }
     if (fotoReversoReg && !reversoValReg) { setErrorReg(`Reverso: ${reversoRazonReg}`); return }
+    if (!fotoPerfilReg) { setPerfilFaltReg(true); setErrorReg('La foto de perfil es obligatoria'); return }
 
     setGuardandoReg(true); setErrorReg('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
@@ -348,11 +352,22 @@ export default function PortalPage() {
       if (saved) setRegExistente(saved)
 
       if (esNuevo && saved) {
-        await supabase.from('usuarios').upsert({
+        const { data: upserted } = await supabase.from('usuarios').upsert({
           registro_dui_id: saved.id, nombre: formReg.nombre.trim(), dui: duiFmt,
           email: formReg.correo.trim() || null, telefono: formReg.telefono.trim() || null,
           autorizado: false, activo: false, updated_at: new Date().toISOString()
-        }, { onConflict: 'dui' })
+        }, { onConflict: 'dui' }).select('id').single()
+
+        // Subir foto de perfil
+        if (fotoPerfilReg && upserted?.id) {
+          const ext = fotoPerfilReg.name.split('.').pop() ?? 'jpg'
+          const path = `perfiles/${upserted.id}.${ext}`
+          const { error: storErr } = await supabase.storage.from('fotos-dui').upload(path, fotoPerfilReg, { upsert: true })
+          if (!storErr) {
+            const fotoUrl = supabase.storage.from('fotos-dui').getPublicUrl(path).data.publicUrl
+            await supabase.from('usuarios').update({ foto_perfil_url: fotoUrl, updated_at: new Date().toISOString() }).eq('id', upserted.id)
+          }
+        }
       }
 
       setModoFormReg('guardado')
@@ -907,6 +922,42 @@ export default function PortalPage() {
                         />
                       </div>
                     ))}
+
+                    {/* Foto de perfil */}
+                    <div className="pt-1">
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>
+                        Foto de perfil *
+                      </label>
+                      <label className="flex items-center gap-4 cursor-pointer rounded-xl p-4 transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,.05)',
+                          border: `2px dashed ${perfilFaltReg ? 'rgba(220,38,38,.6)' : perfilPrevReg ? 'rgba(200,168,75,.5)' : 'rgba(255,255,255,.18)'}`,
+                        }}>
+                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                          style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
+                          {perfilPrevReg
+                            ? <img src={perfilPrevReg} alt="perfil" className="w-full h-full object-cover" />
+                            : <Camera size={22} style={{ color: 'rgba(255,255,255,.25)' }} />
+                          }
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-white leading-tight">
+                            {perfilPrevReg ? 'Foto cargada ✓' : 'Tomar o cargar foto'}
+                          </div>
+                          <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.35)' }}>
+                            Debe mostrar claramente su rostro
+                          </div>
+                          {perfilFaltReg && !perfilPrevReg && (
+                            <div className="text-xs mt-1" style={{ color: '#f87171' }}>Foto de perfil requerida</div>
+                          )}
+                        </div>
+                        <input type="file" accept="image/*" capture="user" className="hidden"
+                          onChange={e => {
+                            const f = e.target.files?.[0]
+                            if (f) { setPerfilFaltReg(false); setFotoPerfilReg(f); setPerfilPrevReg(URL.createObjectURL(f)) }
+                          }} />
+                      </label>
+                    </div>
 
                     {/* Fotos DUI */}
                     <div className="grid grid-cols-2 gap-3 pt-1">
