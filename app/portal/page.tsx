@@ -531,6 +531,7 @@ export default function PortalPage() {
   // ── Guardar perfil ──
   async function guardarPerfil() {
     if (!formPerfil.nombre.trim()) { setErrorPerfil('El nombre es obligatorio'); return }
+    if (!usuario!.foto_perfil_url) { setErrorPerfil('Debe subir una foto de perfil antes de guardar. Use el ícono de cámara en su avatar.'); return }
     setGuardandoPerfil(true); setErrorPerfil('')
     try {
       const dui = registro!.dui
@@ -1376,6 +1377,13 @@ export default function PortalPage() {
                         })}
                       </div>
                     </div>
+                    {!usuario.foto_perfil_url && (
+                      <div className="rounded-lg px-3 py-2.5 flex items-center gap-2 text-xs"
+                        style={{ background: 'var(--amber-light)', border: '1px solid #fde68a', color: 'var(--amber)' }}>
+                        <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                        Debe subir una foto de perfil antes de guardar. Toque su avatar y haga doble clic para cargarla.
+                      </div>
+                    )}
                     {errorPerfil && <p className="text-xs" style={{ color: 'var(--rojo)' }}>{errorPerfil}</p>}
                     <div className="flex gap-3">
                       <button onClick={() => setEditando(false)} className="btn btn-ghost flex-1 justify-center"><X size={13} /> Cancelar</button>

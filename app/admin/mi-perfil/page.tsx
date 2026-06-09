@@ -152,6 +152,7 @@ export default function MiPerfilAdminPage() {
 
   async function guardarPerfil() {
     if (!formPerfil.nombre.trim()) { setErrorPerfil('El nombre es obligatorio'); return }
+    if (!usuario?.foto_perfil_url) { setErrorPerfil('Debe subir una foto de perfil antes de guardar.'); return }
     setGuardando(true); setErrorPerfil('')
     const dui = usuario!.dui
     try {
