@@ -50,6 +50,7 @@ export default function AdminPage() {
 
   const [normalizando, setNormalizando] = useState(false)
   const [resultadoNorm, setResultadoNorm] = useState<string | null>(null)
+  const [fotoMap, setFotoMap] = useState<Record<string, string | null>>({})
 
   useEffect(() => { cargarRegistros() }, [])
 
@@ -91,7 +92,14 @@ export default function AdminPage() {
     setCargando(true)
     const { data, error } = await supabase.from('registros_dui').select('*').order('nombre', { ascending: true })
     if (error) alert('Error: ' + error.message)
-    if (data) setRegistros(data)
+    if (data) {
+      setRegistros(data)
+      const duis = data.map((r: RegistroDUI) => r.dui)
+      const { data: usrs } = await supabase.from('usuarios').select('dui, foto_perfil_url').in('dui', duis)
+      const map: Record<string, string | null> = {}
+      usrs?.forEach((u: { dui: string; foto_perfil_url: string | null }) => { map[u.dui] = u.foto_perfil_url })
+      setFotoMap(map)
+    }
     setCargando(false)
   }
 
@@ -306,7 +314,7 @@ export default function AdminPage() {
               {registrosPagina.map((r, idx) => (
                 <tr key={r.id} className="table-row-hover transition-colors"
                   style={{ background: idx % 2 === 0 ? 'var(--superficie)' : '#fafafa', borderBottom: '1px solid var(--borde)' }}>
-                  <td className="px-3 py-2"><Avatar nombre={r.nombre} /></td>
+                  <td className="px-3 py-2"><Avatar nombre={r.nombre} fotoUrl={fotoMap[r.dui]} /></td>
                   <td className="px-4 py-3 font-mono text-xs font-medium" style={{ color: 'var(--texto-2)' }}>{r.dui}</td>
                   <td className="px-4 py-3 font-medium">{r.nombre}</td>
                   <td className="px-4 py-3">
