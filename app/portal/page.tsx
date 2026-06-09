@@ -129,6 +129,9 @@ export default function PortalPage() {
   const [fotoPerfilReg, setFotoPerfilReg]     = useState<File | null>(null)
   const [perfilPrevReg, setPerfilPrevReg]     = useState<string | null>(null)
   const [perfilFaltReg, setPerfilFaltReg]     = useState(false)
+  const [perfilValReg, setPerfilValReg]       = useState<boolean | null>(null)
+  const [perfilRazonReg, setPerfilRazonReg]   = useState('')
+  const [validandoPReg, setValidandoPReg]     = useState(false)
   const [fotoFrenteReg, setFotoFrenteReg]     = useState<File | null>(null)
   const [fotoReversoReg, setFotoReversoReg]   = useState<File | null>(null)
   const [frentePrevReg, setFrentePrevReg]     = useState<string | null>(null)
@@ -266,8 +269,8 @@ export default function PortalPage() {
   function resetFormReg() {
     setFotoFrenteReg(null); setFotoReversoReg(null); setFotoPerfilReg(null)
     setFrentePrevReg(null); setReversoPrevReg(null); setPerfilPrevReg(null)
-    setFrenteValReg(null); setReversoValReg(null)
-    setFrenteRazonReg(''); setReversoRazonReg('')
+    setFrenteValReg(null); setReversoValReg(null); setPerfilValReg(null)
+    setFrenteRazonReg(''); setReversoRazonReg(''); setPerfilRazonReg('')
     setFrenteFaltReg(false); setReversoFaltReg(false); setPerfilFaltReg(false)
   }
 
@@ -290,6 +293,30 @@ export default function PortalPage() {
         resolve({ valido: true, razon: 'Imagen válida' })
       }
       img.onerror = () => resolve({ valido: false, razon: 'No se pudo leer el archivo.' })
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  async function handleFotoPerfilReg(file: File) {
+    setPerfilFaltReg(false); setFotoPerfilReg(file)
+    setPerfilPrevReg(URL.createObjectURL(file))
+    setPerfilValReg(null); setPerfilRazonReg(''); setValidandoPReg(true)
+    await new Promise<void>(resolve => {
+      const img = new Image()
+      img.onload = () => {
+        if (img.width < 100 || img.height < 100) { setPerfilValReg(false); setPerfilRazonReg('La imagen es demasiado pequeña.'); setValidandoPReg(false); resolve(); return }
+        const canvas = document.createElement('canvas')
+        const scale = Math.min(400 / img.width, 400 / img.height, 1)
+        canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+        let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
+        const avg = b / (pixels.length / 4)
+        if (avg < 35) { setPerfilValReg(false); setPerfilRazonReg('La foto está muy oscura. Busque mejor iluminación.'); setValidandoPReg(false); resolve(); return }
+        if (avg > 235) { setPerfilValReg(false); setPerfilRazonReg('La foto está sobreexpuesta. Evite luz directa al lente.'); setValidandoPReg(false); resolve(); return }
+        setPerfilValReg(true); setPerfilRazonReg('Foto válida'); setValidandoPReg(false); resolve()
+      }
+      img.onerror = () => { setPerfilValReg(false); setPerfilRazonReg('No se pudo leer el archivo. Intente con otro.'); setValidandoPReg(false); resolve() }
       img.src = URL.createObjectURL(file)
     })
   }
@@ -317,6 +344,8 @@ export default function PortalPage() {
     if (fotoFrenteReg && !frenteValReg) { setErrorReg(`Frente: ${frenteRazonReg}`); return }
     if (fotoReversoReg && !reversoValReg) { setErrorReg(`Reverso: ${reversoRazonReg}`); return }
     if (!fotoPerfilReg) { setPerfilFaltReg(true); setErrorReg('La foto de perfil es obligatoria'); return }
+    if (perfilValReg === false) { setErrorReg(`Foto de perfil: ${perfilRazonReg}`); return }
+    if (perfilValReg === null) { setErrorReg('Espere a que termine la validación de la foto de perfil'); return }
 
     setGuardandoReg(true); setErrorReg('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
@@ -928,35 +957,47 @@ export default function PortalPage() {
                       <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>
                         Foto de perfil *
                       </label>
-                      <label className="flex items-center gap-4 cursor-pointer rounded-xl p-4 transition-all"
+                      <div className="rounded-xl p-4 transition-all"
                         style={{
                           background: 'rgba(255,255,255,.05)',
-                          border: `2px dashed ${perfilFaltReg ? 'rgba(220,38,38,.6)' : perfilPrevReg ? 'rgba(200,168,75,.5)' : 'rgba(255,255,255,.18)'}`,
+                          border: `2px dashed ${perfilValReg === false || perfilFaltReg ? 'rgba(220,38,38,.6)' : perfilValReg === true ? 'rgba(5,150,105,.5)' : 'rgba(255,255,255,.18)'}`,
                         }}>
-                        <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                          style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
-                          {perfilPrevReg
-                            ? <img src={perfilPrevReg} alt="perfil" className="w-full h-full object-cover" />
-                            : <Camera size={22} style={{ color: 'rgba(255,255,255,.25)' }} />
-                          }
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-white leading-tight">
-                            {perfilPrevReg ? 'Foto cargada ✓' : 'Tomar o cargar foto'}
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                            style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
+                            {perfilPrevReg
+                              ? <img src={perfilPrevReg} alt="perfil" className="w-full h-full object-cover" />
+                              : <Camera size={22} style={{ color: 'rgba(255,255,255,.25)' }} />
+                            }
                           </div>
-                          <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.35)' }}>
-                            Debe mostrar claramente su rostro
+                          <div className="flex-1 min-w-0">
+                            {validandoPReg && <p className="text-xs" style={{ color: 'rgba(255,255,255,.5)' }}>Validando foto...</p>}
+                            {!validandoPReg && perfilValReg === true && <p className="text-xs font-semibold" style={{ color: '#34d399' }}>✓ Foto válida</p>}
+                            {!validandoPReg && perfilValReg === false && (
+                              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>✗ {perfilRazonReg}</p>
+                            )}
+                            {!validandoPReg && perfilValReg === null && (
+                              <p className="text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
+                                {perfilFaltReg ? <span style={{ color: '#f87171' }}>Foto de perfil requerida</span> : 'Debe mostrar claramente su rostro'}
+                              </p>
+                            )}
+                            <div className="flex gap-2 mt-2 flex-wrap">
+                              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                style={{ background: 'rgba(200,168,75,.2)', border: '1px solid rgba(200,168,75,.4)', color: 'var(--gold)' }}>
+                                <Camera size={11} /> {perfilPrevReg ? 'Tomar otra' : 'Tomar foto'}
+                                <input type="file" accept="image/*" capture="user" className="hidden"
+                                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFotoPerfilReg(f) }} />
+                              </label>
+                              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                                style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.15)', color: 'rgba(255,255,255,.6)' }}>
+                                <Upload size={11} /> Cargar archivo
+                                <input type="file" accept="image/*" className="hidden"
+                                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFotoPerfilReg(f) }} />
+                              </label>
+                            </div>
                           </div>
-                          {perfilFaltReg && !perfilPrevReg && (
-                            <div className="text-xs mt-1" style={{ color: '#f87171' }}>Foto de perfil requerida</div>
-                          )}
                         </div>
-                        <input type="file" accept="image/*" capture="user" className="hidden"
-                          onChange={e => {
-                            const f = e.target.files?.[0]
-                            if (f) { setPerfilFaltReg(false); setFotoPerfilReg(f); setPerfilPrevReg(URL.createObjectURL(f)) }
-                          }} />
-                      </label>
+                      </div>
                     </div>
 
                     {/* Fotos DUI */}
