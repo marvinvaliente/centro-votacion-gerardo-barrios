@@ -299,12 +299,15 @@ export default function PortalPage() {
 
   async function handleFotoPerfilReg(file: File) {
     setPerfilFaltReg(false); setFotoPerfilReg(file)
-    setPerfilPrevReg(URL.createObjectURL(file))
+    const objectUrl = URL.createObjectURL(file)
+    setPerfilPrevReg(objectUrl)
     setPerfilValReg(null); setPerfilRazonReg(''); setValidandoPReg(true)
-    await new Promise<void>(resolve => {
+
+    // 1. Validaciones básicas de calidad
+    const calidadOk = await new Promise<{ ok: boolean; razon: string }>(resolve => {
       const img = new Image()
       img.onload = () => {
-        if (img.width < 100 || img.height < 100) { setPerfilValReg(false); setPerfilRazonReg('La imagen es demasiado pequeña.'); setValidandoPReg(false); resolve(); return }
+        if (img.width < 100 || img.height < 100) { resolve({ ok: false, razon: 'La imagen es demasiado pequeña.' }); return }
         const canvas = document.createElement('canvas')
         const scale = Math.min(400 / img.width, 400 / img.height, 1)
         canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
@@ -312,13 +315,43 @@ export default function PortalPage() {
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
         let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
         const avg = b / (pixels.length / 4)
-        if (avg < 35) { setPerfilValReg(false); setPerfilRazonReg('La foto está muy oscura. Busque mejor iluminación.'); setValidandoPReg(false); resolve(); return }
-        if (avg > 235) { setPerfilValReg(false); setPerfilRazonReg('La foto está sobreexpuesta. Evite luz directa al lente.'); setValidandoPReg(false); resolve(); return }
-        setPerfilValReg(true); setPerfilRazonReg('Foto válida'); setValidandoPReg(false); resolve()
+        if (avg < 35) { resolve({ ok: false, razon: 'La foto está muy oscura. Busque mejor iluminación.' }); return }
+        if (avg > 235) { resolve({ ok: false, razon: 'La foto está sobreexpuesta. Evite luz directa al lente.' }); return }
+        resolve({ ok: true, razon: '' })
       }
-      img.onerror = () => { setPerfilValReg(false); setPerfilRazonReg('No se pudo leer el archivo. Intente con otro.'); setValidandoPReg(false); resolve() }
-      img.src = URL.createObjectURL(file)
+      img.onerror = () => resolve({ ok: false, razon: 'No se pudo leer el archivo. Intente con otro.' })
+      img.src = objectUrl
     })
+
+    if (!calidadOk.ok) {
+      setPerfilValReg(false); setPerfilRazonReg(calidadOk.razon); setValidandoPReg(false); return
+    }
+
+    // 2. Detección de rostro (FaceDetector API — Chrome/Android)
+    if ('FaceDetector' in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detector = new (window as any).FaceDetector({ fastMode: false, maxDetectedFaces: 5 })
+        const img = new Image()
+        img.src = objectUrl
+        await new Promise(r => { img.onload = r })
+        const rostros = await detector.detect(img)
+        if (rostros.length === 0) {
+          setPerfilValReg(false)
+          setPerfilRazonReg('No se detectó un rostro. Tome la foto de frente con su cara bien visible.')
+          setValidandoPReg(false); return
+        }
+        if (rostros.length > 1) {
+          setPerfilValReg(false)
+          setPerfilRazonReg('Se detectaron varios rostros. La foto debe mostrar solo su cara.')
+          setValidandoPReg(false); return
+        }
+      } catch {
+        // Si falla la detección, se permite continuar
+      }
+    }
+
+    setPerfilValReg(true); setPerfilRazonReg('Foto válida'); setValidandoPReg(false)
   }
 
   async function handleFotoReg(file: File, lado: 'frente' | 'reverso') {
