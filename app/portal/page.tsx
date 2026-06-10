@@ -1401,6 +1401,22 @@ export default function PortalPage() {
               {padronInfo ? (
                 <>
                   <div className="card p-5" style={{ borderLeft: '4px solid var(--navy)' }}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center font-bold text-base flex-shrink-0"
+                        style={{ background: 'rgba(200,168,75,.15)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.35)', cursor: usuario.foto_perfil_url ? 'zoom-in' : 'default' }}
+                        onClick={() => { if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }}
+                      >
+                        {usuario.foto_perfil_url
+                          ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
+                          : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                        }
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">{usuario.nombre}</div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--azul)' }}>{padronInfo.cargo}</div>
+                      </div>
+                    </div>
                     <div className="field-label mb-3">Mi asignación</div>
                     <div className="grid grid-cols-2 gap-3">
                       {[['JRV', padronInfo.jrv], ['Cargo', padronInfo.cargo], ['Departamento', padronInfo.departamento], ['Municipio', padronInfo.municipio], ['Centro', padronInfo.centro]].map(([l, v]) => (
