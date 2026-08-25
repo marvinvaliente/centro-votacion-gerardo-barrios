@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [catalogoAbierto,   setCatalogoAbierto]   = useState(false)
   const [logoUrl,           setLogoUrl]           = useState<string | null>(null)
   const [subiendoLogo,      setSubiendoLogo]      = useState(false)
+  const [mobileMenuOpen,    setMobileMenuOpen]    = useState(false)
 
   useEffect(() => {
     const url = supabase.storage.from(LOGO_BUCKET).getPublicUrl(LOGO_PATH).data.publicUrl
@@ -173,8 +174,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
 
-      {/* Sidebar */}
-      <aside className="flex flex-col flex-shrink-0 transition-all duration-200"
+      {/* ── Sidebar desktop (md+) ── */}
+      <aside className="hidden md:flex flex-col flex-shrink-0 transition-all duration-200"
         style={{
           width: collapsed ? 64 : 240,
           background: 'linear-gradient(180deg, var(--navy-dark) 0%, var(--navy) 100%)',
@@ -295,19 +296,130 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
+      {/* ── Drawer móvil (< md) ── */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(2px)' }}
+            onClick={() => setMobileMenuOpen(false)} />
+          {/* Panel */}
+          <aside className="relative flex flex-col w-72 max-w-[85vw] h-full overflow-y-auto"
+            style={{ background: 'linear-gradient(180deg, var(--navy-dark) 0%, var(--navy) 100%)' }}>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+              <label className="relative cursor-pointer group flex-shrink-0" title="Cambiar logo">
+                <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center"
+                  style={{ background: 'rgba(200,168,75,.2)', border: '1px solid rgba(200,168,75,.35)' }}>
+                  {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={22} />}
+                </div>
+                <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: 'rgba(0,0,0,.55)' }}>
+                  {subiendoLogo
+                    ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                    : <Camera size={12} color="white" />}
+                </div>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) { subirLogo(f); setMobileMenuOpen(false) } }} />
+              </label>
+              <div className="overflow-hidden flex-1">
+                <div className="text-white font-bold text-sm leading-tight truncate">SIRCEV</div>
+                <div className="text-xs truncate" style={{ color: 'rgba(255,255,255,.45)' }}>Administrador</div>
+              </div>
+              <button onClick={() => setMobileMenuOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ color: 'rgba(255,255,255,.5)', background: 'rgba(255,255,255,.08)' }}>
+                <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+            </div>
+            {/* Nav */}
+            <nav className="flex-1 py-3 space-y-1 px-2">
+              {NAV.map(({ href, label, icon: Icon }) => {
+                const activo = pathname === href
+                return (
+                  <a key={href} href={href} onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm font-medium"
+                    style={{
+                      background: activo ? 'rgba(200,168,75,.18)' : 'transparent',
+                      color: activo ? '#c8a84b' : 'rgba(255,255,255,.7)',
+                      borderLeft: activo ? '3px solid #c8a84b' : '3px solid transparent',
+                    }}>
+                    <Icon size={18} className="flex-shrink-0" />
+                    <span>{label}</span>
+                  </a>
+                )
+              })}
+              {/* Catálogo */}
+              <button onClick={() => setCatalogoAbierto(o => !o)}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm font-medium"
+                style={{
+                  background: pathname.startsWith('/admin/catalogo') ? 'rgba(200,168,75,.18)' : 'transparent',
+                  color: pathname.startsWith('/admin/catalogo') ? '#c8a84b' : 'rgba(255,255,255,.7)',
+                  borderLeft: pathname.startsWith('/admin/catalogo') ? '3px solid #c8a84b' : '3px solid transparent',
+                }}>
+                <FolderOpen size={18} className="flex-shrink-0" />
+                <span className="flex-1 text-left">Catálogo</span>
+                <ChevronRight size={13} style={{ transform: catalogoAbierto ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
+              </button>
+              {catalogoAbierto && (
+                <div className="pl-4 space-y-1">
+                  {CATALOGO_ITEMS.map(({ href, label, icon: Icon }) => {
+                    const activo = pathname === href
+                    return (
+                      <a key={href} href={href} onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm"
+                        style={{
+                          background: activo ? 'rgba(200,168,75,.18)' : 'transparent',
+                          color: activo ? '#c8a84b' : 'rgba(255,255,255,.55)',
+                          borderLeft: activo ? '3px solid #c8a84b' : '3px solid transparent',
+                        }}>
+                        <Icon size={15} className="flex-shrink-0" />
+                        <span>{label}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              )}
+            </nav>
+            {/* Footer */}
+            <div className="px-2 pb-6 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 12 }}>
+              <a href="/portal" onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm"
+                style={{ color: 'rgba(255,255,255,.55)' }}>
+                <ShieldCheck size={18} className="flex-shrink-0" />
+                <span>Ver portal</span>
+              </a>
+              <button onClick={() => { setMobileMenuOpen(false); cerrarSesion() }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm"
+                style={{ color: '#f87171' }}>
+                <LogOut size={18} className="flex-shrink-0" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* Contenido principal */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar con breadcrumb */}
-        <header className="flex items-center px-6 py-3 flex-shrink-0"
+        {/* Top bar */}
+        <header className="flex items-center px-4 md:px-6 flex-shrink-0"
           style={{ background: 'var(--superficie)', borderBottom: '1px solid var(--borde)', height: 52 }}>
-          <div className="flex items-center gap-2 text-sm">
-            <span style={{ color: 'var(--texto-muted)' }}>Admin</span>
-            <ChevronRight size={13} style={{ color: 'var(--borde-dark)' }} />
-            <span className="font-medium" style={{ color: 'var(--texto)' }}>
+          {/* Hamburger móvil */}
+          <button className="md:hidden mr-3 w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+            style={{ color: 'var(--texto-muted)', background: 'var(--fondo)' }}
+            onClick={() => setMobileMenuOpen(true)}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <span className="hidden sm:inline" style={{ color: 'var(--texto-muted)' }}>Admin</span>
+            <ChevronRight size={13} className="hidden sm:block" style={{ color: 'var(--borde-dark)' }} />
+            <span className="font-medium truncate" style={{ color: 'var(--texto)' }}>
               {NAV.find(n => n.href === pathname)?.label ?? CATALOGO_ITEMS.find(n => n.href === pathname)?.label ?? 'Panel'}
             </span>
           </div>
-          <div className="ml-auto text-xs" style={{ color: 'var(--texto-muted)' }}>
+          <div className="ml-auto text-xs hidden lg:block" style={{ color: 'var(--texto-muted)' }}>
             C.E. Capitán General Gerardo Barrios
           </div>
         </header>

@@ -243,23 +243,23 @@ export default function AdminPage() {
   const pendientes = registros.filter(r => r.estado === 'pendiente').length
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
         {[
           { label: 'Total registros', value: registros.length, icon: Users, color: 'var(--navy)', bg: '#eff6ff', border: '#bfdbfe' },
           { label: 'Completos', value: completos, icon: CheckCircle, color: 'var(--verde)', bg: 'var(--verde-light)', border: '#a7f3d0' },
           { label: 'Pendientes', value: pendientes, icon: Clock, color: 'var(--amber)', bg: 'var(--amber-light)', border: '#fde68a' },
         ].map(({ label, value, icon: Icon, color, bg, border }) => (
-          <div key={label} className="card p-5 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          <div key={label} className="card p-3 md:p-5 flex flex-col md:flex-row items-center md:items-start gap-2 md:gap-4 text-center md:text-left">
+            <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: bg, border: `1px solid ${border}` }}>
-              <Icon size={20} style={{ color }} />
+              <Icon size={18} style={{ color }} />
             </div>
             <div>
-              <div className="text-2xl font-bold" style={{ color }}>{value}</div>
-              <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{label}</div>
+              <div className="text-xl md:text-2xl font-bold" style={{ color }}>{value}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)', lineHeight: 1.3 }}>{label}</div>
             </div>
           </div>
         ))}
@@ -302,7 +302,8 @@ export default function AdminPage() {
             No hay registros
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse" style={{ minWidth: 700 }}>
             <thead>
               <tr style={{ background: 'var(--fondo)', borderBottom: '2px solid var(--borde)' }}>
                 {['', 'DUI', 'Nombre', 'Estado', 'Fotos', 'Tipo', 'Fecha', ''].map(h => (
@@ -346,6 +347,7 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {/* Paginador */}
         {registrosFiltrados.length > POR_PAGINA && (

@@ -341,21 +341,21 @@ export default function AsignacionPage() {
       </div>
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
           {[
             { label: 'Total puestos', value: padron.length, icon: Users, color: 'var(--navy)', bg: '#eff6ff', border: '#bfdbfe' },
             { label: 'Asignados', value: totalAsignados, icon: CheckCircle, color: 'var(--verde)', bg: 'var(--verde-light)', border: '#a7f3d0' },
             { label: 'Sin asignar', value: totalVacios, icon: AlertTriangle, color: 'var(--amber)', bg: 'var(--amber-light)', border: '#fde68a' },
             { label: 'Completado', value: `${pct}%`, icon: CheckCircle, color: pct === 100 ? 'var(--verde)' : 'var(--navy)', bg: pct === 100 ? 'var(--verde-light)' : '#eff6ff', border: pct === 100 ? '#a7f3d0' : '#bfdbfe' },
           ].map(({ label, value, icon: Icon, color, bg, border }) => (
-            <div key={label} className="card p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            <div key={label} className="card p-3 md:p-5 flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: bg, border: `1px solid ${border}` }}>
-                <Icon size={20} style={{ color }} />
+                <Icon size={18} style={{ color }} />
               </div>
               <div>
-                <div className="text-2xl font-bold" style={{ color }}>{value}</div>
-                <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{label}</div>
+                <div className="text-xl md:text-2xl font-bold" style={{ color }}>{value}</div>
+                <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)', lineHeight: 1.3 }}>{label}</div>
               </div>
             </div>
           ))}

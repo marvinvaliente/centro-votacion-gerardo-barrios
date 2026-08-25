@@ -266,7 +266,7 @@ export default function UsuariosPage() {
             No hay usuarios en esta sección
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-sm border-collapse" style={{ minWidth: 720 }}>
             <thead>
               <tr style={{ background: 'var(--fondo)', borderBottom: '2px solid var(--borde)' }}>
                 {['', 'Nombre', 'DUI', 'Correo', 'Teléfono', 'Rol', 'Estado', 'Acciones'].map(h => (

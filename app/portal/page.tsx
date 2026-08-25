@@ -956,7 +956,7 @@ export default function PortalPage() {
             <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
               {modoFormReg !== 'guardado' ? (
                 <>
-                  <div className="px-7 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)', background: 'rgba(200,168,75,.08)' }}>
+                  <div className="px-5 md:px-7 py-4 md:py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)', background: 'rgba(200,168,75,.08)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                       style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.3)' }}>
                       {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={20} />}
@@ -967,7 +967,7 @@ export default function PortalPage() {
                     </div>
                   </div>
 
-                  <div className="p-7 space-y-3">
+                  <div className="p-5 md:p-7 space-y-3">
                     {[
                       { field: 'nombre',    label: 'Nombre completo *',    type: 'text' },
                       { field: 'telefono',  label: 'Teléfono *',           type: 'tel' },
@@ -1308,7 +1308,7 @@ export default function PortalPage() {
                 </div>
 
                 {!editando ? (
-                  <div className="p-6 grid grid-cols-2 gap-4">
+                  <div className="p-4 md:p-6 grid grid-cols-2 gap-4">
                     {[
                       ['Teléfono', registro?.telefono],
                       ['Correo', registro?.correo],
@@ -1317,7 +1317,7 @@ export default function PortalPage() {
                       ['JRV', padronInfo?.jrv],
                       ['Centro', padronInfo?.centro],
                     ].map(([l, v]) => (
-                      <div key={l as string} className={l === 'Dirección' || l === 'Centro' ? 'col-span-2' : ''}>
+                      <div key={l as string} className={l === 'Dirección' || l === 'Centro' || l === 'Correo' ? 'col-span-2' : ''}>
                         <div className="field-label">{l}</div>
                         <div className="text-sm font-medium" style={{ color: v ? 'var(--texto)' : 'var(--texto-muted)' }}>{v || '—'}</div>
                       </div>
@@ -1336,12 +1336,12 @@ export default function PortalPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="col-span-2"><label className="field-label">Nombre completo</label><input type="text" value={formPerfil.nombre} onChange={e => setFormPerfil(p => ({ ...p, nombre: toNombrePropio(e.target.value) }))} className="input" /></div>
+                  <div className="p-4 md:p-6 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2"><label className="field-label">Nombre completo</label><input type="text" value={formPerfil.nombre} onChange={e => setFormPerfil(p => ({ ...p, nombre: toNombrePropio(e.target.value) }))} className="input" /></div>
                       <div><label className="field-label">Teléfono</label><input type="tel" value={formPerfil.telefono} onChange={e => setFormPerfil(p => ({ ...p, telefono: e.target.value }))} className="input" /></div>
                       <div><label className="field-label">Correo</label><input type="email" value={formPerfil.correo} onChange={e => setFormPerfil(p => ({ ...p, correo: e.target.value }))} className="input" /></div>
-                      <div className="col-span-2"><label className="field-label">Dirección</label><input type="text" value={formPerfil.direccion} onChange={e => setFormPerfil(p => ({ ...p, direccion: e.target.value }))} className="input" /></div>
+                      <div className="sm:col-span-2"><label className="field-label">Dirección</label><input type="text" value={formPerfil.direccion} onChange={e => setFormPerfil(p => ({ ...p, direccion: e.target.value }))} className="input" /></div>
                     </div>
                     {/* Fotos edición */}
                     <div>
@@ -1456,7 +1456,7 @@ export default function PortalPage() {
                             <div className="font-semibold text-sm">{c.nombre}</div>
                             <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--azul)' }}>{(c as RegistroDUI & { padron?: { cargo?: string } }).padron?.cargo ?? '—'}</div>
                           </div>
-                          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                          <div className="grid grid-cols-1 xs:grid-cols-2 gap-x-6 gap-y-1.5">
                             <div>
                               <div className="field-label">DUI</div>
                               <div className="text-xs font-mono">{c.dui}</div>
@@ -1467,11 +1467,11 @@ export default function PortalPage() {
                             </div>
                             <div>
                               <div className="field-label">Correo</div>
-                              <div className="text-xs truncate">{c.correo ?? '—'}</div>
+                              <div className="text-xs break-all">{c.correo ?? '—'}</div>
                             </div>
                             <div>
                               <div className="field-label">Dirección</div>
-                              <div className="text-xs truncate">{c.direccion ?? '—'}</div>
+                              <div className="text-xs">{c.direccion ?? '—'}</div>
                             </div>
                           </div>
                           {(c.foto_frente_url || c.foto_reverso_url) && (
@@ -1560,27 +1560,29 @@ export default function PortalPage() {
                     {new Date(mes + '-01').toLocaleDateString('es-SV', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                   </div>
                   {acts.map((a, i) => (
-                    <div key={a.id} className="px-5 py-3 flex gap-4"
+                    <div key={a.id} className="px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-3 sm:gap-4"
                       style={{ borderBottom: i < acts.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
-                      <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
-                        style={{ background: TIPO_COLORES[a.tipo] + '18', border: `1px solid ${TIPO_COLORES[a.tipo]}44` }}>
-                        <div className="font-bold text-sm leading-none" style={{ color: TIPO_COLORES[a.tipo] }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
-                        <div className="text-xs" style={{ color: TIPO_COLORES[a.tipo], opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm">{a.titulo}</div>
-                        {a.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{a.descripcion}</p>}
-                        <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          {a.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{a.hora.slice(0, 5)}</span>}
-                          {a.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{a.lugar}</span>}
-                          <span className="badge" style={{ background: TIPO_COLORES[a.tipo] + '18', color: TIPO_COLORES[a.tipo], fontSize: 10 }}>{a.tipo}</span>
+                      <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+                          style={{ background: TIPO_COLORES[a.tipo] + '18', border: `1px solid ${TIPO_COLORES[a.tipo]}44` }}>
+                          <div className="font-bold text-sm leading-none" style={{ color: TIPO_COLORES[a.tipo] }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
+                          <div className="text-xs" style={{ color: TIPO_COLORES[a.tipo], opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm">{a.titulo}</div>
+                          {a.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{a.descripcion}</p>}
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {a.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{a.hora.slice(0, 5)}</span>}
+                            {a.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{a.lugar}</span>}
+                            <span className="badge" style={{ background: TIPO_COLORES[a.tipo] + '18', color: TIPO_COLORES[a.tipo], fontSize: 10 }}>{a.tipo}</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-1.5 flex-shrink-0 self-start">
+                      <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0">
                         <button
                           onClick={() => confirmarAsistencia(a.id)}
                           disabled={guardandoAsist === a.id}
-                          className="btn btn-sm"
+                          className="btn btn-sm flex-1 sm:flex-none justify-center"
                           style={{
                             background: asistencias[a.id] === true ? 'var(--verde-light)' : 'var(--fondo)',
                             color:      asistencias[a.id] === true ? 'var(--verde)' : 'var(--texto-muted)',

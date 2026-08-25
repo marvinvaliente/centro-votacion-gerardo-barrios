@@ -292,7 +292,7 @@ export default function MiPerfilAdminPage() {
 
         {/* Vista */}
         {!editando ? (
-          <div className="p-6 grid grid-cols-2 gap-4">
+          <div className="p-4 md:p-6 grid grid-cols-2 gap-4">
             {[
               ['Teléfono',  registro?.telefono],
               ['Correo',    registro?.correo],
@@ -323,8 +323,8 @@ export default function MiPerfilAdminPage() {
             )}
           </div>
         ) : (
-          <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className="field-label">Nombre completo</label>
                 <input type="text" value={formPerfil.nombre}
