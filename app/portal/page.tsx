@@ -10,6 +10,7 @@ import {
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
+import { validarFotoDUI, comprimirImagen, propsArrastrar, COMPRESION_DUI, COMPRESION_PERFIL } from '@/lib/imagen'
 
 const LOGO_BUCKET = 'fotos-dui'
 const LOGO_PATH   = 'configuracion/logo.jpg'
@@ -164,6 +165,7 @@ export default function PortalPage() {
   const [frentePreview, setFrentePreview] = useState<string | null>(null)
   const [reversoPreview, setReversoPreview] = useState<string | null>(null)
   const [frenteValido, setFrenteValido]   = useState<boolean | null>(null)
+  const [razonFoto, setRazonFoto]         = useState({ frente: '', reverso: '' })
   const [reversoValido, setReversoValido] = useState<boolean | null>(null)
   const [validandoF, setValidandoF] = useState(false)
   const [validandoR, setValidandoR] = useState(false)
@@ -274,29 +276,6 @@ export default function PortalPage() {
     setFrenteFaltReg(false); setReversoFaltReg(false); setPerfilFaltReg(false)
   }
 
-  function validarImagenLocalReg(file: File): Promise<{ valido: boolean; razon: string }> {
-    return new Promise(resolve => {
-      const img = new Image()
-      img.onload = () => {
-        if (img.width < 200 || img.height < 100) return resolve({ valido: false, razon: 'La imagen es demasiado pequeña.' })
-        const ratio = img.width / img.height
-        if (ratio < 0.8 || ratio > 3.5) return resolve({ valido: false, razon: 'La proporción no corresponde a un DUI.' })
-        const canvas = document.createElement('canvas')
-        const scale = Math.min(400 / img.width, 400 / img.height, 1)
-        canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
-        const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-        let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
-        const avg = b / (pixels.length / 4)
-        if (avg < 40) return resolve({ valido: false, razon: 'La imagen está muy oscura.' })
-        if (avg > 230) return resolve({ valido: false, razon: 'La imagen está sobreexpuesta.' })
-        resolve({ valido: true, razon: 'Imagen válida' })
-      }
-      img.onerror = () => resolve({ valido: false, razon: 'No se pudo leer el archivo.' })
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
   async function handleFotoPerfilReg(file: File) {
     setPerfilFaltReg(false); setFotoPerfilReg(file)
     const objectUrl = URL.createObjectURL(file)
@@ -358,10 +337,10 @@ export default function PortalPage() {
     const preview = URL.createObjectURL(file)
     if (lado === 'frente') {
       setFrenteFaltReg(false); setFotoFrenteReg(file); setFrentePrevReg(preview); setFrenteValReg(null); setFrenteRazonReg(''); setValidandoFReg(true)
-      const r = await validarImagenLocalReg(file); setFrenteValReg(r.valido); setFrenteRazonReg(r.razon); setValidandoFReg(false)
+      const r = await validarFotoDUI(file); setFrenteValReg(r.valido); setFrenteRazonReg(r.razon); setValidandoFReg(false)
     } else {
       setReversoFaltReg(false); setFotoReversoReg(file); setReversoPrevReg(preview); setReversoValReg(null); setReversoRazonReg(''); setValidandoRReg(true)
-      const r = await validarImagenLocalReg(file); setReversoValReg(r.valido); setReversoRazonReg(r.razon); setValidandoRReg(false)
+      const r = await validarFotoDUI(file); setReversoValReg(r.valido); setReversoRazonReg(r.razon); setValidandoRReg(false)
     }
   }
 
@@ -389,12 +368,12 @@ export default function PortalPage() {
       let reversoUrl = regExistente?.foto_reverso_url ?? null
 
       if (fotoFrenteReg) {
-        const { error: e } = await supabase.storage.from('fotos-dui').upload(`${duiFmt}/frente.jpg`, fotoFrenteReg, { upsert: true })
+        const { error: e } = await supabase.storage.from('fotos-dui').upload(`${duiFmt}/frente.jpg`, await comprimirImagen(fotoFrenteReg, COMPRESION_DUI), { upsert: true })
         if (e) throw e
         frenteUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${duiFmt}/frente.jpg`).data.publicUrl
       }
       if (fotoReversoReg) {
-        const { error: e } = await supabase.storage.from('fotos-dui').upload(`${duiFmt}/reverso.jpg`, fotoReversoReg, { upsert: true })
+        const { error: e } = await supabase.storage.from('fotos-dui').upload(`${duiFmt}/reverso.jpg`, await comprimirImagen(fotoReversoReg, COMPRESION_DUI), { upsert: true })
         if (e) throw e
         reversoUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${duiFmt}/reverso.jpg`).data.publicUrl
       }
@@ -422,9 +401,10 @@ export default function PortalPage() {
 
         // Subir foto de perfil
         if (fotoPerfilReg && upserted?.id) {
-          const ext = fotoPerfilReg.name.split('.').pop() ?? 'jpg'
+          const fotoPerfil = await comprimirImagen(fotoPerfilReg, COMPRESION_PERFIL)
+          const ext = fotoPerfil.name.split('.').pop() ?? 'jpg'
           const path = `perfiles/${upserted.id}.${ext}`
-          const { error: storErr } = await supabase.storage.from('fotos-dui').upload(path, fotoPerfilReg, { upsert: true })
+          const { error: storErr } = await supabase.storage.from('fotos-dui').upload(path, fotoPerfil, { upsert: true })
           if (!storErr) {
             const fotoUrl = supabase.storage.from('fotos-dui').getPublicUrl(path).data.publicUrl
             await supabase.from('usuarios').update({ foto_perfil_url: fotoUrl, updated_at: new Date().toISOString() }).eq('id', upserted.id)
@@ -477,35 +457,16 @@ export default function PortalPage() {
 
   function cerrarSesion() { sessionStorage.removeItem(SESSION_KEY); setUsuario(null); setDui('') }
 
-  // ── Validar foto ──
-  async function validarFoto(file: File): Promise<boolean> {
-    return new Promise(resolve => {
-      const img = new Image()
-      img.onload = () => {
-        if (img.width < 200 || img.height < 100) return resolve(false)
-        const r = img.width / img.height
-        if (r < 0.8 || r > 3.5) return resolve(false)
-        const c = document.createElement('canvas')
-        const s = Math.min(400 / img.width, 400 / img.height, 1)
-        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s)
-        const ctx = c.getContext('2d')!; ctx.drawImage(img, 0, 0, c.width, c.height)
-        const px = ctx.getImageData(0, 0, c.width, c.height).data
-        let b = 0; for (let i = 0; i < px.length; i += 4) b += px[i] * .299 + px[i+1] * .587 + px[i+2] * .114
-        const avg = b / (px.length / 4); resolve(avg >= 40 && avg <= 230)
-      }
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
   async function handleFoto(file: File, lado: 'frente' | 'reverso') {
     const prev = URL.createObjectURL(file)
-    if (lado === 'frente') { setFotoFrente(file); setFrentePreview(prev); setFrenteValido(null); setValidandoF(true); setFrenteValido(await validarFoto(file)); setValidandoF(false) }
-    else { setFotoReverso(file); setReversoPreview(prev); setReversoValido(null); setValidandoR(true); setReversoValido(await validarFoto(file)); setValidandoR(false) }
+    if (lado === 'frente') { setFotoFrente(file); setFrentePreview(prev); setFrenteValido(null); setValidandoF(true); const r = await validarFotoDUI(file); setFrenteValido(r.valido); setRazonFoto(p => ({ ...p, frente: r.razon })); setValidandoF(false) }
+    else { setFotoReverso(file); setReversoPreview(prev); setReversoValido(null); setValidandoR(true); const r = await validarFotoDUI(file); setReversoValido(r.valido); setRazonFoto(p => ({ ...p, reverso: r.razon })); setValidandoR(false) }
   }
 
   // ── Foto de perfil ──
-  async function subirFotoPerfil(file: File) {
+  async function subirFotoPerfil(original: File) {
     setSubiendoFotoPerfil(true); setErrorFotoPerfil('')
+    const file = await comprimirImagen(original, COMPRESION_PERFIL)
     const ext = file.name.split('.').pop() ?? 'jpg'
     const idPath = usuario!.id || usuario!.dui.replace(/\D/g, '')
     const path = `perfiles/${idPath}.${ext}`
@@ -538,11 +499,11 @@ export default function PortalPage() {
       let frenteUrl = registro!.foto_frente_url
       let reversoUrl = registro!.foto_reverso_url
       if (fotoFrente && frenteValido) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, fotoFrente, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, await comprimirImagen(fotoFrente, COMPRESION_DUI), { upsert: true })
         frenteUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/frente.jpg`).data.publicUrl
       }
       if (fotoReverso && reversoValido) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, fotoReverso, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, await comprimirImagen(fotoReverso, COMPRESION_DUI), { upsert: true })
         reversoUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/reverso.jpg`).data.publicUrl
       }
       await supabase.from('registros_dui').update({
@@ -1043,6 +1004,7 @@ export default function PortalPage() {
                         <div key={lado}>
                           <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>{label}</label>
                           <label className="flex flex-col items-center gap-1 cursor-pointer rounded-xl p-3 transition-all"
+                            {...propsArrastrar(f => handleFotoReg(f, lado))}
                             style={{
                               background: 'rgba(255,255,255,.05)',
                               border: `2px dashed ${falta ? 'rgba(220,38,38,.6)' : val === true ? 'rgba(5,150,105,.5)' : val === false ? 'rgba(220,38,38,.6)' : 'rgba(255,255,255,.18)'}`,
@@ -1050,7 +1012,7 @@ export default function PortalPage() {
                             }}>
                             {prev
                               ? <img src={prev} alt={lado} style={{ maxHeight: 80, borderRadius: 6, objectFit: 'cover' }} />
-                              : <><Camera size={18} style={{ color: 'rgba(255,255,255,.3)' }} /><span className="text-xs" style={{ color: 'rgba(255,255,255,.3)' }}>Cargar</span></>
+                              : <><Camera size={18} style={{ color: 'rgba(255,255,255,.3)' }} /><span className="text-xs" style={{ color: 'rgba(255,255,255,.3)' }}>Cargar o arrastrar</span></>
                             }
                             <input type="file" accept="image/*" className="hidden"
                               onChange={e => e.target.files?.[0] && handleFotoReg(e.target.files[0], lado)} />
@@ -1356,10 +1318,11 @@ export default function PortalPage() {
                             <div key={lado}>
                               <div className="field-label mb-1.5">{lado === 'frente' ? 'Frente' : 'Reverso'}</div>
                               <label className="block rounded-lg cursor-pointer overflow-hidden"
+                                {...propsArrastrar(f => handleFoto(f, lado))}
                                 style={{ border: `2px dashed ${val === true ? 'var(--verde)' : val === false ? 'var(--rojo)' : 'var(--borde)'}`, background: val === true ? 'var(--verde-light)' : 'var(--fondo)', minHeight: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {prev ? <img src={prev} alt={lado} className="w-full object-cover" style={{ maxHeight: 100 }} />
                                   : cur ? <img src={cur} alt={lado} className="w-full object-cover opacity-40" style={{ maxHeight: 100 }} />
-                                  : <div className="text-center p-3"><FileImage size={20} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic para cargar</div></div>}
+                                  : <div className="text-center p-3"><FileImage size={20} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic o arrastre aquí</div></div>}
                                 <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} />
                               </label>
                               <div className="flex gap-1.5 mt-1.5">
@@ -1369,7 +1332,7 @@ export default function PortalPage() {
                               <div className="text-xs mt-1">
                                 {val2 && <span style={{ color: 'var(--amber)' }}>Validando...</span>}
                                 {val === true && <span style={{ color: 'var(--verde)' }}>✓ Válida</span>}
-                                {val === false && <span style={{ color: 'var(--rojo)' }}>✗ No legible</span>}
+                                {val === false && <span style={{ color: 'var(--rojo)' }}>✗ {razonFoto[lado] || 'No legible'}</span>}
                                 {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Clic para reemplazar' : 'Sin imagen'}</span>}
                               </div>
                             </div>

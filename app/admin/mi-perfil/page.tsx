@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { User, Pencil, Save, X, Camera, AlertTriangle, RefreshCw, Upload, FileImage } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
+import { validarFotoDUI, comprimirImagen, propsArrastrar, COMPRESION_DUI, COMPRESION_PERFIL } from '@/lib/imagen'
 
 interface UsuarioAdmin {
   id: string
@@ -22,29 +23,6 @@ function toNombrePropio(s: string) {
 function formatDUI(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 9)
   return d.length > 8 ? d.slice(0, 8) + '-' + d.slice(8) : d
-}
-
-function validarImagenLocal(file: File): Promise<{ valido: boolean; razon: string }> {
-  return new Promise(resolve => {
-    const img = new Image()
-    img.onload = () => {
-      if (img.width < 200 || img.height < 100) return resolve({ valido: false, razon: 'La imagen es demasiado pequeña.' })
-      const ratio = img.width / img.height
-      if (ratio < 0.8 || ratio > 3.5) return resolve({ valido: false, razon: 'La proporción no corresponde a un DUI.' })
-      const canvas = document.createElement('canvas')
-      const scale = Math.min(400 / img.width, 400 / img.height, 1)
-      canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
-      const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-      let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
-      const avg = b / (pixels.length / 4)
-      if (avg < 40) return resolve({ valido: false, razon: 'La imagen está muy oscura.' })
-      if (avg > 230) return resolve({ valido: false, razon: 'La imagen está sobreexpuesta.' })
-      resolve({ valido: true, razon: 'Imagen válida' })
-    }
-    img.onerror = () => resolve({ valido: false, razon: 'No se pudo leer el archivo.' })
-    img.src = URL.createObjectURL(file)
-  })
 }
 
 export default function MiPerfilAdminPage() {
@@ -72,6 +50,7 @@ export default function MiPerfilAdminPage() {
   const [reversoPrev, setReversoPrev]   = useState<string | null>(null)
   const [frenteValido, setFrenteValido] = useState<boolean | null>(null)
   const [reversoValido, setReversoValido] = useState<boolean | null>(null)
+  const [razonFoto, setRazonFoto] = useState({ frente: '', reverso: '' })
   const [validandoF, setValidandoF]     = useState(false)
   const [validandoR, setValidandoR]     = useState(false)
 
@@ -143,10 +122,10 @@ export default function MiPerfilAdminPage() {
     const prev = URL.createObjectURL(file)
     if (lado === 'frente') {
       setFotoFrente(file); setFrentePrev(prev); setFrenteValido(null); setValidandoF(true)
-      const r = await validarImagenLocal(file); setFrenteValido(r.valido); setValidandoF(false)
+      const r = await validarFotoDUI(file); setFrenteValido(r.valido); setRazonFoto(p => ({ ...p, frente: r.razon })); setValidandoF(false)
     } else {
       setFotoReverso(file); setReversoPrev(prev); setReversoValido(null); setValidandoR(true)
-      const r = await validarImagenLocal(file); setReversoValido(r.valido); setValidandoR(false)
+      const r = await validarFotoDUI(file); setReversoValido(r.valido); setRazonFoto(p => ({ ...p, reverso: r.razon })); setValidandoR(false)
     }
   }
 
@@ -159,11 +138,11 @@ export default function MiPerfilAdminPage() {
       let frenteUrl = registro?.foto_frente_url ?? null
       let reversoUrl = registro?.foto_reverso_url ?? null
       if (fotoFrente && frenteValido) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, fotoFrente, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, await comprimirImagen(fotoFrente, COMPRESION_DUI), { upsert: true })
         frenteUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/frente.jpg`).data.publicUrl
       }
       if (fotoReverso && reversoValido) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, fotoReverso, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, await comprimirImagen(fotoReverso, COMPRESION_DUI), { upsert: true })
         reversoUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/reverso.jpg`).data.publicUrl
       }
       // Solo actualizar usuarios si tiene id real
@@ -186,9 +165,10 @@ export default function MiPerfilAdminPage() {
     setGuardando(false)
   }
 
-  async function subirFotoPerfil(file: File) {
+  async function subirFotoPerfil(original: File) {
     if (!usuario?.id) { setErrorFotoPerfil('Complete su perfil antes de subir foto.'); return }
     setSubiendoFotoPerfil(true); setErrorFotoPerfil('')
+    const file = await comprimirImagen(original, COMPRESION_PERFIL)
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `perfiles/${usuario!.id}.${ext}`
     const { error: storErr } = await supabase.storage.from('fotos-dui').upload(path, file, { upsert: true })
@@ -366,10 +346,11 @@ export default function MiPerfilAdminPage() {
                     <div key={lado}>
                       <div className="field-label mb-1.5">{lado === 'frente' ? 'Frente' : 'Reverso'}</div>
                       <label className="block rounded-lg cursor-pointer overflow-hidden"
+                        {...propsArrastrar(f => handleFoto(f, lado))}
                         style={{ border: `2px dashed ${val === true ? 'var(--verde)' : val === false ? 'var(--rojo)' : 'var(--borde)'}`, background: val === true ? 'var(--verde-light)' : 'var(--fondo)', minHeight: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {prev ? <img src={prev} alt={lado} className="w-full object-cover" style={{ maxHeight: 100 }} />
                           : cur ? <img src={cur} alt={lado} className="w-full object-cover opacity-40" style={{ maxHeight: 100 }} />
-                          : <div className="text-center p-3"><FileImage size={20} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic para cargar</div></div>
+                          : <div className="text-center p-3"><FileImage size={20} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic o arrastre aquí</div></div>
                         }
                         <input type="file" accept="image/*" className="hidden"
                           onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} />
@@ -390,7 +371,7 @@ export default function MiPerfilAdminPage() {
                       <div className="text-xs mt-1">
                         {val2 && <span style={{ color: 'var(--amber)' }}>Validando...</span>}
                         {val === true && <span style={{ color: 'var(--verde)' }}>✓ Válida</span>}
-                        {val === false && <span style={{ color: 'var(--rojo)' }}>✗ No legible</span>}
+                        {val === false && <span style={{ color: 'var(--rojo)' }}>✗ {razonFoto[lado] || 'No legible'}</span>}
                         {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Clic para reemplazar' : 'Sin imagen'}</span>}
                       </div>
                     </div>

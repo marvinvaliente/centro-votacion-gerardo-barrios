@@ -6,6 +6,8 @@ import * as XLSX from 'xlsx'
 import ImageEditor from '@/components/ImageEditor'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI } from '@/types'
+import { descargarFicha } from '@/lib/ficha'
+import { validarFotoDUI, comprimirImagen, propsArrastrar, COMPRESION_DUI } from '@/lib/imagen'
 
 function toNombrePropio(s: string) {
   return s.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ')
@@ -51,6 +53,7 @@ export default function AdminPage() {
   const [normalizando, setNormalizando] = useState(false)
   const [resultadoNorm, setResultadoNorm] = useState<string | null>(null)
   const [fotoMap, setFotoMap] = useState<Record<string, string | null>>({})
+  const [descargandoFicha, setDescargandoFicha] = useState(false)
 
   useEffect(() => { cargarRegistros() }, [])
 
@@ -124,42 +127,15 @@ export default function AdminPage() {
     setCambiandoEstado(null)
   }
 
-  function validarImagenLocal(file: File): Promise<{ valido: boolean; razon: string }> {
-    return new Promise(resolve => {
-      const img = new Image()
-      img.onload = () => {
-        if (img.width < 200 || img.height < 100) return resolve({ valido: false, razon: 'La imagen es demasiado pequeña.' })
-        const ratio = img.width / img.height
-        if (ratio < 0.8 || ratio > 3.5) return resolve({ valido: false, razon: 'La proporción no corresponde a un DUI.' })
-        const canvas = document.createElement('canvas')
-        const scale = Math.min(400 / img.width, 400 / img.height, 1)
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-        let brightness = 0
-        for (let i = 0; i < pixels.length; i += 4)
-          brightness += pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114
-        const avg = brightness / (pixels.length / 4)
-        if (avg < 40) return resolve({ valido: false, razon: 'Imagen muy oscura.' })
-        if (avg > 230) return resolve({ valido: false, razon: 'Imagen sobreexpuesta.' })
-        resolve({ valido: true, razon: 'Imagen válida' })
-      }
-      img.onerror = () => resolve({ valido: false, razon: 'No se pudo leer el archivo.' })
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
   async function handleFotoEdit(file: File, lado: 'frente' | 'reverso') {
     const preview = URL.createObjectURL(file)
     if (lado === 'frente') {
       setFotoFrente(file); setFrentePreview(preview); setFrenteValido(null); setFrenteRazon(''); setValidandoFrente(true)
-      const r = await validarImagenLocal(file)
+      const r = await validarFotoDUI(file)
       setFrenteValido(r.valido); setFrenteRazon(r.razon); setValidandoFrente(false)
     } else {
       setFotoReverso(file); setReversoPreview(preview); setReversoValido(null); setReversoRazon(''); setValidandoReverso(true)
-      const r = await validarImagenLocal(file)
+      const r = await validarFotoDUI(file)
       setReversoValido(r.valido); setReversoRazon(r.razon); setValidandoReverso(false)
     }
   }
@@ -184,11 +160,11 @@ export default function AdminPage() {
       let frenteUrl = modalRegistro!.foto_frente_url
       let reversoUrl = modalRegistro!.foto_reverso_url
       if (fotoFrente) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, fotoFrente, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/frente.jpg`, await comprimirImagen(fotoFrente, COMPRESION_DUI), { upsert: true })
         frenteUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/frente.jpg`).data.publicUrl
       }
       if (fotoReverso) {
-        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, fotoReverso, { upsert: true })
+        await supabase.storage.from('fotos-dui').upload(`${dui}/reverso.jpg`, await comprimirImagen(fotoReverso, COMPRESION_DUI), { upsert: true })
         reversoUrl = supabase.storage.from('fotos-dui').getPublicUrl(`${dui}/reverso.jpg`).data.publicUrl
       }
       const { error } = await supabase.from('registros_dui')
@@ -200,6 +176,17 @@ export default function AdminPage() {
       setModalRegistro(actualizado); setModoEdicion(false)
     } catch (err: unknown) { setErrorEdit('Error: ' + (err instanceof Error ? err.message : String(err))) }
     setGuardandoEdit(false)
+  }
+
+  async function descargarFichaRegistro(r: RegistroDUI) {
+    setDescargandoFicha(true)
+    try {
+      const { data: padron } = r.padron_id
+        ? await supabase.from('padron').select('*').eq('id', r.padron_id).single()
+        : { data: null }
+      await descargarFicha(r, padron, fotoMap[r.dui])
+    } catch (err: unknown) { alert('No se pudo generar la ficha: ' + (err instanceof Error ? err.message : String(err))) }
+    setDescargandoFicha(false)
   }
 
   function exportarExcel() {
@@ -413,6 +400,9 @@ export default function AdminPage() {
                       className={`btn flex-1 justify-center ${modalRegistro.estado === 'completo' ? 'btn-ghost' : 'btn-success'}`}>
                       {cambiandoEstado === modalRegistro.id ? 'Cambiando...' : modalRegistro.estado === 'completo' ? 'Marcar pendiente' : 'Marcar completo'}
                     </button>
+                    <button onClick={() => descargarFichaRegistro(modalRegistro)} disabled={descargandoFicha} className="btn btn-ghost justify-center" title="Descargar ficha">
+                      <Download size={14} />{descargandoFicha ? 'Generando...' : 'Ficha'}
+                    </button>
                     <button onClick={() => eliminarRegistro(modalRegistro.id, modalRegistro.dui)} disabled={eliminando === modalRegistro.id} className="btn btn-danger justify-center">
                       <Trash2 size={14} />{eliminando === modalRegistro.id ? 'Eliminando...' : 'Eliminar'}
                     </button>
@@ -465,10 +455,11 @@ export default function AdminPage() {
                           <div key={lado}>
                             <div className="field-label mb-1.5">{lado === 'frente' ? 'Frente' : 'Reverso'}</div>
                             <label className="block rounded-lg cursor-pointer overflow-hidden"
+                              {...propsArrastrar(f => handleFotoEdit(f, lado))}
                               style={{ border: `2px ${preview ? 'solid' : 'dashed'} ${border}`, background: bg, minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               {preview ? <img src={preview} alt={lado} className="w-full object-cover" style={{ maxHeight: 120 }} />
                                 : fotoActual ? <img src={fotoActual} alt={lado} className="w-full object-cover opacity-40" style={{ maxHeight: 120 }} />
-                                : <div className="text-center p-3"><FileImage size={22} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic para cargar</div></div>}
+                                : <div className="text-center p-3"><FileImage size={22} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic o arrastre aquí</div></div>}
                               <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFotoEdit(e.target.files[0], lado)} />
                             </label>
                             <div className="flex gap-1.5 mt-1.5">
