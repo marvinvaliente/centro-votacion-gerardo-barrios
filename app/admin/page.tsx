@@ -7,7 +7,7 @@ import ImageEditor from '@/components/ImageEditor'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI } from '@/types'
 import { descargarFicha } from '@/lib/ficha'
-import { validarFotoDUI, comprimirImagen, propsArrastrar, COMPRESION_DUI } from '@/lib/imagen'
+import { validarFotoDUI, comprimirImagen, propsArrastrar, COMPRESION_DUI, COMPRESION_PERFIL } from '@/lib/imagen'
 
 function toNombrePropio(s: string) {
   return s.split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ')
@@ -54,6 +54,8 @@ export default function AdminPage() {
   const [resultadoNorm, setResultadoNorm] = useState<string | null>(null)
   const [fotoMap, setFotoMap] = useState<Record<string, string | null>>({})
   const [descargandoFicha, setDescargandoFicha] = useState(false)
+  const [comprimiendo, setComprimiendo] = useState<string | null>(null)
+  const [resultadoComp, setResultadoComp] = useState<string | null>(null)
 
   useEffect(() => { cargarRegistros() }, [])
 
@@ -89,6 +91,47 @@ export default function AdminPage() {
     setResultadoNorm(`${actualizados} registro${actualizados !== 1 ? 's' : ''} actualizado${actualizados !== 1 ? 's' : ''}.`)
     setNormalizando(false)
     cargarRegistros()
+  }
+
+  // Recomprime las fotos ya guardadas en el bucket, sobrescribiendo la misma ruta
+  // para que las URLs guardadas en la base de datos sigan funcionando.
+  async function comprimirFotosExistentes() {
+    if (!confirm('¿Comprimir todas las fotos ya guardadas (DUI y perfil)? Las originales se reemplazan y no se pueden recuperar.')) return
+    setResultadoComp(null)
+    const prefijo = '/object/public/fotos-dui/'
+    const ruta = (url: string | null) => {
+      const i = url?.indexOf(prefijo) ?? -1
+      return url && i >= 0 ? decodeURIComponent(url.slice(i + prefijo.length).split('?')[0]) : null
+    }
+    const { data: regs } = await supabase.from('registros_dui').select('foto_frente_url, foto_reverso_url')
+    const { data: usrs } = await supabase.from('usuarios').select('foto_perfil_url')
+    const tareas: { url: string; path: string; perfil: boolean }[] = []
+    for (const r of regs ?? []) for (const url of [r.foto_frente_url, r.foto_reverso_url]) {
+      const path = ruta(url); if (path) tareas.push({ url, path, perfil: false })
+    }
+    for (const u of usrs ?? []) {
+      const path = ruta(u.foto_perfil_url); if (path) tareas.push({ url: u.foto_perfil_url, path, perfil: true })
+    }
+
+    let comprimidas = 0, sinCambio = 0, fallidas = 0, ahorro = 0
+    for (let i = 0; i < tareas.length; i++) {
+      const t = tareas[i]
+      setComprimiendo(`${i + 1}/${tareas.length}`)
+      try {
+        const res = await fetch(t.url.split('?')[0] + `?t=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) throw new Error(String(res.status))
+        const blob = await res.blob()
+        const original = new File([blob], t.path.split('/').pop()!, { type: blob.type })
+        const comprimida = await comprimirImagen(original, t.perfil ? COMPRESION_PERFIL : COMPRESION_DUI)
+        if (comprimida === original) { sinCambio++; continue }
+        const { error } = await supabase.storage.from('fotos-dui')
+          .upload(t.path, comprimida, { upsert: true, contentType: 'image/jpeg' })
+        if (error) throw error
+        comprimidas++; ahorro += original.size - comprimida.size
+      } catch { fallidas++ }
+    }
+    setComprimiendo(null)
+    setResultadoComp(`${comprimidas} comprimidas (${(ahorro / 1048576).toFixed(1)} MB liberados), ${sinCambio} ya estaban bien${fallidas ? `, ${fallidas} con error` : ''}.`)
   }
 
   async function cargarRegistros() {
@@ -269,6 +312,14 @@ export default function AdminPage() {
         <button onClick={normalizarNombres} disabled={normalizando} className="btn btn-ghost" title="Convertir nombres en mayúsculas a formato nombre propio">
           <TextCursorInput size={14} />{normalizando ? 'Normalizando...' : 'Normalizar nombres'}
         </button>
+        <button onClick={comprimirFotosExistentes} disabled={!!comprimiendo} className="btn btn-ghost" title="Reducir el tamaño de las fotos ya guardadas">
+          <FileImage size={14} />{comprimiendo ? `Comprimiendo ${comprimiendo}...` : 'Comprimir fotos'}
+        </button>
+        {resultadoComp && (
+          <span className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--verde-light)', color: 'var(--verde)', border: '1px solid #a7f3d0' }}>
+            ✓ {resultadoComp}
+          </span>
+        )}
         {resultadoNorm && (
           <span className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--verde-light)', color: 'var(--verde)', border: '1px solid #a7f3d0' }}>
             ✓ {resultadoNorm}
