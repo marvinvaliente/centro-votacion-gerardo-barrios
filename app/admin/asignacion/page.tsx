@@ -5,7 +5,10 @@ import { RefreshCw, Search, CheckCircle, AlertTriangle, Save, Pencil, Users, X, 
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
 
-const JRV_ESTANDAR = new Set(['2429','2430','2431','2432','2433','2434','2435','2436','2437','2438','2439','2440','2441','2442','2443','2444','2445','2446'])
+const JRV_ESTANDAR = new Set([
+  '2429','2430','2431','2432','2433','2434','2435','2436','2437','2438','2439','2440','2441','2442','2443','2444','2445','2446',
+  '2531','2532','2533','2534','2535','2536','2537','2538','2539','2540','2541','2542','2543','2544','2545','2546','2547','2548',
+])
 
 function Avatar({ nombre, fotoUrl }: { nombre: string; fotoUrl?: string | null }) {
   const iniciales = nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
@@ -314,7 +317,9 @@ export default function AsignacionPage() {
     XLSX.writeFile(wb, 'C.E. Capitán General Gerardo Barrios.xlsx')
   }
 
-  const jrvsUnicas = Array.from(new Set(padron.map(p => p.jrv))).filter(j => JRV_ESTANDAR.has(j)).sort()
+  const jrvsUnicas = Array.from(new Set(padron.map(p => p.jrv)))
+    .filter(j => j !== 'OTRO')
+    .sort((a, b) => parseInt(a) - parseInt(b))
   const padronFiltrado = padron.filter(p => {
     const persona = personaAsignada(p.id)
     const matchBusqueda = !busqueda || p.jrv.includes(busqueda) || p.cargo.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -515,6 +520,8 @@ export default function AsignacionPage() {
               const puestosJrv = padronFiltrado.filter(p => p.jrv === jrv)
               if (puestosJrv.length === 0) return null
               const asignadosJrv = puestosJrv.filter(p => !!personaAsignada(p.id)).length
+              // No mostrar JRVs completamente vacías (0 asignados) salvo que el filtro sea "vacios"
+              if (asignadosJrv === 0 && filtro !== 'vacios') return null
               const completo = asignadosJrv === puestosJrv.length
 
               return (
