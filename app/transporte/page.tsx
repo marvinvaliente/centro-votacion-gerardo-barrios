@@ -394,6 +394,47 @@ function TransporteAcciones({
   }
 
   // No ha solicitado aún
+  const ambosDisponibles = ev.transporte_recogida && ev.transporte_regreso
+  const soloUno = ambosDisponibles && (selRecogida !== selRegreso) // exactamente uno marcado
+  const [confirmando, setConfirmando] = useState(false)
+
+  function intentarSolicitar() {
+    // Si ambos están disponibles y solo marcó uno, pedir confirmación
+    if (ambosDisponibles && soloUno) {
+      setConfirmando(true)
+      return
+    }
+    onSolicitar({ recogida: selRecogida, regreso: selRegreso })
+  }
+
+  if (confirmando) {
+    const falta = selRecogida ? '🏠 Ir a dejar al regreso' : '🚐 Recogida'
+    const tieneLabel = selRecogida ? '🚐 Recogida' : '🏠 Ir a dejar'
+    return (
+      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+        <p className="text-sm font-semibold text-amber-800">¿Confirmás que no necesitás {falta}?</p>
+        <p className="text-xs text-amber-700">
+          Seleccionaste solo <span className="font-medium">{tieneLabel}</span>. Si también vas a necesitar <span className="font-medium">{falta}</span>, agregalo ahora.
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso }) }}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-center gap-1.5"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Sí, solo necesito {tieneLabel}
+          </button>
+          <button
+            onClick={() => setConfirmando(false)}
+            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg"
+          >
+            Agregar también {falta}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mt-3 space-y-2">
       {/* Aviso si no tiene GPS */}
@@ -435,7 +476,7 @@ function TransporteAcciones({
       )}
 
       <button
-        onClick={() => onSolicitar({ recogida: selRecogida, regreso: selRegreso })}
+        onClick={intentarSolicitar}
         disabled={solicitando || ningunaSeleccionada || !tieneGps}
         className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
       >
