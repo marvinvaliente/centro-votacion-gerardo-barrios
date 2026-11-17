@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   MapPin, Bus, Calendar, CheckCircle, XCircle, Clock,
-  ChevronLeft, Loader2, ExternalLink, Navigation, Map, X
+  ChevronLeft, Loader2, ExternalLink, Navigation, Map, X, Truck, Phone
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -44,6 +44,9 @@ type Solicitud = {
   estado: string
   solicita_recogida: boolean
   solicita_regreso: boolean
+  motorista_id: string | null
+  motorista_nombre: string | null
+  motorista_telefono: string | null
   created_at: string
 }
 
@@ -310,7 +313,7 @@ function TransporteAcciones({
 
   if (sol) {
     return (
-      <div className="mt-3 space-y-1.5">
+      <div className="mt-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${estadoColor(sol.estado)}`}>
             {estadoIcon(sol.estado)}
@@ -330,6 +333,24 @@ function TransporteAcciones({
             <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Ir a dejar solicitado</span>
           )}
         </div>
+        {/* Motorista asignado */}
+        {sol.motorista_nombre ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-blue-800">Tu motorista asignado</p>
+              <p className="text-sm text-blue-900 font-medium truncate">{sol.motorista_nombre}</p>
+              {sol.motorista_telefono && (
+                <a href={`tel:${sol.motorista_telefono}`}
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
+                  <Phone className="w-3 h-3" />{sol.motorista_telefono}
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Motorista por asignar</p>
+        )}
       </div>
     )
   }
@@ -430,12 +451,24 @@ export default function TransportePage() {
 
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
-        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, created_at')
+        .select(`
+          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at,
+          motorista:motorista_id (nombre, telefono)
+        `)
         .eq('registro_id', reg.id)
 
       setRegistro(reg)
       setEventos(evs ?? [])
-      setSolicitudes(sols ?? [])
+      setSolicitudes(
+        (sols ?? []).map((s: any) => ({
+          id: s.id, evento_id: s.evento_id, estado: s.estado,
+          solicita_recogida: s.solicita_recogida, solicita_regreso: s.solicita_regreso,
+          motorista_id: s.motorista_id ?? null,
+          motorista_nombre: s.motorista?.nombre ?? null,
+          motorista_telefono: s.motorista?.telefono ?? null,
+          created_at: s.created_at,
+        }))
+      )
       setVista('perfil')
     } finally {
       setCargando(false)
@@ -511,11 +544,14 @@ export default function TransportePage() {
           solicita_recogida: opts.recogida,
           solicita_regreso: opts.regreso,
         })
-        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, created_at')
+        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at')
         .single()
 
       if (err) { alert('Error al solicitar transporte.'); return }
-      setSolicitudes((prev) => [...prev, data])
+      setSolicitudes((prev) => [...prev, {
+        ...data,
+        motorista_id: null, motorista_nombre: null, motorista_telefono: null
+      }])
     } finally {
       setSolicitando(null)
     }

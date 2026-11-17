@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   Bus, Calendar, MapPin, Users, Plus, Edit2, Trash2, CheckCircle,
-  XCircle, Clock, ExternalLink, Loader2, ChevronDown, ChevronUp, X
+  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -12,61 +12,55 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+// ── Tipos ────────────────────────────────────────────────────
 type Evento = {
-  id: string
-  nombre: string
-  descripcion: string | null
-  fecha: string
-  hora: string | null
-  lugar: string | null
-  evento_latitud: number | null
-  evento_longitud: number | null
-  transporte_recogida: boolean
-  transporte_regreso: boolean
-  activo: boolean
-  created_at: string
+  id: string; nombre: string; descripcion: string | null
+  fecha: string; hora: string | null; lugar: string | null
+  evento_latitud: number | null; evento_longitud: number | null
+  transporte_recogida: boolean; transporte_regreso: boolean
+  activo: boolean; created_at: string
 }
 
-type RegistroConSolicitud = {
-  id: string
-  nombre: string
-  dui: string
-  telefono: string | null
-  cargo: string
-  jrv: string
-  latitud: number | null
-  longitud: number | null
-  coordenadas_at: string | null
-  solicitud_id: string | null
-  solicitud_estado: string | null
-  solicita_recogida: boolean
-  solicita_regreso: boolean
+type Registro = {
+  id: string; nombre: string; dui: string; telefono: string | null
+  cargo: string; jrv: string; latitud: number | null; longitud: number | null
+  es_motorista: boolean
 }
 
-type TabActiva = 'eventos' | 'ubicaciones' | 'solicitudes'
+type Solicitud = {
+  id: string; registro_id: string; evento_id: string; estado: string
+  solicita_recogida: boolean; solicita_regreso: boolean
+  motorista_id: string | null
+  nombre: string; dui: string; telefono: string | null
+  cargo: string; jrv: string; latitud: number | null; longitud: number | null
+}
 
-const ESTADOS = ['pendiente', 'aprobado', 'rechazado']
+type TabActiva = 'eventos' | 'motoristas' | 'ubicaciones' | 'solicitudes'
+
+// ── Utilidades ───────────────────────────────────────────────
+function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 function estadoBadge(estado: string | null) {
   if (!estado) return null
   const cls = estado === 'aprobado' ? 'bg-green-100 text-green-700' :
-              estado === 'rechazado' ? 'bg-red-100 text-red-700' :
-              'bg-yellow-100 text-yellow-700'
+    estado === 'rechazado' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
   const Icon = estado === 'aprobado' ? CheckCircle : estado === 'rechazado' ? XCircle : Clock
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      <Icon className="w-3 h-3" />
-      {estado}
+      <Icon className="w-3 h-3" />{estado}
     </span>
   )
 }
 
-// ── Formulario Evento ────────────────────────────────────────
-function FormEvento({
-  inicial,
-  onGuardar,
-  onCancelar,
-}: {
+// ── Formulario de Evento ─────────────────────────────────────
+function FormEvento({ inicial, onGuardar, onCancelar }: {
   inicial?: Partial<Evento>
   onGuardar: (ev: Partial<Evento>) => Promise<void>
   onCancelar: () => void
@@ -87,39 +81,26 @@ function FormEvento({
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
   const [gpsMsg, setGpsMsg] = useState('')
 
-  function capturarGPSEvento() {
-    setGpsEstado('cargando')
-    setGpsMsg('Obteniendo ubicación...')
-    if (!navigator.geolocation) {
-      setGpsEstado('error'); setGpsMsg('GPS no disponible en este dispositivo.'); return
-    }
+  function capturarGPS() {
+    setGpsEstado('cargando'); setGpsMsg('Obteniendo...')
+    if (!navigator.geolocation) { setGpsEstado('error'); setGpsMsg('GPS no disponible.'); return }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm((f) => ({ ...f, evento_latitud: pos.coords.latitude, evento_longitud: pos.coords.longitude }))
-        setGpsEstado('ok')
-        setGpsMsg(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`)
+      (p) => {
+        setForm((f) => ({ ...f, evento_latitud: p.coords.latitude, evento_longitud: p.coords.longitude }))
+        setGpsEstado('ok'); setGpsMsg(`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`)
       },
       () => { setGpsEstado('error'); setGpsMsg('No se pudo obtener la ubicación.') },
       { enableHighAccuracy: true, timeout: 15000 }
     )
   }
 
-  function limpiarGPS() {
-    setForm((f) => ({ ...f, evento_latitud: null, evento_longitud: null }))
-    setGpsEstado('idle'); setGpsMsg('')
-  }
-
   async function submit() {
     if (!form.nombre.trim() || !form.fecha) return
     setGuardando(true)
     await onGuardar({
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      fecha: form.fecha,
-      hora: form.hora || null,
-      lugar: form.lugar.trim() || null,
-      evento_latitud: form.evento_latitud,
-      evento_longitud: form.evento_longitud,
+      nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null,
+      fecha: form.fecha, hora: form.hora || null, lugar: form.lugar.trim() || null,
+      evento_latitud: form.evento_latitud, evento_longitud: form.evento_longitud,
       transporte_recogida: form.transporte_recogida,
       transporte_regreso: form.transporte_regreso,
       activo: form.activo,
@@ -127,250 +108,192 @@ function FormEvento({
     setGuardando(false)
   }
 
-  const tieneGPS = form.evento_latitud !== null && form.evento_longitud !== null
+  const tieneGPS = form.evento_latitud !== null
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Nombre del evento *</label>
-          <input
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.nombre}
-            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-            placeholder="Ej: Capacitación JRV, Día de elecciones"
-          />
+          <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+            placeholder="Ej: Capacitación JRV, Día de elecciones" />
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600">Fecha *</label>
-          <input
-            type="date"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.fecha}
-            onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-          />
+          <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600">Hora</label>
-          <input
-            type="time"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.hora}
-            onChange={(e) => setForm({ ...form, hora: e.target.value })}
-          />
+          <input type="time" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Lugar (nombre/dirección)</label>
-          <input
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.lugar}
-            onChange={(e) => setForm({ ...form, lugar: e.target.value })}
-            placeholder="Ej: Auditorio Municipal de Santa Ana"
-          />
+          <label className="text-xs font-medium text-gray-600">Lugar</label>
+          <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.lugar} onChange={(e) => setForm({ ...form, lugar: e.target.value })}
+            placeholder="Ej: Auditorio Municipal de Santa Ana" />
         </div>
-
-        {/* GPS del evento */}
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Punto GPS del evento</label>
-          <div className="mt-1 space-y-2">
-            {/* Coordenadas manuales */}
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="any"
-                placeholder="Latitud (ej: 13.99400)"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.evento_latitud ?? ''}
-                onChange={(e) => setForm({ ...f => f, ...form, evento_latitud: e.target.value ? parseFloat(e.target.value) : null })}
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Longitud (ej: -89.56300)"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={form.evento_longitud ?? ''}
-                onChange={(e) => setForm({ ...f => f, ...form, evento_longitud: e.target.value ? parseFloat(e.target.value) : null })}
-              />
-            </div>
-
-            {/* Botón capturar + estado */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={capturarGPSEvento}
-                disabled={gpsEstado === 'cargando'}
-                className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white px-3 py-1.5 rounded-lg transition-colors"
-              >
-                {gpsEstado === 'cargando'
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <MapPin className="w-3 h-3" />}
-                Capturar mi ubicación actual
-              </button>
-
-              {tieneGPS && (
-                <>
-                  <a
-                    href={`https://www.google.com/maps?q=${form.evento_latitud},${form.evento_longitud}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Ver en Maps
-                  </a>
-                  <button
-                    type="button"
-                    onClick={limpiarGPS}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    × Quitar GPS
-                  </button>
-                </>
-              )}
-            </div>
-
-            {gpsMsg && (
-              <p className={`text-xs ${gpsEstado === 'ok' ? 'text-green-600' : gpsEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>
-                {gpsEstado === 'ok' ? '✓ ' : gpsEstado === 'error' ? '✗ ' : '⏳ '}{gpsMsg}
-              </p>
+          <label className="text-xs font-medium text-gray-600">GPS del evento</label>
+          <div className="mt-1 flex gap-2 flex-wrap items-center">
+            <button type="button" onClick={capturarGPS} disabled={gpsEstado === 'cargando'}
+              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white px-3 py-1.5 rounded-lg">
+              {gpsEstado === 'cargando' ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+              Capturar ubicación actual
+            </button>
+            {tieneGPS && (
+              <a href={`https://www.google.com/maps?q=${form.evento_latitud},${form.evento_longitud}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                <ExternalLink className="w-3 h-3" />Ver en Maps
+              </a>
             )}
+            {gpsMsg && <span className={`text-xs ${gpsEstado === 'ok' ? 'text-green-600' : gpsEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>{gpsMsg}</span>}
           </div>
         </div>
-
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Descripción</label>
-          <textarea
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            rows={2}
-            value={form.descripcion}
-            onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-          />
-        </div>
-        {/* Tipos de transporte disponibles */}
-        <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600 block mb-2">Transporte disponible para este evento</label>
+          <label className="text-xs font-medium text-gray-600 block mb-2">Transporte disponible</label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.transporte_recogida ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-              <input
-                type="checkbox"
-                checked={form.transporte_recogida}
+              <input type="checkbox" checked={form.transporte_recogida}
                 onChange={(e) => setForm({ ...form, transporte_recogida: e.target.checked })}
-                className="w-4 h-4 accent-blue-600"
-              />
+                className="w-4 h-4 accent-blue-600" />
               <div>
                 <p className="text-sm font-medium text-gray-800">🚐 Recogida</p>
-                <p className="text-xs text-gray-400 leading-tight">Ir a recoger a las personas desde su destino hasta el evento</p>
+                <p className="text-xs text-gray-400">Ir a recoger al personal</p>
               </div>
             </label>
             <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.transporte_regreso ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-              <input
-                type="checkbox"
-                checked={form.transporte_regreso}
+              <input type="checkbox" checked={form.transporte_regreso}
                 onChange={(e) => setForm({ ...form, transporte_regreso: e.target.checked })}
-                className="w-4 h-4 accent-indigo-600"
-              />
+                className="w-4 h-4 accent-indigo-600" />
               <div>
                 <p className="text-sm font-medium text-gray-800">🏠 Ir a dejar</p>
-                <p className="text-xs text-gray-400 leading-tight">Llevar a las personas de vuelta a su destino tras el evento</p>
+                <p className="text-xs text-gray-400">Llevar de vuelta al personal</p>
               </div>
             </label>
           </div>
         </div>
-
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-gray-600">Descripción</label>
+          <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
+        </div>
         <div className="sm:col-span-2 flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="activo"
-            checked={form.activo}
-            onChange={(e) => setForm({ ...form, activo: e.target.checked })}
-            className="rounded"
-          />
+          <input type="checkbox" id="activo" checked={form.activo}
+            onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="rounded" />
           <label htmlFor="activo" className="text-sm text-gray-700">Evento activo (visible para usuarios)</label>
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button onClick={onCancelar} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-          Cancelar
-        </button>
-        <button
-          onClick={submit}
-          disabled={guardando || !form.nombre.trim() || !form.fecha}
-          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg flex items-center gap-1.5"
-        >
-          {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Guardar
+        <button onClick={onCancelar} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancelar</button>
+        <button onClick={submit} disabled={guardando || !form.nombre.trim() || !form.fecha}
+          className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg flex items-center gap-1.5">
+          {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}Guardar
         </button>
       </div>
     </div>
   )
 }
 
+// ── Algoritmo de distribución ────────────────────────────────
+function distribuirMotoristas(
+  motoristas: { id: string; latitud: number; longitud: number }[],
+  solicitudes: { id: string; latitud: number | null; longitud: number | null }[]
+): { solicitud_id: string; motorista_id: string }[] {
+  const conGPS = solicitudes.filter((s) => s.latitud && s.longitud)
+  const sinGPS = solicitudes.filter((s) => !s.latitud || !s.longitud)
+
+  if (motoristas.length === 0) return []
+
+  const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
+  const resultado: { solicitud_id: string; motorista_id: string }[] = []
+  const maxPorMotorista = Math.ceil(solicitudes.length / motoristas.length)
+
+  // Con GPS: asignar al motorista más cercano con capacidad
+  const ordenadas = [...conGPS].sort((a, b) => {
+    const minA = Math.min(...motoristas.map((m) => distanciaKm(a.latitud!, a.longitud!, m.latitud, m.longitud)))
+    const minB = Math.min(...motoristas.map((m) => distanciaKm(b.latitud!, b.longitud!, m.latitud, m.longitud)))
+    return minA - minB
+  })
+
+  for (const sol of ordenadas) {
+    const candidatos = motoristas
+      .filter((m) => carga[m.id] < maxPorMotorista)
+      .sort((a, b) =>
+        distanciaKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
+        distanciaKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
+      )
+    if (!candidatos.length) continue
+    carga[candidatos[0].id]++
+    resultado.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+  }
+
+  // Sin GPS: distribuir equitativamente al motorista con menos carga
+  for (const sol of sinGPS) {
+    const motorista = motoristas.sort((a, b) => carga[a.id] - carga[b.id])[0]
+    carga[motorista.id]++
+    resultado.push({ solicitud_id: sol.id, motorista_id: motorista.id })
+  }
+
+  return resultado
+}
+
 // ── Componente principal ─────────────────────────────────────
 export default function AdminTransportePage() {
   const [tab, setTab] = useState<TabActiva>('eventos')
   const [eventos, setEventos] = useState<Evento[]>([])
-  const [registros, setRegistros] = useState<RegistroConSolicitud[]>([])
+  const [registros, setRegistros] = useState<Registro[]>([])
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null)
   const [mostrarFormEvento, setMostrarFormEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<Evento | null>(null)
   const [cargando, setCargando] = useState(true)
-  const [actualizandoEstado, setActualizandoEstado] = useState<string | null>(null)
+  const [distribuyendo, setDistribuyendo] = useState(false)
+  const [toggleando, setToggleando] = useState<string | null>(null)
 
   const cargarEventos = useCallback(async () => {
-    const { data } = await supabase
-      .from('eventos_transporte')
-      .select('*')
-      .order('fecha', { ascending: true })
+    const { data } = await supabase.from('eventos_transporte').select('*').order('fecha', { ascending: true })
     setEventos(data ?? [])
   }, [])
 
-  const cargarRegistrosConSolicitudes = useCallback(async (eventoId?: string) => {
-    // Registros con GPS
-    const { data: regs } = await supabase
+  const cargarRegistros = useCallback(async () => {
+    const { data } = await supabase
       .from('registros_dui')
-      .select(`
-        id, nombre, dui, telefono,
-        latitud, longitud, coordenadas_at,
-        padron:padron_id (cargo, jrv)
-      `)
+      .select('id, nombre, dui, telefono, latitud, longitud, es_motorista, padron:padron_id(cargo,jrv)')
       .order('nombre')
-
-    if (!regs) return
-
-    let solicitudesMap: Record<string, { id: string; estado: string }> = {}
-    if (eventoId) {
-      const { data: sols } = await supabase
-        .from('solicitudes_transporte')
-        .select('id, registro_id, estado, solicita_recogida, solicita_regreso')
-        .eq('evento_id', eventoId)
-
-      if (sols) {
-        solicitudesMap = Object.fromEntries(
-          sols.map((s) => [s.registro_id, {
-            id: s.id,
-            estado: s.estado,
-            solicita_recogida: s.solicita_recogida,
-            solicita_regreso: s.solicita_regreso,
-          }])
-        )
-      }
-    }
-
     setRegistros(
-      regs.map((r) => ({
-        id: r.id,
-        nombre: r.nombre,
-        dui: r.dui,
-        telefono: r.telefono,
-        cargo: (r.padron as any)?.cargo ?? 'Sin asignar',
-        jrv: (r.padron as any)?.jrv ?? '-',
-        latitud: r.latitud,
-        longitud: r.longitud,
-        coordenadas_at: r.coordenadas_at,
-        solicitud_id: solicitudesMap[r.id]?.id ?? null,
-        solicitud_estado: solicitudesMap[r.id]?.estado ?? null,
-        solicita_recogida: solicitudesMap[r.id]?.solicita_recogida ?? false,
-        solicita_regreso: solicitudesMap[r.id]?.solicita_regreso ?? false,
+      (data ?? []).map((r: any) => ({
+        id: r.id, nombre: r.nombre, dui: r.dui, telefono: r.telefono,
+        latitud: r.latitud, longitud: r.longitud,
+        cargo: r.padron?.cargo ?? 'Sin asignar', jrv: r.padron?.jrv ?? '-',
+        es_motorista: r.es_motorista ?? false,
+      }))
+    )
+  }, [])
+
+  const cargarSolicitudes = useCallback(async (eventoId: string) => {
+    const { data } = await supabase
+      .from('solicitudes_transporte')
+      .select(`
+        id, registro_id, evento_id, estado,
+        solicita_recogida, solicita_regreso, motorista_id,
+        registro:registro_id (nombre, dui, telefono, latitud, longitud,
+          padron:padron_id(cargo,jrv))
+      `)
+      .eq('evento_id', eventoId)
+
+    setSolicitudes(
+      (data ?? []).map((s: any) => ({
+        id: s.id, registro_id: s.registro_id, evento_id: s.evento_id,
+        estado: s.estado, solicita_recogida: s.solicita_recogida,
+        solicita_regreso: s.solicita_regreso, motorista_id: s.motorista_id,
+        nombre: s.registro?.nombre ?? '-', dui: s.registro?.dui ?? '-',
+        telefono: s.registro?.telefono ?? null,
+        cargo: s.registro?.padron?.cargo ?? '-', jrv: s.registro?.padron?.jrv ?? '-',
+        latitud: s.registro?.latitud ?? null, longitud: s.registro?.longitud ?? null,
       }))
     )
   }, [])
@@ -378,75 +301,101 @@ export default function AdminTransportePage() {
   useEffect(() => {
     async function init() {
       setCargando(true)
-      await cargarEventos()
-      await cargarRegistrosConSolicitudes()
+      await Promise.all([cargarEventos(), cargarRegistros()])
       setCargando(false)
     }
     init()
-  }, [cargarEventos, cargarRegistrosConSolicitudes])
+  }, [cargarEventos, cargarRegistros])
 
   useEffect(() => {
-    if (eventoSeleccionado) {
-      cargarRegistrosConSolicitudes(eventoSeleccionado)
-    }
-  }, [eventoSeleccionado, cargarRegistrosConSolicitudes])
+    if (eventoSeleccionado) cargarSolicitudes(eventoSeleccionado)
+  }, [eventoSeleccionado, cargarSolicitudes])
 
   async function crearEvento(ev: Partial<Evento>) {
     await supabase.from('eventos_transporte').insert(ev)
-    await cargarEventos()
-    setMostrarFormEvento(false)
+    await cargarEventos(); setMostrarFormEvento(false)
   }
-
   async function actualizarEvento(ev: Partial<Evento>) {
     if (!editandoEvento) return
     await supabase.from('eventos_transporte').update(ev).eq('id', editandoEvento.id)
-    await cargarEventos()
-    setEditandoEvento(null)
+    await cargarEventos(); setEditandoEvento(null)
   }
-
   async function eliminarEvento(id: string) {
-    if (!confirm('¿Eliminar este evento? También se eliminarán todas las solicitudes asociadas.')) return
+    if (!confirm('¿Eliminar este evento? Se eliminarán todas las solicitudes asociadas.')) return
     await supabase.from('eventos_transporte').delete().eq('id', id)
     await cargarEventos()
     if (eventoSeleccionado === id) setEventoSeleccionado(null)
   }
 
-  async function cambiarEstadoSolicitud(solicitudId: string, nuevoEstado: string) {
-    setActualizandoEstado(solicitudId)
-    await supabase.from('solicitudes_transporte').update({ estado: nuevoEstado }).eq('id', solicitudId)
-    if (eventoSeleccionado) await cargarRegistrosConSolicitudes(eventoSeleccionado)
-    setActualizandoEstado(null)
+  async function toggleMotorista(id: string, actual: boolean) {
+    setToggleando(id)
+    await supabase.from('registros_dui').update({ es_motorista: !actual }).eq('id', id)
+    await cargarRegistros()
+    setToggleando(null)
   }
 
-  const conGPS = registros.filter((r) => r.latitud && r.longitud)
-  const sinGPS = registros.filter((r) => !r.latitud || !r.longitud)
-  const conSolicitud = registros.filter((r) => r.solicitud_id)
+  async function autoDistribuir() {
+    if (!eventoSeleccionado) return
+    const motoristas = registros.filter((r) => r.es_motorista && r.latitud && r.longitud)
+    if (motoristas.length === 0) {
+      alert('No hay motoristas con GPS registrado. Asegurate de que los motoristas tengan ubicación registrada.')
+      return
+    }
+    if (solicitudes.length === 0) {
+      alert('No hay solicitudes para este evento.')
+      return
+    }
+    if (!confirm(`¿Redistribuir ${solicitudes.length} solicitudes entre ${motoristas.length} motoristas? Esto reemplazará las asignaciones actuales.`)) return
 
-  function googleMapsRuta(eventoId?: string | null) {
-    const pts = conGPS.slice(0, 24) // dejamos 1 slot para el destino del evento
-    if (pts.length === 0) return '#'
-
-    // Si hay un evento con GPS seleccionado, úsalo como destino
-    const evActual = eventoId ? eventos.find((e) => e.id === eventoId) : null
-    const destEvento = evActual?.evento_latitud && evActual?.evento_longitud
-      ? `${evActual.evento_latitud},${evActual.evento_longitud}`
-      : null
-
-    const origin = `${pts[0].latitud},${pts[0].longitud}`
-    const dest = destEvento ?? `${pts[pts.length - 1].latitud},${pts[pts.length - 1].longitud}`
-    const waypoints = (destEvento ? pts.slice(1) : pts.slice(1, -1))
-      .map((p) => `${p.latitud},${p.longitud}`).join('|')
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? `&waypoints=${waypoints}` : ''}`
-  }
-
-  if (cargando) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
+    setDistribuyendo(true)
+    const asignaciones = distribuirMotoristas(
+      motoristas.map((m) => ({ id: m.id, latitud: m.latitud!, longitud: m.longitud! })),
+      solicitudes.map((s) => ({ id: s.id, latitud: s.latitud, longitud: s.longitud }))
     )
+
+    // Limpiar asignaciones actuales
+    await supabase.from('solicitudes_transporte').update({ motorista_id: null }).eq('evento_id', eventoSeleccionado)
+
+    // Aplicar nuevas
+    for (const a of asignaciones) {
+      await supabase.from('solicitudes_transporte').update({ motorista_id: a.motorista_id }).eq('id', a.solicitud_id)
+    }
+
+    await cargarSolicitudes(eventoSeleccionado)
+    setDistribuyendo(false)
   }
+
+  async function asignarMotoristManual(solicitudId: string, motoristaId: string | null) {
+    await supabase.from('solicitudes_transporte').update({ motorista_id: motoristaId }).eq('id', solicitudId)
+    if (eventoSeleccionado) await cargarSolicitudes(eventoSeleccionado)
+  }
+
+  // ── Métricas ─────────────────────────────────────────────
+  const motoristas = registros.filter((r) => r.es_motorista)
+  const conGPS = registros.filter((r) => r.latitud && r.longitud)
+  const solicitudesAsignadas = solicitudes.filter((s) => s.motorista_id)
+
+  function googleMapsRuta(motoristaId: string) {
+    const sols = solicitudes.filter((s) => s.motorista_id === motoristaId && s.latitud && s.longitud)
+    const motorista = registros.find((r) => r.id === motoristaId)
+    if (sols.length === 0 || !motorista?.latitud) return '#'
+
+    const ev = eventos.find((e) => e.id === eventoSeleccionado)
+    const origin = motorista.latitud && motorista.longitud
+      ? `${motorista.latitud},${motorista.longitud}`
+      : `${sols[0].latitud},${sols[0].longitud}`
+    const dest = ev?.evento_latitud && ev?.evento_longitud
+      ? `${ev.evento_latitud},${ev.evento_longitud}`
+      : `${sols[sols.length - 1].latitud},${sols[sols.length - 1].longitud}`
+    const waypoints = sols.map((s) => `${s.latitud},${s.longitud}`).join('|')
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoints}`
+  }
+
+  if (cargando) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+    </div>
+  )
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-5">
@@ -454,66 +403,49 @@ export default function AdminTransportePage() {
         <Bus className="w-7 h-7 text-blue-600" />
         <div>
           <h1 className="text-xl font-bold text-gray-900">Módulo de Transporte</h1>
-          <p className="text-sm text-gray-500">Gestión de eventos, rutas y solicitudes</p>
+          <p className="text-sm text-gray-500">{motoristas.length} motoristas · {registros.length} personas registradas</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        {(['eventos', 'ubicaciones', 'solicitudes'] as TabActiva[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-colors ${
-              tab === t ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'eventos' && <><Calendar className="w-4 h-4 inline mr-1" />Eventos</>}
-            {t === 'ubicaciones' && <><MapPin className="w-4 h-4 inline mr-1" />Ubicaciones</>}
-            {t === 'solicitudes' && <><Users className="w-4 h-4 inline mr-1" />Solicitudes</>}
-          </button>
-        ))}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+        {(['eventos', 'motoristas', 'ubicaciones', 'solicitudes'] as TabActiva[]).map((t) => {
+          const icons = { eventos: Calendar, motoristas: Truck, ubicaciones: MapPin, solicitudes: Users }
+          const Icon = icons[t]
+          return (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 min-w-max py-2 px-3 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors ${tab === t ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}>
+              <Icon className="w-4 h-4" />
+              <span className="capitalize">{t}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* ── TAB EVENTOS ── */}
       {tab === 'eventos' && (
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-gray-800">
-              Eventos programados ({eventos.length})
-            </h2>
-            <button
-              onClick={() => { setMostrarFormEvento(true); setEditandoEvento(null) }}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg"
-            >
-              <Plus className="w-4 h-4" />
-              Nuevo evento
+            <h2 className="font-semibold text-gray-800">Eventos ({eventos.length})</h2>
+            <button onClick={() => { setMostrarFormEvento(true); setEditandoEvento(null) }}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg">
+              <Plus className="w-4 h-4" />Nuevo evento
             </button>
           </div>
-
           {mostrarFormEvento && !editandoEvento && (
-            <FormEvento
-              onGuardar={crearEvento}
-              onCancelar={() => setMostrarFormEvento(false)}
-            />
+            <FormEvento onGuardar={crearEvento} onCancelar={() => setMostrarFormEvento(false)} />
           )}
-
           {eventos.length === 0 && !mostrarFormEvento && (
             <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-100">
               <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p>No hay eventos. Creá el primero.</p>
             </div>
           )}
-
           {eventos.map((ev) => (
             <div key={ev.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               {editandoEvento?.id === ev.id ? (
                 <div className="p-4">
-                  <FormEvento
-                    inicial={ev}
-                    onGuardar={actualizarEvento}
-                    onCancelar={() => setEditandoEvento(null)}
-                  />
+                  <FormEvento inicial={ev} onGuardar={actualizarEvento} onCancelar={() => setEditandoEvento(null)} />
                 </div>
               ) : (
                 <div className="p-4">
@@ -531,23 +463,15 @@ export default function AdminTransportePage() {
                       </p>
                       {ev.lugar && <p className="text-sm text-gray-500">📍 {ev.lugar}</p>}
                       {ev.evento_latitud && ev.evento_longitud && (
-                        <a
-                          href={`https://www.google.com/maps?q=${ev.evento_latitud},${ev.evento_longitud}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
-                        >
-                          <MapPin className="w-3 h-3" />
-                          Ver ubicación del evento en Maps
+                        <a href={`https://www.google.com/maps?q=${ev.evento_latitud},${ev.evento_longitud}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5">
+                          <MapPin className="w-3 h-3" />Ver ubicación del evento
                         </a>
                       )}
                       <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                        {ev.transporte_recogida && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Recogida</span>
-                        )}
-                        {ev.transporte_regreso && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Ir a dejar</span>
-                        )}
+                        {ev.transporte_recogida && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Recogida</span>}
+                        {ev.transporte_regreso && <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Ir a dejar</span>}
                         {!ev.transporte_recogida && !ev.transporte_regreso && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin transporte configurado</span>
                         )}
@@ -555,16 +479,12 @@ export default function AdminTransportePage() {
                       {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={() => { setEditandoEvento(ev); setMostrarFormEvento(false) }}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                      >
+                      <button onClick={() => { setEditandoEvento(ev); setMostrarFormEvento(false) }}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => eliminarEvento(ev.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                      >
+                      <button onClick={() => eliminarEvento(ev.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -576,37 +496,97 @@ export default function AdminTransportePage() {
         </div>
       )}
 
+      {/* ── TAB MOTORISTAS ── */}
+      {tab === 'motoristas' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+              <p className="text-2xl font-bold text-blue-600">{motoristas.length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Motoristas activos</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+              <p className="text-2xl font-bold text-green-600">{motoristas.filter(m => m.latitud).length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Con GPS registrado</p>
+            </div>
+            <div className="col-span-2 sm:col-span-1 bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+              <p className="text-xs text-amber-700 font-medium">Activá el rol de motorista a cualquier persona registrada en el sistema</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+              <p className="text-sm font-medium text-gray-700">Todo el personal registrado</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-100">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Teléfono</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">GPS</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-600">Motorista</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {registros.map((r) => (
+                    <tr key={r.id} className={`hover:bg-gray-50 ${r.es_motorista ? 'bg-blue-50/40' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {r.es_motorista && <Truck className="w-4 h-4 text-blue-500 shrink-0" />}
+                          <div>
+                            <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
+                            <p className="text-xs text-gray-400">{r.cargo} · JRV {r.jrv}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell text-gray-500">{r.telefono ?? '—'}</td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {r.latitud ? (
+                          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Registrado</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">Sin GPS</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => toggleMotorista(r.id, r.es_motorista)}
+                          disabled={toggleando === r.id}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${r.es_motorista ? 'bg-blue-600' : 'bg-gray-200'} ${toggleando === r.id ? 'opacity-50' : ''}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${r.es_motorista ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── TAB UBICACIONES ── */}
       {tab === 'ubicaciones' && (
         <div className="space-y-4">
-          {/* Resumen */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
               <p className="text-2xl font-bold text-green-600">{conGPS.length}</p>
               <p className="text-xs text-gray-500 mt-0.5">Con GPS registrado</p>
             </div>
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-bold text-red-500">{sinGPS.length}</p>
+              <p className="text-2xl font-bold text-red-500">{registros.length - conGPS.length}</p>
               <p className="text-xs text-gray-500 mt-0.5">Sin GPS</p>
             </div>
             <div className="col-span-2 sm:col-span-1">
               {conGPS.length > 0 && (
-                <a
-                  href={googleMapsRuta(eventoSeleccionado)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  {eventoSeleccionado && eventos.find(e => e.id === eventoSeleccionado)?.evento_latitud
-                    ? 'Ruta → lugar del evento'
-                    : 'Ver ruta en Google Maps'}
+                <a href={`https://www.google.com/maps/dir/?api=1&origin=${conGPS[0].latitud},${conGPS[0].longitud}&destination=${conGPS[conGPS.length-1].latitud},${conGPS[conGPS.length-1].longitud}&waypoints=${conGPS.slice(1,-1).map(p=>`${p.latitud},${p.longitud}`).join('|')}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 h-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors">
+                  <ExternalLink className="w-4 h-4" />Ver todos en Maps
                 </a>
               )}
             </div>
           </div>
-
-          {/* Tabla */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -615,7 +595,6 @@ export default function AdminTransportePage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Cargo / JRV</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">GPS</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Fecha</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -623,34 +602,27 @@ export default function AdminTransportePage() {
                   {registros.map((r) => (
                     <tr key={r.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
-                        <p className="text-xs text-gray-400 font-mono">{r.dui}</p>
+                        <div className="flex items-center gap-1.5">
+                          {r.es_motorista && <Truck className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
+                          <div>
+                            <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
+                            <p className="text-xs text-gray-400 font-mono">{r.dui}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         <p className="text-gray-700">{r.cargo}</p>
                         <p className="text-xs text-gray-400">JRV {r.jrv}</p>
                       </td>
                       <td className="px-4 py-3">
-                        {r.latitud && r.longitud ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                            <MapPin className="w-3 h-3" />
-                            Registrado
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin GPS</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
-                        {r.coordenadas_at ? new Date(r.coordenadas_at).toLocaleDateString('es-SV') : '—'}
+                        {r.latitud && r.longitud
+                          ? <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full"><MapPin className="w-3 h-3" />Registrado</span>
+                          : <span className="text-xs text-gray-400">Sin GPS</span>}
                       </td>
                       <td className="px-4 py-3">
                         {r.latitud && r.longitud && (
-                          <a
-                            href={`https://www.google.com/maps?q=${r.latitud},${r.longitud}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg inline-flex"
-                          >
+                          <a href={`https://www.google.com/maps?q=${r.latitud},${r.longitud}`} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg inline-flex">
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         )}
@@ -668,20 +640,32 @@ export default function AdminTransportePage() {
       {tab === 'solicitudes' && (
         <div className="space-y-4">
           {/* Selector de evento */}
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Seleccioná un evento</label>
-            <select
-              className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={eventoSeleccionado ?? ''}
-              onChange={(e) => setEventoSeleccionado(e.target.value || null)}
-            >
-              <option value="">— Seleccionar evento —</option>
-              {eventos.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.nombre} · {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV')}
-                </option>
-              ))}
-            </select>
+          <div className="flex gap-3 flex-wrap items-end">
+            <div className="flex-1 min-w-48">
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Evento</label>
+              <select
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={eventoSeleccionado ?? ''}
+                onChange={(e) => setEventoSeleccionado(e.target.value || null)}
+              >
+                <option value="">— Seleccionar —</option>
+                {eventos.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.nombre} · {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {eventoSeleccionado && solicitudes.length > 0 && motoristas.length > 0 && (
+              <button
+                onClick={autoDistribuir}
+                disabled={distribuyendo}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                {distribuyendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
+                Auto-distribuir motoristas
+              </button>
+            )}
           </div>
 
           {!eventoSeleccionado && (
@@ -693,105 +677,94 @@ export default function AdminTransportePage() {
 
           {eventoSeleccionado && (
             <>
-              {/* Resumen solicitudes */}
-              <div className="grid grid-cols-3 gap-3">
-                {['pendiente', 'aprobado', 'rechazado'].map((est) => {
-                  const count = conSolicitud.filter((r) => r.solicitud_estado === est).length
-                  const color = est === 'aprobado' ? 'text-green-600' : est === 'rechazado' ? 'text-red-500' : 'text-yellow-600'
-                  return (
-                    <div key={est} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
-                      <p className={`text-2xl font-bold ${color}`}>{count}</p>
-                      <p className="text-xs text-gray-500 capitalize">{est}</p>
-                    </div>
-                  )
-                })}
-              </div>
+              {/* Resumen por motorista */}
+              {motoristas.length > 0 && solicitudesAsignadas.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Distribución por motorista</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {motoristas.map((m) => {
+                      const asignados = solicitudes.filter((s) => s.motorista_id === m.id)
+                      if (asignados.length === 0) return null
+                      const ruta = googleMapsRuta(m.id)
+                      return (
+                        <div key={m.id} className="bg-white border border-blue-100 rounded-xl p-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="bg-blue-100 text-blue-700 rounded-full p-1.5 shrink-0">
+                              <Truck className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 text-sm truncate">{m.nombre}</p>
+                              <p className="text-xs text-gray-500">{m.telefono ?? '—'} · <span className="font-semibold text-blue-700">{asignados.length} pasajero{asignados.length !== 1 ? 's' : ''}</span></p>
+                            </div>
+                          </div>
+                          {ruta !== '#' && (
+                            <a href={ruta} target="_blank" rel="noopener noreferrer"
+                              className="shrink-0 flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg">
+                              <ExternalLink className="w-3 h-3" />Ruta
+                            </a>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
+              {/* Tabla detalle */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium text-gray-600">Persona</th>
-                        <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Teléfono</th>
-                        <th className="text-left px-4 py-3 font-medium text-gray-600">GPS</th>
-                        <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
-                        <th className="px-4 py-3 font-medium text-gray-600 text-center">Acción</th>
+                        <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Tipo</th>
+                        <th className="text-left px-4 py-3 font-medium text-gray-600">Motorista asignado</th>
+                        <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">GPS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {registros
-                        .filter((r) => r.solicitud_id)
-                        .map((r) => (
-                          <tr key={r.id} className="hover:bg-gray-50">
+                      {solicitudes.length === 0 && (
+                        <tr><td colSpan={4} className="text-center py-8 text-gray-400">No hay solicitudes para este evento.</td></tr>
+                      )}
+                      {solicitudes.map((s) => {
+                        const motoristaAsignado = motoristas.find((m) => m.id === s.motorista_id)
+                        return (
+                          <tr key={s.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3">
-                              <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
-                              <p className="text-xs text-gray-400">{r.cargo} · JRV {r.jrv}</p>
+                              <p className="font-medium text-gray-900 leading-tight">{s.nombre}</p>
+                              <p className="text-xs text-gray-400">{s.cargo} · JRV {s.jrv}</p>
+                              <p className="text-xs text-gray-400">{s.telefono ?? '—'}</p>
                             </td>
-                            <td className="px-4 py-3 hidden sm:table-cell text-gray-500">
-                              {r.telefono ?? '—'}
+                            <td className="px-4 py-3 hidden sm:table-cell">
+                              <div className="flex gap-1 flex-wrap">
+                                {s.solicita_recogida && <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">🚐</span>}
+                                {s.solicita_regreso && <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">🏠</span>}
+                              </div>
                             </td>
                             <td className="px-4 py-3">
-                              {r.latitud && r.longitud ? (
-                                <a
-                                  href={`https://www.google.com/maps?q=${r.latitud},${r.longitud}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                                >
-                                  <MapPin className="w-3 h-3" />
-                                  Ver
+                              <select
+                                value={s.motorista_id ?? ''}
+                                onChange={(e) => asignarMotoristManual(s.id, e.target.value || null)}
+                                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-40"
+                              >
+                                <option value="">Sin asignar</option>
+                                {motoristas.map((m) => (
+                                  <option key={m.id} value={m.id}>{m.nombre}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-3 hidden md:table-cell">
+                              {s.latitud && s.longitud ? (
+                                <a href={`https://www.google.com/maps?q=${s.latitud},${s.longitud}`}
+                                  target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                                  <MapPin className="w-3 h-3" />Ver
                                 </a>
-                              ) : (
-                                <span className="text-xs text-gray-400">Sin GPS</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="space-y-1">
-                                {estadoBadge(r.solicitud_estado)}
-                                <div className="flex gap-1 flex-wrap">
-                                  {r.solicita_recogida && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">🚐</span>
-                                  )}
-                                  {r.solicita_regreso && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">🏠</span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-1 justify-center">
-                                {r.solicitud_estado !== 'aprobado' && (
-                                  <button
-                                    onClick={() => cambiarEstadoSolicitud(r.solicitud_id!, 'aprobado')}
-                                    disabled={actualizandoEstado === r.solicitud_id}
-                                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
-                                    title="Aprobar"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                )}
-                                {r.solicitud_estado !== 'rechazado' && (
-                                  <button
-                                    onClick={() => cambiarEstadoSolicitud(r.solicitud_id!, 'rechazado')}
-                                    disabled={actualizandoEstado === r.solicitud_id}
-                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                                    title="Rechazar"
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
+                              ) : <span className="text-xs text-gray-400">Sin GPS</span>}
                             </td>
                           </tr>
-                        ))}
-                      {conSolicitud.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="text-center py-8 text-gray-400">
-                            No hay solicitudes para este evento.
-                          </td>
-                        </tr>
-                      )}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
