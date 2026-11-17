@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Link2, BookOpen, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2 } from 'lucide-react'
+import { LayoutGrid, Link2, BookOpen, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 
@@ -23,6 +23,7 @@ const NAV = [
   { href: '/admin/calendario',   label: 'Calendario',              icon: Calendar },
   { href: '/admin',              label: 'Panel General',           icon: LayoutGrid },
   { href: '/admin/asignacion',   label: 'Asignación de Cargos',    icon: Link2 },
+  { href: '/admin/transporte',   label: 'Transporte',              icon: Bus },
   { href: '/admin/usuarios',     label: 'Usuarios',                icon: Users },
 ]
 
@@ -416,7 +417,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="hidden sm:inline" style={{ color: 'var(--texto-muted)' }}>Admin</span>
             <ChevronRight size={13} className="hidden sm:block" style={{ color: 'var(--borde-dark)' }} />
             <span className="font-medium truncate" style={{ color: 'var(--texto)' }}>
-              {NAV.find(n => n.href === pathname)?.label ?? CATALOGO_ITEMS.find(n => n.href === pathname)?.label ?? 'Panel'}
+              {NAV.find(n => n.href === pathname)?.label ?? CATALOGO_ITEMS.find(n => n.href === pathname)?.label ?? (pathname.startsWith('/admin/transporte') ? 'Transporte' : 'Panel')}
             </span>
           </div>
           <div className="ml-auto text-xs hidden lg:block" style={{ color: 'var(--texto-muted)' }}>
