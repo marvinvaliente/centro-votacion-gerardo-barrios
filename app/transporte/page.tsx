@@ -217,8 +217,8 @@ function MapaModal({
           <div className="flex items-center gap-2">
             <Map className="w-5 h-5 text-blue-600" />
             <div>
-              <p className="font-semibold text-gray-900 text-sm">Elegí tu destino de recogida</p>
-              <p className="text-xs text-gray-400">Tocá el mapa o usá tu ubicación actual</p>
+              <p className="font-semibold text-gray-900 text-sm">¿Dónde te recogemos?</p>
+              <p className="text-xs text-gray-400">Marcá tu vivienda u otro punto de encuentro</p>
             </div>
           </div>
           <button onClick={onCerrar} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
@@ -259,7 +259,7 @@ function MapaModal({
         <div className="px-4 py-3 bg-white border-t border-gray-100 shrink-0 space-y-2">
           {!selLat && (
             <p className="text-xs text-gray-400 text-center">
-              Tocá cualquier punto del mapa para marcarlo como tu destino
+              Tocá tu vivienda u otro punto del mapa donde querés que te recojan
             </p>
           )}
           <button
@@ -268,7 +268,7 @@ function MapaModal({
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
-            {selLat ? 'Confirmar este destino' : 'Seleccioná un punto en el mapa'}
+            {selLat ? 'Confirmar punto de recogida' : 'Seleccioná un punto en el mapa'}
           </button>
         </div>
       </div>
@@ -355,7 +355,7 @@ export default function TransportePage() {
         ? { ...prev, latitud: lat, longitud: lng, coordenadas_at: new Date().toISOString() }
         : prev)
       setGpsEstado('ok')
-      setGpsMsg(`Destino guardado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+      setGpsMsg(`Punto de recogida guardado: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)
     } else {
       setGpsEstado('error')
       setGpsMsg('Error al guardar. Intentá de nuevo.')
@@ -507,17 +507,18 @@ export default function TransportePage() {
 
           {/* Tarjeta destino */}
           <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-0.5">
               <MapPin className="w-5 h-5 text-blue-600" />
-              <h2 className="font-semibold text-gray-800">Mi Destino de Recogida</h2>
+              <h2 className="font-semibold text-gray-800">¿Dónde te recogemos?</h2>
             </div>
+            <p className="text-xs text-gray-400 mb-3 ml-7">Indicá tu vivienda o el lugar donde querés que te recojan</p>
 
             {registro?.latitud && registro?.longitud ? (
               <div className="mb-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">Destino registrado</p>
+                    <p className="font-medium">Punto de recogida registrado</p>
                     <p className="text-xs text-green-600 mt-0.5 font-mono">
                       {registro.latitud.toFixed(5)}, {registro.longitud.toFixed(5)}
                     </p>
@@ -540,7 +541,7 @@ export default function TransportePage() {
               </div>
             ) : (
               <p className="text-sm text-gray-500 mb-4">
-                No tenés destino registrado. Elegí el punto donde querés que te recojan.
+                Aún no tenés un punto registrado. Marcá tu vivienda u otro lugar donde podamos recogerte.
               </p>
             )}
 
@@ -560,7 +561,7 @@ export default function TransportePage() {
                 {gpsEstado === 'cargando'
                   ? <Loader2 className="w-5 h-5 animate-spin" />
                   : <Navigation className="w-5 h-5" />}
-                <span className="leading-tight text-center text-xs">Usar mi ubicación actual</span>
+                <span className="leading-tight text-center text-xs">Estoy aquí ahora</span>
               </button>
 
               <button
@@ -568,7 +569,7 @@ export default function TransportePage() {
                 className="flex flex-col items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-2 rounded-xl transition-colors text-sm"
               >
                 <Map className="w-5 h-5" />
-                <span className="leading-tight text-center text-xs">Elegir en el mapa</span>
+                <span className="leading-tight text-center text-xs">Marcar en el mapa</span>
               </button>
             </div>
 
@@ -577,7 +578,7 @@ export default function TransportePage() {
                 onClick={() => setMostrarMapa(true)}
                 className="w-full mt-2 text-xs text-indigo-600 hover:text-indigo-800 underline text-center"
               >
-                Cambiar destino en el mapa
+                Cambiar punto de recogida
               </button>
             )}
           </section>
