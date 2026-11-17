@@ -340,8 +340,8 @@ function TransporteAcciones({
   if (vencido && !sol) {
     return (
       <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-center">
-        <p className="text-xs text-gray-500 font-medium">⏱ Solicitudes cerradas</p>
-        <p className="text-xs text-gray-400">El plazo para solicitar transporte ya venció</p>
+        <p className="text-xs text-gray-500 font-medium">⏱ Ya no es posible solicitar transporte</p>
+        <p className="text-xs text-gray-400">El tiempo para registrar tu solicitud para este evento ha finalizado. ¡Gracias!</p>
       </div>
     )
   }
@@ -376,7 +376,7 @@ function TransporteAcciones({
               <Truck className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-blue-800">Tu motorista asignado</p>
+              <p className="text-xs font-semibold text-blue-800">Tu motorista para este evento</p>
               <p className="text-sm text-blue-900 font-medium leading-tight">{sol.motorista_nombre}</p>
               {sol.motorista_telefono && (
                 <a href={`tel:${sol.motorista_telefono}`}
@@ -387,7 +387,7 @@ function TransporteAcciones({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-gray-400 italic">Motorista por asignar — te avisaremos pronto</p>
+          <p className="text-xs text-gray-400 italic">🕐 En breve se te asignará un motorista. ¡Gracias por tu paciencia!</p>
         )}
       </div>
     )
@@ -412,23 +412,23 @@ function TransporteAcciones({
     const tieneLabel = selRecogida ? '🚐 Recogida' : '🏠 Ir a dejar'
     return (
       <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-amber-800">¿Confirmás que no necesitás {falta}?</p>
-        <p className="text-xs text-amber-700">
-          Seleccionaste solo <span className="font-medium">{tieneLabel}</span>. Si también vas a necesitar <span className="font-medium">{falta}</span>, agregalo ahora.
+        <p className="text-sm font-semibold text-amber-800">¡Un momento antes de confirmar! 🙂</p>
+        <p className="text-sm text-amber-700">
+          Seleccionaste solo <span className="font-medium">{tieneLabel}</span>. Para este evento también está disponible <span className="font-medium">{falta}</span>. ¿Lo vas a necesitar?
         </p>
         <div className="flex flex-col gap-2">
           <button
-            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso }) }}
+            onClick={() => setConfirmando(false)}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-center gap-1.5"
           >
-            <CheckCircle className="w-4 h-4" />
-            Sí, solo necesito {tieneLabel}
+            Sí, agregar también {falta}
           </button>
           <button
-            onClick={() => setConfirmando(false)}
-            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg"
+            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso }) }}
+            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-1.5"
           >
-            Agregar también {falta}
+            <CheckCircle className="w-4 h-4 text-gray-500" />
+            No, solo necesito {tieneLabel}
           </button>
         </div>
       </div>
@@ -442,8 +442,8 @@ function TransporteAcciones({
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
           <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            <span className="font-semibold">Registrá tu destino primero.</span>{' '}
-            Indicá dónde querés que te dejemos para poder solicitar transporte.
+            <span className="font-semibold">Antes de solicitar, indicá tu punto de destino. 📍</span>{' '}
+            Usá los botones de arriba para marcarlo — así podemos organizarte la ruta correctamente.
           </p>
         </div>
       )}
@@ -471,7 +471,7 @@ function TransporteAcciones({
       {/* Cierre de plazo */}
       {ev.hora_fin && (
         <p className="text-xs text-gray-400">
-          ⏱ Podés solicitar hasta 30 min después de las {ev.hora_fin.slice(0,5)}
+          ⏱ Tenés hasta las {(() => { const [h,m] = ev.hora_fin!.slice(0,5).split(':').map(Number); const d = new Date(); d.setHours(h,m+30); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` })()} para registrar tu solicitud
         </p>
       )}
 
@@ -481,12 +481,12 @@ function TransporteAcciones({
         className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
       >
         {solicitando
-          ? <><Loader2 className="w-4 h-4 animate-spin" />Solicitando...</>
-          : <><Bus className="w-4 h-4" />{!tieneGps ? 'Registrá tu destino primero' : ningunaSeleccionada ? 'Seleccioná una opción' : 'Solicitar transporte'}</>}
+          ? <><Loader2 className="w-4 h-4 animate-spin" />Registrando tu solicitud...</>
+          : <><Bus className="w-4 h-4" />{!tieneGps ? 'Primero indicá tu punto de destino' : ningunaSeleccionada ? 'Seleccioná al menos una opción' : 'Solicitar transporte'}</>}
       </button>
 
       <p className="text-xs text-gray-400 text-center">
-        Si no necesitás transporte, simplemente no solicites — solo para quien lo requiere.
+        Si en esta ocasión no vas a necesitar transporte, no es necesario que hagas nada aquí. 🙂
       </p>
     </div>
   )
@@ -835,14 +835,14 @@ export default function TransportePage() {
               <MapPin className="w-5 h-5 text-blue-600" />
               <h2 className="font-semibold text-gray-800">¿Dónde te dejamos?</h2>
             </div>
-            <p className="text-xs text-gray-400 mb-3 ml-7">Indicá tu vivienda o el lugar donde querés que te dejen al regreso</p>
+            <p className="text-xs text-gray-400 mb-3 ml-7">Marcá tu vivienda u otro lugar donde querés que te llevemos al finalizar el evento</p>
 
             {registro?.latitud && registro?.longitud ? (
               <div className="mb-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 flex items-start gap-2">
                   <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium">Punto de destino registrado</p>
+                    <p className="font-medium">¡Destino registrado correctamente! ✅</p>
                     <p className="text-xs text-green-600 mt-0.5 font-mono">
                       {registro.latitud.toFixed(5)}, {registro.longitud.toFixed(5)}
                     </p>
@@ -865,7 +865,7 @@ export default function TransportePage() {
               </div>
             ) : (
               <p className="text-sm text-gray-500 mb-4">
-                Aún no tenés un punto registrado. Marcá tu vivienda u otro lugar donde querés que te dejemos.
+                Todavía no tenés un destino registrado. Usá los botones de abajo para marcarlo fácilmente — ¡solo toma un momento! 😊
               </p>
             )}
 
