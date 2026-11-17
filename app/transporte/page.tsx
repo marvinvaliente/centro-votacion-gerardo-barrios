@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { MapPin, Bus, Calendar, CheckCircle, XCircle, Clock, ChevronLeft, Loader2 } from 'lucide-react'
+import { MapPin, Bus, Calendar, CheckCircle, XCircle, Clock, ChevronLeft, Loader2, ExternalLink } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +28,8 @@ type Evento = {
   fecha: string
   hora: string | null
   lugar: string | null
+  evento_latitud: number | null
+  evento_longitud: number | null
   activo: boolean
 }
 
@@ -373,6 +375,17 @@ export default function TransportePage() {
                           {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
                         </p>
                         {ev.lugar && <p className="text-xs text-gray-500">📍 {ev.lugar}</p>}
+                        {ev.evento_latitud && ev.evento_longitud && (
+                          <a
+                            href={`https://www.google.com/maps?q=${ev.evento_latitud},${ev.evento_longitud}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            Ver lugar del evento en Maps
+                          </a>
+                        )}
                         {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
                       </div>
                     </div>

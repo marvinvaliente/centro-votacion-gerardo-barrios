@@ -19,6 +19,8 @@ type Evento = {
   fecha: string
   hora: string | null
   lugar: string | null
+  evento_latitud: number | null
+  evento_longitud: number | null
   activo: boolean
   created_at: string
 }
@@ -71,9 +73,35 @@ function FormEvento({
     fecha: inicial?.fecha ?? '',
     hora: inicial?.hora ?? '',
     lugar: inicial?.lugar ?? '',
+    evento_latitud: inicial?.evento_latitud ?? null as number | null,
+    evento_longitud: inicial?.evento_longitud ?? null as number | null,
     activo: inicial?.activo ?? true,
   })
   const [guardando, setGuardando] = useState(false)
+  const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
+  const [gpsMsg, setGpsMsg] = useState('')
+
+  function capturarGPSEvento() {
+    setGpsEstado('cargando')
+    setGpsMsg('Obteniendo ubicación...')
+    if (!navigator.geolocation) {
+      setGpsEstado('error'); setGpsMsg('GPS no disponible en este dispositivo.'); return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({ ...f, evento_latitud: pos.coords.latitude, evento_longitud: pos.coords.longitude }))
+        setGpsEstado('ok')
+        setGpsMsg(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`)
+      },
+      () => { setGpsEstado('error'); setGpsMsg('No se pudo obtener la ubicación.') },
+      { enableHighAccuracy: true, timeout: 15000 }
+    )
+  }
+
+  function limpiarGPS() {
+    setForm((f) => ({ ...f, evento_latitud: null, evento_longitud: null }))
+    setGpsEstado('idle'); setGpsMsg('')
+  }
 
   async function submit() {
     if (!form.nombre.trim() || !form.fecha) return
@@ -84,10 +112,14 @@ function FormEvento({
       fecha: form.fecha,
       hora: form.hora || null,
       lugar: form.lugar.trim() || null,
+      evento_latitud: form.evento_latitud,
+      evento_longitud: form.evento_longitud,
       activo: form.activo,
     })
     setGuardando(false)
   }
+
+  const tieneGPS = form.evento_latitud !== null && form.evento_longitud !== null
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
@@ -120,14 +152,83 @@ function FormEvento({
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Lugar</label>
+          <label className="text-xs font-medium text-gray-600">Lugar (nombre/dirección)</label>
           <input
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={form.lugar}
             onChange={(e) => setForm({ ...form, lugar: e.target.value })}
-            placeholder="Dirección o nombre del lugar"
+            placeholder="Ej: Auditorio Municipal de Santa Ana"
           />
         </div>
+
+        {/* GPS del evento */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-gray-600">Punto GPS del evento</label>
+          <div className="mt-1 space-y-2">
+            {/* Coordenadas manuales */}
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="any"
+                placeholder="Latitud (ej: 13.99400)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={form.evento_latitud ?? ''}
+                onChange={(e) => setForm({ ...f => f, ...form, evento_latitud: e.target.value ? parseFloat(e.target.value) : null })}
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Longitud (ej: -89.56300)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={form.evento_longitud ?? ''}
+                onChange={(e) => setForm({ ...f => f, ...form, evento_longitud: e.target.value ? parseFloat(e.target.value) : null })}
+              />
+            </div>
+
+            {/* Botón capturar + estado */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={capturarGPSEvento}
+                disabled={gpsEstado === 'cargando'}
+                className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {gpsEstado === 'cargando'
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <MapPin className="w-3 h-3" />}
+                Capturar mi ubicación actual
+              </button>
+
+              {tieneGPS && (
+                <>
+                  <a
+                    href={`https://www.google.com/maps?q=${form.evento_latitud},${form.evento_longitud}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Ver en Maps
+                  </a>
+                  <button
+                    type="button"
+                    onClick={limpiarGPS}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    × Quitar GPS
+                  </button>
+                </>
+              )}
+            </div>
+
+            {gpsMsg && (
+              <p className={`text-xs ${gpsEstado === 'ok' ? 'text-green-600' : gpsEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>
+                {gpsEstado === 'ok' ? '✓ ' : gpsEstado === 'error' ? '✗ ' : '⏳ '}{gpsMsg}
+              </p>
+            )}
+          </div>
+        </div>
+
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Descripción</label>
           <textarea
@@ -275,13 +376,21 @@ export default function AdminTransportePage() {
   const sinGPS = registros.filter((r) => !r.latitud || !r.longitud)
   const conSolicitud = registros.filter((r) => r.solicitud_id)
 
-  function googleMapsRuta() {
-    const pts = conGPS.slice(0, 25) // límite Google Maps
+  function googleMapsRuta(eventoId?: string | null) {
+    const pts = conGPS.slice(0, 24) // dejamos 1 slot para el destino del evento
     if (pts.length === 0) return '#'
-    if (pts.length === 1) return `https://www.google.com/maps?q=${pts[0].latitud},${pts[0].longitud}`
-    const waypoints = pts.slice(1, -1).map((p) => `${p.latitud},${p.longitud}`).join('|')
+
+    // Si hay un evento con GPS seleccionado, úsalo como destino
+    const evActual = eventoId ? eventos.find((e) => e.id === eventoId) : null
+    const destEvento = evActual?.evento_latitud && evActual?.evento_longitud
+      ? `${evActual.evento_latitud},${evActual.evento_longitud}`
+      : null
+
     const origin = `${pts[0].latitud},${pts[0].longitud}`
-    const dest = `${pts[pts.length - 1].latitud},${pts[pts.length - 1].longitud}`
+    const dest = destEvento ?? `${pts[pts.length - 1].latitud},${pts[pts.length - 1].longitud}`
+    const waypoints = (destEvento ? pts.slice(1) : pts.slice(1, -1))
+      .map((p) => `${p.latitud},${p.longitud}`).join('|')
+
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? `&waypoints=${waypoints}` : ''}`
   }
 
@@ -375,6 +484,17 @@ export default function AdminTransportePage() {
                         {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
                       </p>
                       {ev.lugar && <p className="text-sm text-gray-500">📍 {ev.lugar}</p>}
+                      {ev.evento_latitud && ev.evento_longitud && (
+                        <a
+                          href={`https://www.google.com/maps?q=${ev.evento_latitud},${ev.evento_longitud}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          Ver ubicación del evento en Maps
+                        </a>
+                      )}
                       {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
                     </div>
                     <div className="flex gap-1 shrink-0">
@@ -415,13 +535,15 @@ export default function AdminTransportePage() {
             <div className="col-span-2 sm:col-span-1">
               {conGPS.length > 0 && (
                 <a
-                  href={googleMapsRuta()}
+                  href={googleMapsRuta(eventoSeleccionado)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 h-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  Ver ruta en Google Maps
+                  {eventoSeleccionado && eventos.find(e => e.id === eventoSeleccionado)?.evento_latitud
+                    ? 'Ruta → lugar del evento'
+                    : 'Ver ruta en Google Maps'}
                 </a>
               )}
             </div>
