@@ -30,6 +30,7 @@ type Evento = {
   descripcion: string | null
   fecha: string
   hora: string | null
+  hora_fin: string | null
   lugar: string | null
   evento_latitud: number | null
   evento_longitud: number | null
@@ -55,6 +56,26 @@ type Vista = 'login' | 'perfil'
 // Centro de El Salvador por defecto (Santa Ana)
 const DEFAULT_LAT = 13.9942
 const DEFAULT_LNG = -89.5629
+
+/** Devuelve true si ya pasaron 30 min desde la hora de finalización del evento */
+function eventoVencido(ev: Evento): boolean {
+  if (!ev.hora_fin) return false
+  // Construir fecha+hora de cierre: fecha del evento + hora_fin + 30 min
+  const [h, m] = ev.hora_fin.slice(0, 5).split(':').map(Number)
+  const cierre = new Date(`${ev.fecha}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`)
+  cierre.setMinutes(cierre.getMinutes() + 30)
+  return new Date() > cierre
+}
+
+/** Distancia Haversine en km */
+function distKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 function formatDui(raw: string) {
   const digits = raw.replace(/\D/g, '')
@@ -288,12 +309,14 @@ function TransporteAcciones({
   ev,
   sol,
   solicitando,
+  tieneGps,
   onSolicitar,
   onCancelar,
 }: {
   ev: Evento
   sol: Solicitud | undefined
   solicitando: boolean
+  tieneGps: boolean
   onSolicitar: (opts: { recogida: boolean; regreso: boolean }) => void
   onCancelar: () => void
 }) {
@@ -302,7 +325,9 @@ function TransporteAcciones({
 
   const tieneAlguno = ev.transporte_recogida || ev.transporte_regreso
   const ningunaSeleccionada = !selRecogida && !selRegreso
+  const vencido = eventoVencido(ev)
 
+  // Sin transporte configurado
   if (!tieneAlguno) {
     return (
       <div className="mt-3 text-xs text-gray-400 italic text-center py-1">
@@ -311,15 +336,26 @@ function TransporteAcciones({
     )
   }
 
+  // Evento cerrado para solicitudes
+  if (vencido && !sol) {
+    return (
+      <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-center">
+        <p className="text-xs text-gray-500 font-medium">⏱ Solicitudes cerradas</p>
+        <p className="text-xs text-gray-400">El plazo para solicitar transporte ya venció</p>
+      </div>
+    )
+  }
+
+  // Ya tiene solicitud: mostrar estado y motorista
   if (sol) {
     return (
       <div className="mt-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${estadoColor(sol.estado)}`}>
             {estadoIcon(sol.estado)}
-            Solicitud: {sol.estado}
+            Transporte solicitado
           </span>
-          {sol.estado === 'pendiente' && (
+          {!vencido && (
             <button onClick={onCancelar} className="text-xs text-red-500 hover:text-red-700 underline">
               Cancelar
             </button>
@@ -327,71 +363,90 @@ function TransporteAcciones({
         </div>
         <div className="flex gap-2 flex-wrap">
           {sol.solicita_recogida && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Recogida solicitada</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Recogida</span>
           )}
           {sol.solicita_regreso && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Ir a dejar solicitado</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Ir a dejar</span>
           )}
         </div>
         {/* Motorista asignado */}
         {sol.motorista_nombre ? (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-2">
-            <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 flex items-center gap-2.5">
+            <div className="bg-blue-600 text-white rounded-full p-1.5 shrink-0">
+              <Truck className="w-4 h-4" />
+            </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-blue-800">Tu motorista asignado</p>
-              <p className="text-sm text-blue-900 font-medium truncate">{sol.motorista_nombre}</p>
+              <p className="text-sm text-blue-900 font-medium leading-tight">{sol.motorista_nombre}</p>
               {sol.motorista_telefono && (
                 <a href={`tel:${sol.motorista_telefono}`}
-                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-0.5">
                   <Phone className="w-3 h-3" />{sol.motorista_telefono}
                 </a>
               )}
             </div>
           </div>
         ) : (
-          <p className="text-xs text-gray-400 italic">Motorista por asignar</p>
+          <p className="text-xs text-gray-400 italic">Motorista por asignar — te avisaremos pronto</p>
         )}
       </div>
     )
   }
 
+  // No ha solicitado aún
   return (
     <div className="mt-3 space-y-2">
-      {/* Opciones disponibles */}
+      {/* Aviso si no tiene GPS */}
+      {!tieneGps && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+          <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">
+            <span className="font-semibold">Registrá tu destino primero.</span>{' '}
+            Indicá dónde querés que te dejemos para poder solicitar transporte.
+          </p>
+        </div>
+      )}
+
       <p className="text-xs text-gray-500 font-medium">Seleccioná el transporte que necesitás:</p>
       <div className="flex gap-2 flex-wrap">
         {ev.transporte_recogida && (
-          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            <input
-              type="checkbox"
-              checked={selRecogida}
+          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            <input type="checkbox" checked={selRecogida}
               onChange={(e) => setSelRecogida(e.target.checked)}
-              className="w-3.5 h-3.5 accent-blue-600"
-            />
+              className="w-3.5 h-3.5 accent-blue-600" />
             🚐 Recogida
           </label>
         )}
         {ev.transporte_regreso && (
-          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${selRegreso ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            <input
-              type="checkbox"
-              checked={selRegreso}
+          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRegreso ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            <input type="checkbox" checked={selRegreso}
               onChange={(e) => setSelRegreso(e.target.checked)}
-              className="w-3.5 h-3.5 accent-indigo-600"
-            />
+              className="w-3.5 h-3.5 accent-indigo-600" />
             🏠 Ir a dejar
           </label>
         )}
       </div>
+
+      {/* Cierre de plazo */}
+      {ev.hora_fin && (
+        <p className="text-xs text-gray-400">
+          ⏱ Podés solicitar hasta 30 min después de las {ev.hora_fin.slice(0,5)}
+        </p>
+      )}
+
       <button
         onClick={() => onSolicitar({ recogida: selRecogida, regreso: selRegreso })}
-        disabled={solicitando || ningunaSeleccionada}
+        disabled={solicitando || ningunaSeleccionada || !tieneGps}
         className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
       >
         {solicitando
           ? <><Loader2 className="w-4 h-4 animate-spin" />Solicitando...</>
-          : <><Bus className="w-4 h-4" />{ningunaSeleccionada ? 'Seleccioná una opción' : 'Solicitar transporte'}</>}
+          : <><Bus className="w-4 h-4" />{!tieneGps ? 'Registrá tu destino primero' : ningunaSeleccionada ? 'Seleccioná una opción' : 'Solicitar transporte'}</>}
       </button>
+
+      <p className="text-xs text-gray-400 text-center">
+        Si no necesitás transporte, simplemente no solicites — solo para quien lo requiere.
+      </p>
     </div>
   )
 }
@@ -528,6 +583,68 @@ export default function TransportePage() {
     await guardarCoordenadas(lat, lng)
   }
 
+  async function autoDistribuirEvento(eventoId: string): Promise<Record<string, { nombre: string; telefono: string | null }>> {
+    // 1. Obtener motoristas con GPS
+    const { data: motData } = await supabase
+      .from('registros_dui')
+      .select('id, nombre, telefono, latitud, longitud')
+      .eq('es_motorista', true)
+      .not('latitud', 'is', null)
+      .not('longitud', 'is', null)
+
+    const motoristas = (motData ?? []) as { id: string; nombre: string; telefono: string | null; latitud: number; longitud: number }[]
+    if (motoristas.length === 0) return {}
+
+    // 2. Obtener todas las solicitudes del evento con GPS del pasajero
+    const { data: solsData } = await supabase
+      .from('solicitudes_transporte')
+      .select('id, registro_id, registros_dui:registro_id(latitud, longitud)')
+      .eq('evento_id', eventoId)
+
+    const sols = (solsData ?? []).map((s: any) => ({
+      id: s.id,
+      latitud: s.registros_dui?.latitud ?? null,
+      longitud: s.registros_dui?.longitud ?? null,
+    }))
+
+    if (sols.length === 0) return {}
+
+    // 3. Algoritmo greedy balanceado con Haversine
+    const cap = Math.ceil(sols.length / motoristas.length)
+    const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
+    const asignaciones: { solicitud_id: string; motorista_id: string }[] = []
+
+    const conGPS = sols.filter((s) => s.latitud && s.longitud)
+    const sinGPS = sols.filter((s) => !s.latitud || !s.longitud)
+
+    for (const sol of conGPS) {
+      const candidatos = motoristas
+        .filter((m) => carga[m.id] < cap)
+        .sort((a, b) =>
+          distKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
+          distKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
+        )
+      if (!candidatos.length) continue
+      carga[candidatos[0].id]++
+      asignaciones.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+    }
+
+    for (const sol of sinGPS) {
+      const motorista = [...motoristas].sort((a, b) => carga[a.id] - carga[b.id])[0]
+      carga[motorista.id]++
+      asignaciones.push({ solicitud_id: sol.id, motorista_id: motorista.id })
+    }
+
+    // 4. Limpiar y aplicar asignaciones
+    await supabase.from('solicitudes_transporte').update({ motorista_id: null }).eq('evento_id', eventoId)
+    for (const a of asignaciones) {
+      await supabase.from('solicitudes_transporte').update({ motorista_id: a.motorista_id }).eq('id', a.solicitud_id)
+    }
+
+    // Devolver mapa id → {nombre, telefono} para actualizar estado local
+    return Object.fromEntries(motoristas.map((m) => [m.id, { nombre: m.nombre, telefono: m.telefono }]))
+  }
+
   async function solicitarTransporte(
     eventoId: string,
     opts: { recogida: boolean; regreso: boolean }
@@ -548,10 +665,32 @@ export default function TransportePage() {
         .single()
 
       if (err) { alert('Error al solicitar transporte.'); return }
-      setSolicitudes((prev) => [...prev, {
+
+      // Agregar al estado local sin motorista inicialmente
+      const nuevaSol: Solicitud = {
         ...data,
         motorista_id: null, motorista_nombre: null, motorista_telefono: null
-      }])
+      }
+      setSolicitudes((prev) => [...prev, nuevaSol])
+
+      // Auto-distribuir motoristas para este evento
+      const motoristaMap = await autoDistribuirEvento(eventoId)
+
+      // Actualizar estado local: refetch la solicitud recién creada con motorista asignado
+      const { data: solActualizada } = await supabase
+        .from('solicitudes_transporte')
+        .select('id, motorista_id')
+        .eq('id', data.id)
+        .single()
+
+      if (solActualizada?.motorista_id && motoristaMap[solActualizada.motorista_id]) {
+        const mot = motoristaMap[solActualizada.motorista_id]
+        setSolicitudes((prev) => prev.map((s) =>
+          s.id === data.id
+            ? { ...s, motorista_id: solActualizada.motorista_id, motorista_nombre: mot.nombre, motorista_telefono: mot.telefono }
+            : s
+        ))
+      }
     } finally {
       setSolicitando(null)
     }
@@ -751,6 +890,7 @@ export default function TransportePage() {
                           <p className="text-xs text-gray-500 mt-0.5">
                             📅 {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                             {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
+                            {ev.hora_fin && ` – ${ev.hora_fin.slice(0, 5)}`}
                           </p>
                           {ev.lugar && <p className="text-xs text-gray-500">📍 {ev.lugar}</p>}
                           {ev.evento_latitud && ev.evento_longitud && (
@@ -772,6 +912,7 @@ export default function TransportePage() {
                         ev={ev}
                         sol={sol}
                         solicitando={solicitando === ev.id}
+                        tieneGps={!!(registro?.latitud && registro?.longitud)}
                         onSolicitar={(opts) => solicitarTransporte(ev.id, opts)}
                         onCancelar={() => sol && cancelarSolicitud(sol.id)}
                       />

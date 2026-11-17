@@ -15,7 +15,7 @@ const supabase = createClient(
 // ── Tipos ────────────────────────────────────────────────────
 type Evento = {
   id: string; nombre: string; descripcion: string | null
-  fecha: string; hora: string | null; lugar: string | null
+  fecha: string; hora: string | null; hora_fin: string | null; lugar: string | null
   evento_latitud: number | null; evento_longitud: number | null
   transporte_recogida: boolean; transporte_regreso: boolean
   activo: boolean; created_at: string
@@ -70,6 +70,7 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     descripcion: inicial?.descripcion ?? '',
     fecha: inicial?.fecha ?? '',
     hora: inicial?.hora ?? '',
+    hora_fin: inicial?.hora_fin ?? '',
     lugar: inicial?.lugar ?? '',
     evento_latitud: inicial?.evento_latitud ?? null as number | null,
     evento_longitud: inicial?.evento_longitud ?? null as number | null,
@@ -99,7 +100,8 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     setGuardando(true)
     await onGuardar({
       nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null,
-      fecha: form.fecha, hora: form.hora || null, lugar: form.lugar.trim() || null,
+      fecha: form.fecha, hora: form.hora || null, hora_fin: form.hora_fin || null,
+      lugar: form.lugar.trim() || null,
       evento_latitud: form.evento_latitud, evento_longitud: form.evento_longitud,
       transporte_recogida: form.transporte_recogida,
       transporte_regreso: form.transporte_regreso,
@@ -125,9 +127,15 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
             value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600">Hora</label>
+          <label className="text-xs font-medium text-gray-600">Hora inicio</label>
           <input type="time" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600">Hora finalización</label>
+          <input type="time" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={form.hora_fin} onChange={(e) => setForm({ ...form, hora_fin: e.target.value })} />
+          <p className="text-xs text-gray-400 mt-0.5">Solicitudes se cierran 30 min después</p>
         </div>
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Lugar</label>
@@ -460,6 +468,7 @@ export default function AdminTransportePage() {
                       <p className="text-sm text-gray-500 mt-1">
                         📅 {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
+                        {ev.hora_fin && ` – ${ev.hora_fin.slice(0, 5)}`}
                       </p>
                       {ev.lugar && <p className="text-sm text-gray-500">📍 {ev.lugar}</p>}
                       {ev.evento_latitud && ev.evento_longitud && (
