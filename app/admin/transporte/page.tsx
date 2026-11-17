@@ -21,6 +21,8 @@ type Evento = {
   lugar: string | null
   evento_latitud: number | null
   evento_longitud: number | null
+  transporte_recogida: boolean
+  transporte_regreso: boolean
   activo: boolean
   created_at: string
 }
@@ -37,6 +39,8 @@ type RegistroConSolicitud = {
   coordenadas_at: string | null
   solicitud_id: string | null
   solicitud_estado: string | null
+  solicita_recogida: boolean
+  solicita_regreso: boolean
 }
 
 type TabActiva = 'eventos' | 'ubicaciones' | 'solicitudes'
@@ -75,6 +79,8 @@ function FormEvento({
     lugar: inicial?.lugar ?? '',
     evento_latitud: inicial?.evento_latitud ?? null as number | null,
     evento_longitud: inicial?.evento_longitud ?? null as number | null,
+    transporte_recogida: inicial?.transporte_recogida ?? false,
+    transporte_regreso: inicial?.transporte_regreso ?? false,
     activo: inicial?.activo ?? true,
   })
   const [guardando, setGuardando] = useState(false)
@@ -114,6 +120,8 @@ function FormEvento({
       lugar: form.lugar.trim() || null,
       evento_latitud: form.evento_latitud,
       evento_longitud: form.evento_longitud,
+      transporte_recogida: form.transporte_recogida,
+      transporte_regreso: form.transporte_regreso,
       activo: form.activo,
     })
     setGuardando(false)
@@ -238,6 +246,37 @@ function FormEvento({
             onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
           />
         </div>
+        {/* Tipos de transporte disponibles */}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-gray-600 block mb-2">Transporte disponible para este evento</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.transporte_recogida ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <input
+                type="checkbox"
+                checked={form.transporte_recogida}
+                onChange={(e) => setForm({ ...form, transporte_recogida: e.target.checked })}
+                className="w-4 h-4 accent-blue-600"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-800">🚐 Recogida</p>
+                <p className="text-xs text-gray-400 leading-tight">Ir a recoger a las personas desde su destino hasta el evento</p>
+              </div>
+            </label>
+            <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.transporte_regreso ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <input
+                type="checkbox"
+                checked={form.transporte_regreso}
+                onChange={(e) => setForm({ ...form, transporte_regreso: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-800">🏠 Ir a dejar</p>
+                <p className="text-xs text-gray-400 leading-tight">Llevar a las personas de vuelta a su destino tras el evento</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <div className="sm:col-span-2 flex items-center gap-2">
           <input
             type="checkbox"
@@ -302,12 +341,17 @@ export default function AdminTransportePage() {
     if (eventoId) {
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
-        .select('id, registro_id, estado')
+        .select('id, registro_id, estado, solicita_recogida, solicita_regreso')
         .eq('evento_id', eventoId)
 
       if (sols) {
         solicitudesMap = Object.fromEntries(
-          sols.map((s) => [s.registro_id, { id: s.id, estado: s.estado }])
+          sols.map((s) => [s.registro_id, {
+            id: s.id,
+            estado: s.estado,
+            solicita_recogida: s.solicita_recogida,
+            solicita_regreso: s.solicita_regreso,
+          }])
         )
       }
     }
@@ -325,6 +369,8 @@ export default function AdminTransportePage() {
         coordenadas_at: r.coordenadas_at,
         solicitud_id: solicitudesMap[r.id]?.id ?? null,
         solicitud_estado: solicitudesMap[r.id]?.estado ?? null,
+        solicita_recogida: solicitudesMap[r.id]?.solicita_recogida ?? false,
+        solicita_regreso: solicitudesMap[r.id]?.solicita_regreso ?? false,
       }))
     )
   }, [])
@@ -495,6 +541,17 @@ export default function AdminTransportePage() {
                           Ver ubicación del evento en Maps
                         </a>
                       )}
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {ev.transporte_recogida && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Recogida</span>
+                        )}
+                        {ev.transporte_regreso && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Ir a dejar</span>
+                        )}
+                        {!ev.transporte_recogida && !ev.transporte_regreso && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin transporte configurado</span>
+                        )}
+                      </div>
                       {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
                     </div>
                     <div className="flex gap-1 shrink-0">
@@ -690,7 +747,17 @@ export default function AdminTransportePage() {
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              {estadoBadge(r.solicitud_estado)}
+                              <div className="space-y-1">
+                                {estadoBadge(r.solicitud_estado)}
+                                <div className="flex gap-1 flex-wrap">
+                                  {r.solicita_recogida && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">🚐</span>
+                                  )}
+                                  {r.solicita_regreso && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">🏠</span>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex gap-1 justify-center">

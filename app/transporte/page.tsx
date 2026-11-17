@@ -33,6 +33,8 @@ type Evento = {
   lugar: string | null
   evento_latitud: number | null
   evento_longitud: number | null
+  transporte_recogida: boolean
+  transporte_regreso: boolean
   activo: boolean
 }
 
@@ -40,6 +42,8 @@ type Solicitud = {
   id: string
   evento_id: string
   estado: string
+  solicita_recogida: boolean
+  solicita_regreso: boolean
   created_at: string
 }
 
@@ -276,6 +280,101 @@ function MapaModal({
   )
 }
 
+// ── Acciones de transporte por evento ───────────────────────
+function TransporteAcciones({
+  ev,
+  sol,
+  solicitando,
+  onSolicitar,
+  onCancelar,
+}: {
+  ev: Evento
+  sol: Solicitud | undefined
+  solicitando: boolean
+  onSolicitar: (opts: { recogida: boolean; regreso: boolean }) => void
+  onCancelar: () => void
+}) {
+  const [selRecogida, setSelRecogida] = useState(false)
+  const [selRegreso, setSelRegreso]   = useState(false)
+
+  const tieneAlguno = ev.transporte_recogida || ev.transporte_regreso
+  const ningunaSeleccionada = !selRecogida && !selRegreso
+
+  if (!tieneAlguno) {
+    return (
+      <div className="mt-3 text-xs text-gray-400 italic text-center py-1">
+        Sin transporte disponible para este evento
+      </div>
+    )
+  }
+
+  if (sol) {
+    return (
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${estadoColor(sol.estado)}`}>
+            {estadoIcon(sol.estado)}
+            Solicitud: {sol.estado}
+          </span>
+          {sol.estado === 'pendiente' && (
+            <button onClick={onCancelar} className="text-xs text-red-500 hover:text-red-700 underline">
+              Cancelar
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {sol.solicita_recogida && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Recogida solicitada</span>
+          )}
+          {sol.solicita_regreso && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Ir a dejar solicitado</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      {/* Opciones disponibles */}
+      <p className="text-xs text-gray-500 font-medium">Seleccioná el transporte que necesitás:</p>
+      <div className="flex gap-2 flex-wrap">
+        {ev.transporte_recogida && (
+          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            <input
+              type="checkbox"
+              checked={selRecogida}
+              onChange={(e) => setSelRecogida(e.target.checked)}
+              className="w-3.5 h-3.5 accent-blue-600"
+            />
+            🚐 Recogida
+          </label>
+        )}
+        {ev.transporte_regreso && (
+          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${selRegreso ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            <input
+              type="checkbox"
+              checked={selRegreso}
+              onChange={(e) => setSelRegreso(e.target.checked)}
+              className="w-3.5 h-3.5 accent-indigo-600"
+            />
+            🏠 Ir a dejar
+          </label>
+        )}
+      </div>
+      <button
+        onClick={() => onSolicitar({ recogida: selRecogida, regreso: selRegreso })}
+        disabled={solicitando || ningunaSeleccionada}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+      >
+        {solicitando
+          ? <><Loader2 className="w-4 h-4 animate-spin" />Solicitando...</>
+          : <><Bus className="w-4 h-4" />{ningunaSeleccionada ? 'Seleccioná una opción' : 'Solicitar transporte'}</>}
+      </button>
+    </div>
+  )
+}
+
 // ── Componente principal ─────────────────────────────────────
 export default function TransportePage() {
   const [vista, setVista] = useState<Vista>('login')
@@ -331,7 +430,7 @@ export default function TransportePage() {
 
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
-        .select('id, evento_id, estado, created_at')
+        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, created_at')
         .eq('registro_id', reg.id)
 
       setRegistro(reg)
@@ -396,14 +495,23 @@ export default function TransportePage() {
     await guardarCoordenadas(lat, lng)
   }
 
-  async function solicitarTransporte(eventoId: string) {
+  async function solicitarTransporte(
+    eventoId: string,
+    opts: { recogida: boolean; regreso: boolean }
+  ) {
     if (!registro) return
     setSolicitando(eventoId)
     try {
       const { data, error: err } = await supabase
         .from('solicitudes_transporte')
-        .insert({ registro_id: registro.id, evento_id: eventoId, estado: 'pendiente' })
-        .select('id, evento_id, estado, created_at')
+        .insert({
+          registro_id: registro.id,
+          evento_id: eventoId,
+          estado: 'pendiente',
+          solicita_recogida: opts.recogida,
+          solicita_regreso: opts.regreso,
+        })
+        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, created_at')
         .single()
 
       if (err) { alert('Error al solicitar transporte.'); return }
@@ -624,34 +732,13 @@ export default function TransportePage() {
                         </div>
                       </div>
 
-                      <div className="mt-3">
-                        {sol ? (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full ${estadoColor(sol.estado)}`}>
-                              {estadoIcon(sol.estado)}
-                              Transporte: {sol.estado}
-                            </span>
-                            {sol.estado === 'pendiente' && (
-                              <button
-                                onClick={() => cancelarSolicitud(sol.id)}
-                                className="text-xs text-red-500 hover:text-red-700 underline"
-                              >
-                                Cancelar
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => solicitarTransporte(ev.id)}
-                            disabled={solicitando === ev.id}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            {solicitando === ev.id
-                              ? <><Loader2 className="w-4 h-4 animate-spin" />Solicitando...</>
-                              : <><Bus className="w-4 h-4" />Solicitar transporte</>}
-                          </button>
-                        )}
-                      </div>
+                      <TransporteAcciones
+                        ev={ev}
+                        sol={sol}
+                        solicitando={solicitando === ev.id}
+                        onSolicitar={(opts) => solicitarTransporte(ev.id, opts)}
+                        onCancelar={() => sol && cancelarSolicitud(sol.id)}
+                      />
                     </div>
                   )
                 })}
