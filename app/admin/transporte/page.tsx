@@ -328,8 +328,8 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
                 onChange={(e) => setForm({ ...form, transporte_recogida: e.target.checked })}
                 className="w-4 h-4 accent-blue-600" />
               <div>
-                <p className="text-sm font-medium text-gray-800">🚐 Recogida</p>
-                <p className="text-xs text-gray-400">Ir a recoger al personal</p>
+                <p className="text-sm font-medium text-gray-800">🚐 Llevarme al evento</p>
+                <p className="text-xs text-gray-400">Ir a recoger al personal para llevarlo al evento</p>
               </div>
             </label>
             <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.transporte_regreso ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
@@ -337,8 +337,8 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
                 onChange={(e) => setForm({ ...form, transporte_regreso: e.target.checked })}
                 className="w-4 h-4 accent-indigo-600" />
               <div>
-                <p className="text-sm font-medium text-gray-800">🏠 Ir a dejar</p>
-                <p className="text-xs text-gray-400">Llevar de vuelta al personal</p>
+                <p className="text-sm font-medium text-gray-800">🏠 Llevarme a casa</p>
+                <p className="text-xs text-gray-400">Llevar al personal de regreso a su destino</p>
               </div>
             </label>
           </div>
@@ -638,8 +638,8 @@ export default function AdminTransportePage() {
                         </a>
                       )}
                       <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                        {ev.transporte_recogida && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Recogida</span>}
-                        {ev.transporte_regreso && <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Ir a dejar</span>}
+                        {ev.transporte_recogida && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Llevarme al evento</span>}
+                        {ev.transporte_regreso && <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Llevarme a casa</span>}
                         {!ev.transporte_recogida && !ev.transporte_regreso && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin transporte configurado</span>
                         )}

@@ -372,10 +372,10 @@ function TransporteAcciones({
         </div>
         <div className="flex gap-2 flex-wrap">
           {sol.solicita_recogida && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Recogida</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Llevarme al evento</span>
           )}
           {sol.solicita_regreso && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Ir a dejar</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Llevarme a casa</span>
           )}
         </div>
         {/* Motorista asignado */}
@@ -417,8 +417,8 @@ function TransporteAcciones({
   }
 
   if (confirmando) {
-    const falta = selRecogida ? '🏠 Ir a dejar al regreso' : '🚐 Recogida'
-    const tieneLabel = selRecogida ? '🚐 Recogida' : '🏠 Ir a dejar'
+    const falta = selRecogida ? '🏠 Llevarme a casa' : '🚐 Llevarme al evento'
+    const tieneLabel = selRecogida ? '🚐 Llevarme al evento' : '🏠 Llevarme a casa'
     return (
       <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
         <p className="text-sm font-semibold text-amber-800">¡Un momento antes de confirmar! 🙂</p>
@@ -464,7 +464,7 @@ function TransporteAcciones({
             <input type="checkbox" checked={selRecogida}
               onChange={(e) => setSelRecogida(e.target.checked)}
               className="w-3.5 h-3.5 accent-blue-600" />
-            🚐 Recogida
+            🚐 Llevarme al evento
           </label>
         )}
         {ev.transporte_regreso && (
@@ -472,7 +472,7 @@ function TransporteAcciones({
             <input type="checkbox" checked={selRegreso}
               onChange={(e) => setSelRegreso(e.target.checked)}
               className="w-3.5 h-3.5 accent-indigo-600" />
-            🏠 Ir a dejar
+            🏠 Llevarme a casa
           </label>
         )}
       </div>
