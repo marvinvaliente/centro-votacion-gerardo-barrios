@@ -1108,7 +1108,7 @@ export default function PortalPage() {
                   </div>
                 </>
               ) : (
-                <div className="p-10 text-center">
+                <div className="p-8 text-center">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
                     style={{ background: 'rgba(5,150,105,.15)', border: '1px solid rgba(5,150,105,.3)' }}>
                     <Check size={30} style={{ color: '#34d399' }} />
@@ -1117,9 +1117,30 @@ export default function PortalPage() {
                   <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.5)', lineHeight: 1.7 }}>
                     Su registro ha sido recibido. El equipo administrativo revisará su solicitud y le habilitará el acceso al portal.
                   </p>
+
+                  {/* Pregunta de transporte */}
+                  <div className="rounded-xl p-4 mb-5 text-left" style={{ background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.3)' }}>
+                    <p className="text-sm font-semibold text-white mb-1">🚐 ¿Necesita transporte al evento?</p>
+                    <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,.5)' }}>
+                      Puede solicitar que un motorista lo lleve al evento o lo traiga de regreso.
+                    </p>
+                    <div className="flex gap-2">
+                      <a href={`/transporte?dui=${dui.replace(/\D/g,'')}`}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-center"
+                        style={{ background: 'rgba(99,102,241,.8)', color: '#fff' }}>
+                        Sí, solicitar transporte
+                      </a>
+                      <button onClick={() => { setVistaLogin('dui'); setErrorLogin(''); resetFormReg() }}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                        style={{ background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.6)', border: '1px solid rgba(255,255,255,.1)' }}>
+                        No, gracias
+                      </button>
+                    </div>
+                  </div>
+
                   <button onClick={() => { setVistaLogin('dui'); setErrorLogin(''); resetFormReg() }}
-                    className="w-full py-3 rounded-xl text-sm font-medium"
-                    style={{ background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', border: '1px solid rgba(255,255,255,.12)' }}>
+                    className="w-full py-2.5 rounded-xl text-xs"
+                    style={{ color: 'rgba(255,255,255,.25)' }}>
                     ← Volver al inicio
                   </button>
                 </div>
