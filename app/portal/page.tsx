@@ -802,7 +802,7 @@ export default function PortalPage() {
                 value={dui}
                 onChange={e => setDui(formatDUI(e.target.value))}
                 onKeyDown={e => e.key === 'Enter' && verificarDUI()}
-                placeholder="Con o sin guión"
+                placeholder="00000000-0"
                 maxLength={10}
                 className="w-full rounded-xl text-center font-mono text-2xl font-bold mb-2 outline-none transition-all"
                 style={{
@@ -818,7 +818,7 @@ export default function PortalPage() {
 
               {errorLogin
                 ? <p className="text-xs mb-4 text-center" style={{ color: '#f87171' }}>{errorLogin}</p>
-                : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9</p>
+                : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;·&nbsp; El guión es opcional</p>
               }
 
               <button
