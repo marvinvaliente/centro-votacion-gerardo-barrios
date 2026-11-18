@@ -79,29 +79,18 @@
     .hero-inner {
       max-width: 480px;
       margin: 0 auto;
-      padding: 36px max(16px, env(safe-area-inset-left, 16px)) 32px max(16px, env(safe-area-inset-right, 16px));
+      padding: 16px max(16px, env(safe-area-inset-left, 16px)) 14px max(16px, env(safe-area-inset-right, 16px));
       position: relative;
       z-index: 1;
+      display: flex; align-items: center; gap: 10px;
     }
-    .hero-eyebrow {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--gold-dim); border: 1px solid rgba(200,168,75,.35);
-      color: var(--gold-light);
-      font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-      padding: 5px 12px; border-radius: 999px; margin-bottom: 16px;
-    }
+    .hero-eyebrow { display: none; }
     .hero-title {
-      font-size: clamp(22px, 6vw, 28px);
-      font-weight: 800; line-height: 1.15;
-      color: var(--white);
-      text-wrap: balance;
-      margin-bottom: 8px;
+      font-size: 16px; font-weight: 800; line-height: 1.2;
+      color: var(--white); margin: 0;
     }
     .hero-title span { color: var(--gold-light); }
-    .hero-sub {
-      font-size: 13px; color: rgba(255,255,255,.55);
-      line-height: 1.6; text-wrap: balance;
-    }
+    .hero-sub { display: none; }
 
     /* ═══════════════════════════════════════
        PROGRESS STEPPER
@@ -477,12 +466,8 @@
 <!-- HERO -->
 <header class="hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="m16 8 4 4-4 4"/><path d="M20 12H7"/></svg>
-      Módulo de Transporte
-    </div>
-    <h1 class="hero-title">Cómo solicitar<br><span>tu transporte</span></h1>
-    <p class="hero-sub">Complejo Educativo Cap. General Gerardo Barrios · Guía paso a paso</p>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(200,168,75,.9)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="m16 8 4 4-4 4"/><path d="M20 12H7"/></svg>
+    <h1 class="hero-title">Cómo solicitar <span>transporte</span></h1>
   </div>
 </header>
 
