@@ -196,7 +196,6 @@ export default function PortalPage() {
   function formatDUI(v: string) {
     const d = v.replace(/\D/g, '').slice(0, 9)
     if (d.length > 8) return d.slice(0, 8) + '-' + d.slice(8)
-    if (d.length === 8) return d + '-'
     return d
   }
 
@@ -802,7 +801,7 @@ export default function PortalPage() {
                 value={dui}
                 onChange={e => setDui(formatDUI(e.target.value))}
                 onKeyDown={e => e.key === 'Enter' && verificarDUI()}
-                placeholder="00000000-0"
+                placeholder="Con o sin guión"
                 maxLength={10}
                 className="w-full rounded-xl text-center font-mono text-2xl font-bold mb-2 outline-none transition-all"
                 style={{
