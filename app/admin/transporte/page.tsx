@@ -892,10 +892,11 @@ export default function AdminTransportePage() {
   function googleMapsRuta(motoristaId: string) {
     const sols = solicitudes.filter((s) => s.motorista_id === motoristaId && s.latitud && s.longitud)
     const motorista = registros.find((r) => r.id === motoristaId)
-    if (sols.length === 0 || !motorista?.latitud) return '#'
+    if (sols.length === 0) return '#'
 
     const ev = eventos.find((e) => e.id === eventoSeleccionado)
-    const origin = motorista.latitud && motorista.longitud
+    // Si el motorista no tiene GPS, parte desde el primer pasajero
+    const origin = motorista?.latitud && motorista?.longitud
       ? `${motorista.latitud},${motorista.longitud}`
       : `${sols[0].latitud},${sols[0].longitud}`
     const dest = ev?.evento_latitud && ev?.evento_longitud
