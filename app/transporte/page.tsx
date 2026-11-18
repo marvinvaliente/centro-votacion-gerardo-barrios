@@ -957,8 +957,32 @@ function TransporteInner() {
             </button>
           </section>
 
+          {/* Banner GPS obligatorio */}
+          {!(registro?.latitud && registro?.longitud) && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 text-center space-y-3">
+              <div className="flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mx-auto">
+                <MapPin className="w-7 h-7 text-red-600" />
+              </div>
+              <div>
+                <p className="font-bold text-red-800 text-base">Ubicación requerida 📍</p>
+                <p className="text-sm text-red-700 mt-1">
+                  Antes de solicitar transporte necesitás registrar tu punto de destino (tu casa u otro lugar).
+                  Esto permite organizar la ruta del motorista.
+                </p>
+              </div>
+              <button
+                onClick={() => setMostrarMapa(true)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <Map className="w-5 h-5" />
+                Marcar mi destino ahora
+              </button>
+              <p className="text-xs text-red-500">No podrás solicitar transporte hasta completar este paso.</p>
+            </div>
+          )}
+
           {/* Eventos y solicitudes */}
-          <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <section className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 ${!(registro?.latitud && registro?.longitud) ? 'opacity-40 pointer-events-none select-none' : ''}`}>
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="w-5 h-5 text-blue-600" />
               <h2 className="font-semibold text-gray-800">Eventos y Transporte</h2>
