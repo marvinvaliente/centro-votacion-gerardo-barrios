@@ -8,6 +8,7 @@ import {
   FileText, Video, File, Music, ShieldAlert, Check, Truck
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
+import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
 
@@ -1256,7 +1257,8 @@ export default function PortalPage() {
             </button>
           ))}
         </nav>
-        <div className="px-2 pb-4" style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 12 }}>
+        <div className="px-2 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 12 }}>
+          <InstallPWA variant="sidebar" />
           <button onClick={cerrarSesion} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm"
             style={{ color: 'rgba(255,255,255,.45)' }}
             onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
@@ -1289,6 +1291,7 @@ export default function PortalPage() {
               </button>
             )
           })}
+          <InstallPWA variant="bottombar" />
           <button onClick={cerrarSesion}
             className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
             style={{ color: 'rgba(255,255,255,.35)', minHeight: 58, minWidth: 56, padding: '8px 4px' }}>
