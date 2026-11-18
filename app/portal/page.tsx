@@ -5,7 +5,7 @@ import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
-  FileText, Video, File, Music, ShieldAlert, Check
+  FileText, Video, File, Music, ShieldAlert, Check, Truck
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
@@ -1187,13 +1187,15 @@ export default function PortalPage() {
   }
 
   /* ── PORTAL ── */
-  const esAdmin = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
+  const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
+  const esMotorista = !!(registro as any)?.es_motorista
   const NAV = [
     { key: 'perfil',      label: 'Mi Perfil',        icon: User,       href: null },
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,      href: null },
     { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen,   href: null },
     { key: 'calendario',  label: 'Calendario',        icon: Calendar,   href: null },
     { key: 'transporte',  label: 'Transporte',        icon: Bus,        href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}` }] : []),
     ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin' }] : []),
   ]
 
