@@ -170,6 +170,8 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
     punto_reunion_lng: inicial?.punto_reunion_lng ?? null as number | null,
   })
   const [selMotoristas, setSelMotoristas] = useState<string[]>(motoristasSeleccionados)
+  // Sincronizar cuando el padre carga los motoristas del evento (carga async)
+  useEffect(() => { setSelMotoristas(motoristasSeleccionados) }, [motoristasSeleccionados])
   const [guardando, setGuardando] = useState(false)
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
   const [gpsMsg, setGpsMsg] = useState('')
