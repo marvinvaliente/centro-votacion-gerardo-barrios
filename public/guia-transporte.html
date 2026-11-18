@@ -727,7 +727,20 @@ function reiniciarGuia() {
   document.getElementById('stepCard').style.display  = ''
   document.getElementById('hintRow').style.display   = ''
   setStepperBtns(true)
-  goTo(0)
+  // Resetear cur a un índice válido antes de llamar goTo
+  const screens = document.querySelectorAll('.screen')
+  screens.forEach(s => s.classList.remove('active', 'exit'))
+  cur = 0
+  screens[0].classList.add('active')
+  const s = STEPS[0]
+  document.getElementById('stepLabel').textContent = s.label
+  document.getElementById('stepTitle').textContent = s.title
+  document.getElementById('stepBody').innerHTML   = s.body
+  document.getElementById('btnPrev').disabled = true
+  const btn = document.getElementById('btnNext')
+  btn.textContent = 'Siguiente →'
+  btn.className   = 'btn-next'
+  renderStepper()
 }
 
 /* ═══════════════════════════════════════════
