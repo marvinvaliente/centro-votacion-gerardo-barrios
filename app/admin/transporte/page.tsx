@@ -660,13 +660,52 @@ export default function AdminTransportePage() {
     }
     await cargarEventos(); setMostrarFormEvento(false)
   }
+  async function redistribuirEvento(eventoId: string, motoristaIds: string[]) {
+    // Obtener solicitudes existentes para este evento
+    const { data: solsData } = await supabase
+      .from('solicitudes_transporte')
+      .select('id, registro_id, registro:registro_id(latitud, longitud)')
+      .eq('evento_id', eventoId)
+    const sols = (solsData ?? []).map((s: any) => ({
+      id: s.id,
+      latitud: s.registro?.latitud ?? null,
+      longitud: s.registro?.longitud ?? null,
+    }))
+    if (sols.length === 0) return // sin solicitudes, nada que redistribuir
+
+    // Obtener GPS de los motoristas nuevos
+    const { data: motData } = await supabase
+      .from('registros_dui')
+      .select('id, latitud, longitud')
+      .in('id', motoristaIds)
+      .not('latitud', 'is', null)
+      .not('longitud', 'is', null)
+    const motoristasGps = (motData ?? []) as { id: string; latitud: number; longitud: number }[]
+    if (motoristasGps.length === 0) return // sin GPS, no se puede distribuir
+
+    const asignaciones = distribuirMotoristas(
+      motoristasGps.map(m => ({ id: m.id, latitud: m.latitud, longitud: m.longitud })),
+      sols.map(s => ({ id: s.id, latitud: s.latitud, longitud: s.longitud }))
+    )
+
+    await supabase.from('solicitudes_transporte').update({ motorista_id: null }).eq('evento_id', eventoId)
+    for (const a of asignaciones) {
+      await supabase.from('solicitudes_transporte').update({ motorista_id: a.motorista_id }).eq('id', a.solicitud_id)
+    }
+    // Refrescar solicitudes si este evento está seleccionado
+    if (eventoSeleccionado === eventoId) await cargarSolicitudes(eventoId)
+  }
+
   async function actualizarEvento(ev: Partial<Evento>, motoristaIds: string[]) {
     if (!editandoEvento) return
-    await supabase.from('eventos_transporte').update(ev).eq('id', editandoEvento.id)
+    const eventoId = editandoEvento.id
+    await supabase.from('eventos_transporte').update(ev).eq('id', eventoId)
     // Reemplazar motoristas del evento
-    await supabase.from('evento_motoristas').delete().eq('evento_id', editandoEvento.id)
+    await supabase.from('evento_motoristas').delete().eq('evento_id', eventoId)
     if (motoristaIds.length > 0) {
-      await supabase.from('evento_motoristas').insert(motoristaIds.map(mid => ({ evento_id: editandoEvento.id, motorista_id: mid })))
+      await supabase.from('evento_motoristas').insert(motoristaIds.map(mid => ({ evento_id: eventoId, motorista_id: mid })))
+      // Redistribuir automáticamente las solicitudes existentes
+      await redistribuirEvento(eventoId, motoristaIds)
     }
     await cargarEventos(); setEditandoEvento(null); setMotoristasEvento([])
   }
