@@ -337,6 +337,7 @@ function TransporteAcciones({
   const [selRecogida, setSelRecogida] = useState(false)
   const [selRegreso, setSelRegreso]   = useState(false)
   const [tipoRecogida, setTipoRecogida] = useState<'domicilio' | 'punto_reunion'>('domicilio')
+  const [tooltipVisible, setTooltipVisible] = useState<'recogida' | 'regreso' | null>(null)
   const tienePuntoReunion = !!(ev.punto_reunion_lat && ev.punto_reunion_lng)
 
   const tieneAlguno = ev.transporte_recogida || ev.transporte_regreso
@@ -476,7 +477,11 @@ function TransporteAcciones({
         {ev.transporte_recogida && (
           <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             <input type="checkbox" checked={selRecogida}
-              onChange={(e) => { setSelRecogida(e.target.checked); if (!e.target.checked) setTipoRecogida('domicilio') }}
+              onChange={(e) => {
+                setSelRecogida(e.target.checked)
+                if (!e.target.checked) { setTipoRecogida('domicilio'); setTooltipVisible(null) }
+                else setTooltipVisible('recogida')
+              }}
               className="w-3.5 h-3.5 accent-blue-600" />
             🚐 Llevarme al evento
           </label>
@@ -484,12 +489,49 @@ function TransporteAcciones({
         {ev.transporte_regreso && (
           <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRegreso ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             <input type="checkbox" checked={selRegreso}
-              onChange={(e) => setSelRegreso(e.target.checked)}
+              onChange={(e) => {
+                setSelRegreso(e.target.checked)
+                if (!e.target.checked) setTooltipVisible(null)
+                else setTooltipVisible('regreso')
+              }}
               className="w-3.5 h-3.5 accent-indigo-600" />
             🏠 Llevarme a casa
           </label>
         )}
       </div>
+
+      {/* Mensajes emergentes por opción */}
+      {tooltipVisible === 'recogida' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5 animate-in">
+          <span className="text-lg flex-shrink-0">🚐</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-blue-800">Recogida en tu casa</p>
+            <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
+              Un motorista pasará a recogerte <strong>desde el punto que marcaste en el mapa</strong> y te llevará directamente al evento.
+              {tienePuntoReunion && ev.punto_reunion_nombre && (
+                <> En este evento la recogida será en <strong>{ev.punto_reunion_nombre}</strong>.</>
+              )}
+            </p>
+          </div>
+          <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      {tooltipVisible === 'regreso' && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-start gap-2.5">
+          <span className="text-lg flex-shrink-0">🏠</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-indigo-800">Regreso a tu casa</p>
+            <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
+              Al finalizar el evento, el motorista te llevará de regreso <strong>al punto que registraste en el mapa</strong>. Asegurate de que tus coordenadas GPS estén correctas.
+            </p>
+          </div>
+          <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-indigo-400 hover:text-indigo-600 ml-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Punto de reunión: si el evento lo tiene, es el único método de recogida */}
       {selRecogida && tienePuntoReunion && (
