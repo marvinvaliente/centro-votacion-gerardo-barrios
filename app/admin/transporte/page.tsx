@@ -46,6 +46,81 @@ function fmt12(hora: string | null | undefined): string {
   return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
 }
 
+/** Convierte "HH:MM" (24h) → { h12, min, ampm } para los selects */
+function parse24(val: string | null | undefined): { h12: string; min: string; ampm: 'AM' | 'PM' } {
+  if (!val) return { h12: '', min: '00', ampm: 'AM' }
+  const [h, m] = val.slice(0, 5).split(':').map(Number)
+  return {
+    h12: String(h % 12 === 0 ? 12 : h % 12),
+    min: String(m).padStart(2, '0'),
+    ampm: h < 12 ? 'AM' : 'PM',
+  }
+}
+
+/** Convierte { h12, min, ampm } → "HH:MM" (24h) para guardar en DB */
+function to24(h12: string, min: string, ampm: 'AM' | 'PM'): string | null {
+  const h = parseInt(h12)
+  if (!h12 || isNaN(h)) return null
+  let h24 = ampm === 'AM' ? (h === 12 ? 0 : h) : (h === 12 ? 12 : h + 12)
+  return `${String(h24).padStart(2, '0')}:${min}`
+}
+
+/** Selector de hora 12h: hora (1-12) + minutos (00/15/30/45) + AM/PM */
+function HoraPicker({
+  value, onChange, label, hint,
+}: {
+  value: string | null
+  onChange: (val: string | null) => void
+  label: string
+  hint?: string
+}) {
+  const parsed = parse24(value)
+  const [h12, setH12] = useState(parsed.h12)
+  const [min, setMin] = useState(parsed.min)
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>(parsed.ampm)
+
+  useEffect(() => {
+    const p = parse24(value)
+    setH12(p.h12); setMin(p.min); setAmpm(p.ampm)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function update(newH: string, newM: string, newA: 'AM' | 'PM') {
+    setH12(newH); setMin(newM); setAmpm(newA)
+    onChange(to24(newH, newM, newA))
+  }
+
+  const selectCls = 'border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white'
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-gray-600 block mb-1">{label}</label>
+      <div className="flex items-center gap-1.5">
+        {/* Hora */}
+        <select value={h12} onChange={(e) => update(e.target.value, min, ampm)} className={`${selectCls} w-16`}>
+          <option value="">--</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={String(n)}>{n}</option>
+          ))}
+        </select>
+        <span className="text-gray-400 font-bold">:</span>
+        {/* Minutos */}
+        <select value={min} onChange={(e) => update(h12, e.target.value, ampm)} className={`${selectCls} w-16`}>
+          {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        {/* AM/PM */}
+        <select value={ampm} onChange={(e) => update(h12, min, e.target.value as 'AM' | 'PM')} className={`${selectCls} w-16`}>
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
+      </div>
+      {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+    </div>
+  )
+}
+
 function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -134,17 +209,17 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
           <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
         </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600">Hora inicio</label>
-          <input type="time" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.hora} onChange={(e) => setForm({ ...form, hora: e.target.value })} />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600">Hora finalización</label>
-          <input type="time" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={form.hora_fin} onChange={(e) => setForm({ ...form, hora_fin: e.target.value })} />
-          <p className="text-xs text-gray-400 mt-0.5">Solicitudes se cierran 30 min después</p>
-        </div>
+        <HoraPicker
+          label="Hora inicio"
+          value={form.hora}
+          onChange={(v) => setForm({ ...form, hora: v ?? '' })}
+        />
+        <HoraPicker
+          label="Hora finalización"
+          value={form.hora_fin}
+          onChange={(v) => setForm({ ...form, hora_fin: v ?? '' })}
+          hint="Solicitudes se cierran 30 min después"
+        />
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Lugar</label>
           <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
