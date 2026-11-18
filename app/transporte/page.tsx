@@ -882,32 +882,13 @@ function TransporteInner() {
 
       if (err) { alert('Error al solicitar transporte.'); return }
 
-      // Agregar al estado local sin motorista inicialmente
+      // Agregar al estado local — el admin distribuirá desde el panel cuando lo considere
       const nuevaSol: Solicitud = {
         ...data,
         motorista_id: null, motorista_nombre: null, motorista_telefono: null,
         tipo_recogida: data.tipo_recogida ?? 'domicilio',
       }
       setSolicitudes((prev) => [...prev, nuevaSol])
-
-      // Auto-distribuir motoristas para este evento
-      const motoristaMap = await autoDistribuirEvento(eventoId)
-
-      // Actualizar estado local: refetch la solicitud recién creada con motorista asignado
-      const { data: solActualizada } = await supabase
-        .from('solicitudes_transporte')
-        .select('id, motorista_id')
-        .eq('id', data.id)
-        .single()
-
-      if (solActualizada?.motorista_id && motoristaMap[solActualizada.motorista_id]) {
-        const mot = motoristaMap[solActualizada.motorista_id]
-        setSolicitudes((prev) => prev.map((s) =>
-          s.id === data.id
-            ? { ...s, motorista_id: solActualizada.motorista_id, motorista_nombre: mot.nombre, motorista_telefono: mot.telefono }
-            : s
-        ))
-      }
     } finally {
       setSolicitando(null)
     }
