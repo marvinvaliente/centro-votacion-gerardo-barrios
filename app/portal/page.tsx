@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X,
+  User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
   FileText, Video, File, Music, ShieldAlert, Check
@@ -74,7 +74,7 @@ function iconoMime(mime: string) {
 
 const TIPOS_ACTIVIDAD = ['general', 'capacitación', 'reunión']
 
-type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario'
+type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario' | 'transporte'
 
 export default function PortalPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
@@ -1162,11 +1162,12 @@ export default function PortalPage() {
 
   /* ── PORTAL ── */
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users },
-    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen },
-    { key: 'calendario',  label: 'Calendario',        icon: Calendar },
-  ] as const
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,     href: null },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,    href: null },
+    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen, href: null },
+    { key: 'calendario',  label: 'Calendario',        icon: Calendar, href: null },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,      href: '/transporte' },
+  ]
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
@@ -1191,13 +1192,14 @@ export default function PortalPage() {
           </div>
         </div>
         <nav className="flex-1 py-3 space-y-1 px-2">
-          {NAV.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setSeccion(key as Seccion)}
+          {NAV.map(({ key, label, icon: Icon, href }) => (
+            <button key={key}
+              onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left"
               style={{
-                background: seccion === key ? 'rgba(200,168,75,.18)' : 'transparent',
-                color: seccion === key ? '#c8a84b' : 'rgba(255,255,255,.6)',
-                borderLeft: seccion === key ? '3px solid #c8a84b' : '3px solid transparent',
+                background: !href && seccion === key ? 'rgba(200,168,75,.18)' : 'transparent',
+                color: !href && seccion === key ? '#c8a84b' : 'rgba(255,255,255,.6)',
+                borderLeft: !href && seccion === key ? '3px solid #c8a84b' : '3px solid transparent',
               }}>
               <Icon size={15} className="flex-shrink-0" />
               <span className="truncate">{label}</span>
@@ -1218,12 +1220,13 @@ export default function PortalPage() {
       {/* ── Barra inferior móvil (< md) ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {NAV.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setSeccion(key as Seccion)}
+        {NAV.map(({ key, label, icon: Icon, href }) => (
+          <button key={key}
+            onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
             className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
-            style={{ color: seccion === key ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 56 }}>
+            style={{ color: !href && seccion === key ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 56 }}>
             <Icon size={18} />
-            <span style={{ fontSize: 10, fontWeight: seccion === key ? 600 : 400 }}>{label}</span>
+            <span style={{ fontSize: 10, fontWeight: !href && seccion === key ? 600 : 400 }}>{label}</span>
           </button>
         ))}
         <button onClick={cerrarSesion}
