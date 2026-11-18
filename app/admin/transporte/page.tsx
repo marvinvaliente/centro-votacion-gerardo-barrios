@@ -164,6 +164,7 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
   const [guardando, setGuardando] = useState(false)
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
   const [gpsMsg, setGpsMsg] = useState('')
+  const [mapsInput, setMapsInput] = useState('')
 
   function capturarGPS() {
     setGpsEstado('cargando'); setGpsMsg('Obteniendo...')
@@ -171,11 +172,54 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     navigator.geolocation.getCurrentPosition(
       (p) => {
         setForm((f) => ({ ...f, evento_latitud: p.coords.latitude, evento_longitud: p.coords.longitude }))
+        setMapsInput('')
         setGpsEstado('ok'); setGpsMsg(`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`)
       },
       () => { setGpsEstado('error'); setGpsMsg('No se pudo obtener la ubicación.') },
       { enableHighAccuracy: true, timeout: 15000 }
     )
+  }
+
+  function parsearDesdeInput(texto: string) {
+    setMapsInput(texto)
+    if (!texto.trim()) return
+
+    let lat: number | null = null
+    let lng: number | null = null
+
+    // Formato: lat,lng o "lat, lng" (coordenadas directas)
+    const coordDirecta = texto.match(/^[-\s]*(-?\d{1,3}\.\d+)[,\s]+(-?\d{1,3}\.\d+)\s*$/)
+    if (coordDirecta) {
+      lat = parseFloat(coordDirecta[1])
+      lng = parseFloat(coordDirecta[2])
+    }
+
+    // Google Maps: /@lat,lng,zoom o @lat,lng
+    if (!lat) {
+      const arroba = texto.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+      if (arroba) { lat = parseFloat(arroba[1]); lng = parseFloat(arroba[2]) }
+    }
+
+    // Google Maps: ?q=lat,lng  o  ll=lat,lng
+    if (!lat) {
+      const qParam = texto.match(/[?&](?:q|ll)=(-?\d{1,3}\.\d+)[,+](-?\d{1,3}\.\d+)/)
+      if (qParam) { lat = parseFloat(qParam[1]); lng = parseFloat(qParam[2]) }
+    }
+
+    // Google Maps: /place/.../data=...!3dlat!4dlng  o  !2dlat!3dlng
+    if (!lat) {
+      const data3d = texto.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/)
+      if (data3d) { lat = parseFloat(data3d[1]); lng = parseFloat(data3d[2]) }
+    }
+
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+      setForm((f) => ({ ...f, evento_latitud: lat, evento_longitud: lng }))
+      setGpsEstado('ok')
+      setGpsMsg(`${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+    } else if (texto.length > 10) {
+      setGpsEstado('error')
+      setGpsMsg('No se pudieron extraer coordenadas. Intentá pegar el link completo de Google Maps.')
+    }
   }
 
   async function submit() {
@@ -228,11 +272,37 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
         </div>
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">GPS del evento</label>
-          <div className="mt-1 flex gap-2 flex-wrap items-center">
+
+          {/* Campo para pegar link o coordenadas */}
+          <div className="mt-1 relative">
+            <input
+              type="text"
+              placeholder="Pegá el link de Google Maps o las coordenadas (ej: 13.9942, -89.5629)"
+              value={mapsInput}
+              onChange={(e) => parsearDesdeInput(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300"
+            />
+            {mapsInput && (
+              <button type="button" onClick={() => { setMapsInput(''); setGpsEstado('idle'); setGpsMsg('') }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Separador */}
+          <div className="flex items-center gap-2 my-2">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400">o</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Capturar ubicación actual */}
+          <div className="flex gap-2 flex-wrap items-center">
             <button type="button" onClick={capturarGPS} disabled={gpsEstado === 'cargando'}
               className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white px-3 py-1.5 rounded-lg">
               {gpsEstado === 'cargando' ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
-              Capturar ubicación actual
+              Usar mi ubicación actual
             </button>
             {tieneGPS && (
               <a href={`https://www.google.com/maps?q=${form.evento_latitud},${form.evento_longitud}`}
@@ -241,8 +311,14 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
                 <ExternalLink className="w-3 h-3" />Ver en Maps
               </a>
             )}
-            {gpsMsg && <span className={`text-xs ${gpsEstado === 'ok' ? 'text-green-600' : gpsEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>{gpsMsg}</span>}
           </div>
+
+          {/* Resultado */}
+          {gpsMsg && (
+            <p className={`text-xs mt-1.5 ${gpsEstado === 'ok' ? 'text-green-600' : gpsEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>
+              {gpsEstado === 'ok' ? '✓ ' : ''}{gpsMsg}
+            </p>
+          )}
         </div>
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600 block mb-2">Transporte disponible</label>
