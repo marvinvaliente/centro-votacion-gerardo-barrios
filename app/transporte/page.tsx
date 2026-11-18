@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import {
   MapPin, Bus, Calendar, CheckCircle, XCircle, Clock,
-  ChevronLeft, Loader2, ExternalLink, Navigation, Map, X, Truck, Phone
+  ChevronLeft, Loader2, ExternalLink, Map, X, Truck, Phone
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -599,32 +599,6 @@ export default function TransportePage() {
     }
   }
 
-  async function capturarGPSDirecto() {
-    if (!registro) return
-    setGpsEstado('cargando')
-    setGpsMsg('Obteniendo tu ubicación...')
-
-    if (!navigator.geolocation) {
-      setGpsEstado('error')
-      setGpsMsg('Tu dispositivo no soporta geolocalización.')
-      return
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        await guardarCoordenadas(pos.coords.latitude, pos.coords.longitude)
-      },
-      (geoErr) => {
-        setGpsEstado('error')
-        setGpsMsg(
-          geoErr.code === 1
-            ? 'Permiso denegado. Habilitá la ubicación en tu navegador.'
-            : 'No se pudo obtener la ubicación. Intentá de nuevo.'
-        )
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
-    )
-  }
 
   async function confirmarDesdeMapas(lat: number, lng: number) {
     setMostrarMapa(false)
@@ -884,36 +858,14 @@ export default function TransportePage() {
               </div>
             )}
 
-            {/* Dos botones */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={capturarGPSDirecto}
-                disabled={gpsEstado === 'cargando'}
-                className="flex flex-col items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium py-3 px-2 rounded-xl transition-colors text-sm"
-              >
-                {gpsEstado === 'cargando'
-                  ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : <Navigation className="w-5 h-5" />}
-                <span className="leading-tight text-center text-xs">Estoy aquí ahora</span>
-              </button>
-
-              <button
-                onClick={() => setMostrarMapa(true)}
-                className="flex flex-col items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-2 rounded-xl transition-colors text-sm"
-              >
-                <Map className="w-5 h-5" />
-                <span className="leading-tight text-center text-xs">Marcar en el mapa</span>
-              </button>
-            </div>
-
-            {(registro?.latitud) && (
-              <button
-                onClick={() => setMostrarMapa(true)}
-                className="w-full mt-2 text-xs text-indigo-600 hover:text-indigo-800 underline text-center"
-              >
-                Cambiar punto de destino
-              </button>
-            )}
+            {/* Botón único */}
+            <button
+              onClick={() => setMostrarMapa(true)}
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm"
+            >
+              <Map className="w-5 h-5" />
+              {registro?.latitud ? 'Cambiar punto de destino' : 'Marcar mi destino en el mapa'}
+            </button>
           </section>
 
           {/* Eventos y solicitudes */}
