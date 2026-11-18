@@ -502,15 +502,15 @@ function TransporteAcciones({
 
       {/* Mensajes emergentes por opción */}
       {tooltipVisible === 'recogida' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5 animate-in">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5">
           <span className="text-lg flex-shrink-0">🚐</span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-blue-800">Recogida en tu casa</p>
+            <p className="text-sm font-semibold text-blue-800">Llevarme al evento</p>
             <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
-              Un motorista pasará a recogerte <strong>desde el punto que marcaste en el mapa</strong> y te llevará directamente al evento.
-              {tienePuntoReunion && ev.punto_reunion_nombre && (
-                <> En este evento la recogida será en <strong>{ev.punto_reunion_nombre}</strong>.</>
-              )}
+              {tienePuntoReunion && ev.punto_reunion_nombre
+                ? <>Un motorista te esperará en <strong>{ev.punto_reunion_nombre}</strong> y te llevará al evento desde ese punto de reunión.</>
+                : <>Un motorista pasará a buscarte <strong>en el punto que marcaste en el mapa</strong> y te llevará directamente al evento.</>
+              }
             </p>
           </div>
           <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-1">
@@ -522,9 +522,9 @@ function TransporteAcciones({
         <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-start gap-2.5">
           <span className="text-lg flex-shrink-0">🏠</span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-indigo-800">Regreso a tu casa</p>
+            <p className="text-sm font-semibold text-indigo-800">Llevarme a casa</p>
             <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
-              Al finalizar el evento, el motorista te llevará de regreso <strong>al punto que registraste en el mapa</strong>. Asegurate de que tus coordenadas GPS estén correctas.
+              Al finalizar el evento, el motorista te llevará de regreso <strong>al punto que marcaste en el mapa</strong>. Verificá que tus coordenadas GPS sean correctas.
             </p>
           </div>
           <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-indigo-400 hover:text-indigo-600 ml-1">
