@@ -902,12 +902,18 @@ function TransporteInner() {
         <div className="max-w-2xl mx-auto p-4 space-y-5">
 
           {/* Tarjeta destino */}
-          <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <section className={`bg-white rounded-xl shadow-sm p-5 ${registro?.latitud && registro?.longitud ? 'border border-gray-100' : 'border-2 border-red-300 bg-red-50'}`}>
             <div className="flex items-center gap-2 mb-0.5">
-              <MapPin className="w-5 h-5 text-blue-600" />
-              <h2 className="font-semibold text-gray-800">¿Dónde te dejamos?</h2>
+              <MapPin className={`w-5 h-5 ${registro?.latitud && registro?.longitud ? 'text-blue-600' : 'text-red-600'}`} />
+              <h2 className={`font-semibold ${registro?.latitud && registro?.longitud ? 'text-gray-800' : 'text-red-800'}`}>
+                {registro?.latitud && registro?.longitud ? '¿Dónde te dejamos?' : '📍 Paso obligatorio: indicá tu destino'}
+              </h2>
             </div>
-            <p className="text-xs text-gray-400 mb-3 ml-7">Marcá tu vivienda u otro lugar donde querés que te llevemos al finalizar el evento</p>
+            <p className={`text-xs mb-3 ml-7 ${registro?.latitud && registro?.longitud ? 'text-gray-400' : 'text-red-600 font-medium'}`}>
+              {registro?.latitud && registro?.longitud
+                ? 'Marcá tu vivienda u otro lugar donde querés que te llevemos al finalizar el evento'
+                : 'Necesitás registrar tu punto de destino para poder solicitar transporte.'}
+            </p>
 
             {registro?.latitud && registro?.longitud ? (
               <div className="mb-4">
@@ -950,36 +956,12 @@ function TransporteInner() {
             {/* Botón único */}
             <button
               onClick={() => setMostrarMapa(true)}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm"
+              className={`w-full flex items-center justify-center gap-2 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm ${registro?.latitud && registro?.longitud ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}
             >
               <Map className="w-5 h-5" />
               {registro?.latitud ? 'Cambiar punto de destino' : 'Marcar mi destino en el mapa'}
             </button>
           </section>
-
-          {/* Banner GPS obligatorio */}
-          {!(registro?.latitud && registro?.longitud) && (
-            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 text-center space-y-3">
-              <div className="flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mx-auto">
-                <MapPin className="w-7 h-7 text-red-600" />
-              </div>
-              <div>
-                <p className="font-bold text-red-800 text-base">Ubicación requerida 📍</p>
-                <p className="text-sm text-red-700 mt-1">
-                  Antes de solicitar transporte necesitás registrar tu punto de destino (tu casa u otro lugar).
-                  Esto permite organizar la ruta del motorista.
-                </p>
-              </div>
-              <button
-                onClick={() => setMostrarMapa(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
-              >
-                <Map className="w-5 h-5" />
-                Marcar mi destino ahora
-              </button>
-              <p className="text-xs text-red-500">No podrás solicitar transporte hasta completar este paso.</p>
-            </div>
-          )}
 
           {/* Eventos y solicitudes */}
           <section className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 ${!(registro?.latitud && registro?.longitud) ? 'opacity-40 pointer-events-none select-none' : ''}`}>
