@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   MapPin, Bus, Calendar, CheckCircle, XCircle, Clock,
-  ChevronLeft, Loader2, ExternalLink, Map, X, Truck, Phone
+  ChevronLeft, Loader2, ExternalLink, Map, X, Navigation
 } from 'lucide-react'
 
 const supabase = createClient(
