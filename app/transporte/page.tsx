@@ -793,36 +793,61 @@ function TransporteInner() {
 
     if (sols.length === 0) return {}
 
-    // 3. Algoritmo greedy balanceado con Haversine
-    // Motoristas sin GPS reciben reparto equitativo
-    const motConGPS = motoristas.filter((m) => m.latitud && m.longitud) as { id: string; nombre: string; telefono: string | null; latitud: number; longitud: number }[]
-    const cap = Math.ceil(sols.length / motoristas.length)
-    const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
+    // 3. Clustering geográfico de pasajeros (k-means simplificado)
+    // Agrupa pasajeros cercanos entre sí → cada grupo va con un motorista
+    const k = motoristas.length
+    const conGPS = sols.filter((s) => s.latitud && s.longitud) as { id: string; latitud: number; longitud: number }[]
+    const sinGPS = sols.filter((s) => !s.latitud || !s.longitud)
     const asignaciones: { solicitud_id: string; motorista_id: string }[] = []
 
-    const conGPS = sols.filter((s) => s.latitud && s.longitud)
-    const sinGPS = sols.filter((s) => !s.latitud || !s.longitud)
-
-    if (motConGPS.length > 0) {
-      for (const sol of conGPS) {
-        const candidatos = motConGPS
-          .filter((m) => carga[m.id] < cap)
-          .sort((a, b) =>
-            distKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
-            distKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
-          )
-        if (!candidatos.length) { sinGPS.push(sol); continue }
-        carga[candidatos[0].id]++
-        asignaciones.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+    if (conGPS.length > 0) {
+      // Inicializar centroides espaciados uniformemente
+      let centroides: { lat: number; lng: number }[] = []
+      if (conGPS.length <= k) {
+        centroides = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
+        while (centroides.length < k) centroides.push({ ...centroides[0] })
+      } else {
+        const paso = Math.floor(conGPS.length / k)
+        for (let i = 0; i < k; i++) centroides.push({ lat: conGPS[i * paso].latitud, lng: conGPS[i * paso].longitud })
       }
-    } else {
-      sinGPS.push(...conGPS)
+      // K-means hasta convergencia
+      let asignados: number[] = new Array(conGPS.length).fill(0)
+      for (let iter = 0; iter < 20; iter++) {
+        const nuevos = conGPS.map(s =>
+          centroides.reduce((best, c, ci) => {
+            const d = distKm(s.latitud, s.longitud, c.lat, c.lng)
+            return d < best.d ? { ci, d } : best
+          }, { ci: 0, d: Infinity }).ci
+        )
+        if (nuevos.every((v, i) => v === asignados[i])) break
+        asignados = nuevos
+        for (let ci = 0; ci < k; ci++) {
+          const mb = conGPS.filter((_, i) => asignados[i] === ci)
+          if (mb.length === 0) continue
+          centroides[ci] = { lat: mb.reduce((s, p) => s + p.latitud, 0) / mb.length, lng: mb.reduce((s, p) => s + p.longitud, 0) / mb.length }
+        }
+      }
+      // Balancear grupos
+      const maxPorGrupo = Math.ceil(conGPS.length / k)
+      const cuentaGrupo = new Array(k).fill(0)
+      const ordenados = conGPS
+        .map((s, i) => ({ s, i, grupo: asignados[i], dist: distKm(s.latitud, s.longitud, centroides[asignados[i]].lat, centroides[asignados[i]].lng) }))
+        .sort((a, b) => a.dist - b.dist)
+      const grupoFinal = new Array(conGPS.length).fill(-1)
+      for (const { i, grupo } of ordenados) {
+        if (cuentaGrupo[grupo] < maxPorGrupo) { grupoFinal[i] = grupo; cuentaGrupo[grupo]++ }
+      }
+      for (let i = 0; i < conGPS.length; i++) {
+        if (grupoFinal[i] === -1) { const g = cuentaGrupo.indexOf(Math.min(...cuentaGrupo)); grupoFinal[i] = g; cuentaGrupo[g]++ }
+      }
+      conGPS.forEach((s, i) => asignaciones.push({ solicitud_id: s.id, motorista_id: motoristas[grupoFinal[i]].id }))
     }
-
+    // Sin GPS: round-robin
+    const cargaFinal = new Array(k).fill(0)
+    asignaciones.forEach(a => { const idx = motoristas.findIndex(m => m.id === a.motorista_id); if (idx >= 0) cargaFinal[idx]++ })
     for (const sol of sinGPS) {
-      const motorista = [...motoristas].sort((a, b) => carga[a.id] - carga[b.id])[0]
-      carga[motorista.id]++
-      asignaciones.push({ solicitud_id: sol.id, motorista_id: motorista.id })
+      const idx = cargaFinal.indexOf(Math.min(...cargaFinal)); cargaFinal[idx]++
+      asignaciones.push({ solicitud_id: sol.id, motorista_id: motoristas[idx].id })
     }
 
     // 4. Limpiar y aplicar asignaciones

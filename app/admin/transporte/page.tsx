@@ -536,52 +536,92 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
 }
 
 // ── Algoritmo de distribución ────────────────────────────────
+/**
+ * Agrupa pasajeros por cercanía geográfica entre ellos (k-means simplificado).
+ * Crea N grupos (uno por motorista) donde cada grupo contiene pasajeros
+ * geográficamente cercanos entre sí — ideal para rutas compartidas.
+ * Los pasajeros sin GPS se reparten equitativamente al final.
+ */
 function distribuirMotoristas(
-  motoristas: { id: string; latitud: number | null; longitud: number | null }[],
+  motoristas: { id: string; latitud?: number | null; longitud?: number | null }[],
   solicitudes: { id: string; latitud: number | null; longitud: number | null }[]
 ): { solicitud_id: string; motorista_id: string }[] {
   if (motoristas.length === 0) return []
 
-  const conGPSMot = motoristas.filter((m) => m.latitud && m.longitud) as { id: string; latitud: number; longitud: number }[]
-  const conGPSSol = solicitudes.filter((s) => s.latitud && s.longitud)
-  const sinGPSSol = solicitudes.filter((s) => !s.latitud || !s.longitud)
-
-  const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
+  const k = motoristas.length
+  const conGPS = solicitudes.filter((s) => s.latitud && s.longitud) as { id: string; latitud: number; longitud: number }[]
+  const sinGPS = solicitudes.filter((s) => !s.latitud || !s.longitud)
   const resultado: { solicitud_id: string; motorista_id: string }[] = []
-  const maxPorMotorista = Math.ceil(solicitudes.length / motoristas.length)
 
-  // Solicitudes con GPS: asignar al motorista más cercano que tenga GPS y capacidad
-  // Si ningún motorista tiene GPS, se tratan como sin GPS
-  if (conGPSMot.length > 0) {
-    const ordenadas = [...conGPSSol].sort((a, b) => {
-      const minA = Math.min(...conGPSMot.map((m) => distanciaKm(a.latitud!, a.longitud!, m.latitud, m.longitud)))
-      const minB = Math.min(...conGPSMot.map((m) => distanciaKm(b.latitud!, b.longitud!, m.latitud, m.longitud)))
-      return minA - minB
-    })
-    for (const sol of ordenadas) {
-      const candidatos = conGPSMot
-        .filter((m) => carga[m.id] < maxPorMotorista)
-        .sort((a, b) =>
-          distanciaKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
-          distanciaKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
-        )
-      if (!candidatos.length) {
-        // sin capacidad en motoristas con GPS → al de menos carga global
-        sinGPSSol.push(sol); continue
-      }
-      carga[candidatos[0].id]++
-      resultado.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+  if (conGPS.length > 0) {
+    // Inicializar centroides: distribuir uniformemente entre los puntos disponibles
+    let centroides: { lat: number; lng: number }[] = []
+    if (conGPS.length <= k) {
+      // Menos pasajeros que motoristas → un centroide por pasajero, resto no importa
+      centroides = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
+      while (centroides.length < k) centroides.push({ ...centroides[0] })
+    } else {
+      // Seleccionar k puntos espaciados uniformemente
+      const paso = Math.floor(conGPS.length / k)
+      for (let i = 0; i < k; i++) centroides.push({ lat: conGPS[i * paso].latitud, lng: conGPS[i * paso].longitud })
     }
-  } else {
-    // Ningún motorista tiene GPS → todo va a reparto equitativo
-    sinGPSSol.push(...conGPSSol)
+
+    // K-means: iterar hasta convergencia (máx 20 iteraciones)
+    let asignados: number[] = new Array(conGPS.length).fill(0)
+    for (let iter = 0; iter < 20; iter++) {
+      // Asignar cada pasajero al centroide más cercano
+      const nuevos = conGPS.map(s =>
+        centroides.reduce((best, c, ci) => {
+          const d = distanciaKm(s.latitud, s.longitud, c.lat, c.lng)
+          return d < best.d ? { ci, d } : best
+        }, { ci: 0, d: Infinity }).ci
+      )
+      if (nuevos.every((v, i) => v === asignados[i])) break // convergió
+      asignados = nuevos
+      // Recalcular centroides
+      for (let ci = 0; ci < k; ci++) {
+        const miembros = conGPS.filter((_, i) => asignados[i] === ci)
+        if (miembros.length === 0) continue
+        centroides[ci] = {
+          lat: miembros.reduce((s, p) => s + p.latitud, 0) / miembros.length,
+          lng: miembros.reduce((s, p) => s + p.longitud, 0) / miembros.length,
+        }
+      }
+    }
+
+    // Balancear grupos para que tengan tamaño similar
+    const maxPorGrupo = Math.ceil(conGPS.length / k)
+    const cuentaGrupo = new Array(k).fill(0)
+    // Primero asignar los más seguros (los más cercanos a su centroide)
+    const ordenados = conGPS
+      .map((s, i) => ({ s, i, grupo: asignados[i], dist: distanciaKm(s.latitud, s.longitud, centroides[asignados[i]].lat, centroides[asignados[i]].lng) }))
+      .sort((a, b) => a.dist - b.dist)
+    const grupoFinal = new Array(conGPS.length).fill(-1)
+    for (const { i, grupo } of ordenados) {
+      if (cuentaGrupo[grupo] < maxPorGrupo) {
+        grupoFinal[i] = grupo; cuentaGrupo[grupo]++
+      }
+    }
+    // Los que quedaron sin grupo → al grupo con menos carga
+    for (let i = 0; i < conGPS.length; i++) {
+      if (grupoFinal[i] === -1) {
+        const g = cuentaGrupo.indexOf(Math.min(...cuentaGrupo))
+        grupoFinal[i] = g; cuentaGrupo[g]++
+      }
+    }
+    // Mapear grupo → motorista
+    conGPS.forEach((s, i) => {
+      resultado.push({ solicitud_id: s.id, motorista_id: motoristas[grupoFinal[i]].id })
+    })
   }
 
-  // Solicitudes sin GPS (o desbordadas): reparto equitativo entre TODOS los motoristas
-  for (const sol of sinGPSSol) {
-    const motorista = [...motoristas].sort((a, b) => carga[a.id] - carga[b.id])[0]
-    carga[motorista.id]++
-    resultado.push({ solicitud_id: sol.id, motorista_id: motorista.id })
+  // Sin GPS: reparto equitativo round-robin
+  const carga = new Array(k).fill(0)
+  resultado.forEach(r => { const idx = motoristas.findIndex(m => m.id === r.motorista_id); if (idx >= 0) carga[idx]++ })
+  for (const sol of sinGPS) {
+    const idx = carga.indexOf(Math.min(...carga))
+    carga[idx]++
+    resultado.push({ solicitud_id: sol.id, motorista_id: motoristas[idx].id })
   }
 
   return resultado
