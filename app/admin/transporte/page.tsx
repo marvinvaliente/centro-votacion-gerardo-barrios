@@ -420,6 +420,7 @@ export default function AdminTransportePage() {
   const [cargando, setCargando] = useState(true)
   const [distribuyendo, setDistribuyendo] = useState(false)
   const [toggleando, setToggleando] = useState<string | null>(null)
+  const [busquedaMotorista, setBusquedaMotorista] = useState('')
 
   const cargarEventos = useCallback(async () => {
     const { data } = await supabase.from('eventos_transporte').select('*').order('fecha', { ascending: true })
@@ -682,8 +683,26 @@ export default function AdminTransportePage() {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <p className="text-sm font-medium text-gray-700">Todo el personal registrado</p>
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row sm:items-center gap-2">
+              <p className="text-sm font-medium text-gray-700 flex-1">Todo el personal registrado</p>
+              <div className="relative w-full sm:w-64">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, DUI o cargo..."
+                  value={busquedaMotorista}
+                  onChange={(e) => setBusquedaMotorista(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
+                />
+                {busquedaMotorista && (
+                  <button
+                    onClick={() => setBusquedaMotorista('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -696,7 +715,19 @@ export default function AdminTransportePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {registros.map((r) => (
+                  {registros
+                    .filter((r) => {
+                      if (!busquedaMotorista.trim()) return true
+                      const q = busquedaMotorista.toLowerCase()
+                      return (
+                        r.nombre.toLowerCase().includes(q) ||
+                        r.dui.toLowerCase().includes(q) ||
+                        r.cargo.toLowerCase().includes(q) ||
+                        r.jrv.toLowerCase().includes(q) ||
+                        (r.telefono ?? '').includes(q)
+                      )
+                    })
+                    .map((r) => (
                     <tr key={r.id} className={`hover:bg-gray-50 ${r.es_motorista ? 'bg-blue-50/40' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -726,6 +757,22 @@ export default function AdminTransportePage() {
                       </td>
                     </tr>
                   ))}
+                  {busquedaMotorista.trim() !== '' && registros.filter((r) => {
+                    const q = busquedaMotorista.toLowerCase()
+                    return (
+                      r.nombre.toLowerCase().includes(q) ||
+                      r.dui.toLowerCase().includes(q) ||
+                      r.cargo.toLowerCase().includes(q) ||
+                      r.jrv.toLowerCase().includes(q) ||
+                      (r.telefono ?? '').includes(q)
+                    )
+                  }).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
+                        Sin resultados para &ldquo;{busquedaMotorista}&rdquo;
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
