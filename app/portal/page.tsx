@@ -1188,7 +1188,7 @@ export default function PortalPage() {
 
   /* ── PORTAL ── */
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
-  const esMotorista = !!(registro as any)?.es_motorista
+  const esMotorista = !!registro?.es_motorista
   const NAV = [
     { key: 'perfil',      label: 'Mi Perfil',        icon: User,       href: null },
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,      href: null },

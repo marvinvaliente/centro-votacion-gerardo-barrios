@@ -25,6 +25,11 @@ export interface RegistroDUI {
   padron?: Padron | Padron[]
   created_at: string
   updated_at: string
+  // campos extendidos
+  latitud: number | null
+  longitud: number | null
+  coordenadas_at: string | null
+  es_motorista: boolean
 }
 
 export interface Administrador {
