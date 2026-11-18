@@ -775,10 +775,8 @@ function TransporteInner() {
       .from('registros_dui')
       .select('id, nombre, telefono, latitud, longitud')
       .in('id', motoristaIds)
-      .not('latitud', 'is', null)
-      .not('longitud', 'is', null)
 
-    const motoristas = (motData ?? []) as { id: string; nombre: string; telefono: string | null; latitud: number; longitud: number }[]
+    const motoristas = (motData ?? []) as { id: string; nombre: string; telefono: string | null; latitud: number | null; longitud: number | null }[]
     if (motoristas.length === 0) return {}
 
     // 2. Obtener todas las solicitudes del evento con GPS del pasajero
@@ -796,6 +794,8 @@ function TransporteInner() {
     if (sols.length === 0) return {}
 
     // 3. Algoritmo greedy balanceado con Haversine
+    // Motoristas sin GPS reciben reparto equitativo
+    const motConGPS = motoristas.filter((m) => m.latitud && m.longitud) as { id: string; nombre: string; telefono: string | null; latitud: number; longitud: number }[]
     const cap = Math.ceil(sols.length / motoristas.length)
     const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
     const asignaciones: { solicitud_id: string; motorista_id: string }[] = []
@@ -803,16 +803,20 @@ function TransporteInner() {
     const conGPS = sols.filter((s) => s.latitud && s.longitud)
     const sinGPS = sols.filter((s) => !s.latitud || !s.longitud)
 
-    for (const sol of conGPS) {
-      const candidatos = motoristas
-        .filter((m) => carga[m.id] < cap)
-        .sort((a, b) =>
-          distKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
-          distKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
-        )
-      if (!candidatos.length) continue
-      carga[candidatos[0].id]++
-      asignaciones.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+    if (motConGPS.length > 0) {
+      for (const sol of conGPS) {
+        const candidatos = motConGPS
+          .filter((m) => carga[m.id] < cap)
+          .sort((a, b) =>
+            distKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
+            distKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
+          )
+        if (!candidatos.length) { sinGPS.push(sol); continue }
+        carga[candidatos[0].id]++
+        asignaciones.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+      }
+    } else {
+      sinGPS.push(...conGPS)
     }
 
     for (const sol of sinGPS) {

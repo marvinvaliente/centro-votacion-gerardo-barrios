@@ -537,40 +537,49 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
 
 // ── Algoritmo de distribución ────────────────────────────────
 function distribuirMotoristas(
-  motoristas: { id: string; latitud: number; longitud: number }[],
+  motoristas: { id: string; latitud: number | null; longitud: number | null }[],
   solicitudes: { id: string; latitud: number | null; longitud: number | null }[]
 ): { solicitud_id: string; motorista_id: string }[] {
-  const conGPS = solicitudes.filter((s) => s.latitud && s.longitud)
-  const sinGPS = solicitudes.filter((s) => !s.latitud || !s.longitud)
-
   if (motoristas.length === 0) return []
+
+  const conGPSMot = motoristas.filter((m) => m.latitud && m.longitud) as { id: string; latitud: number; longitud: number }[]
+  const conGPSSol = solicitudes.filter((s) => s.latitud && s.longitud)
+  const sinGPSSol = solicitudes.filter((s) => !s.latitud || !s.longitud)
 
   const carga: Record<string, number> = Object.fromEntries(motoristas.map((m) => [m.id, 0]))
   const resultado: { solicitud_id: string; motorista_id: string }[] = []
   const maxPorMotorista = Math.ceil(solicitudes.length / motoristas.length)
 
-  // Con GPS: asignar al motorista más cercano con capacidad
-  const ordenadas = [...conGPS].sort((a, b) => {
-    const minA = Math.min(...motoristas.map((m) => distanciaKm(a.latitud!, a.longitud!, m.latitud, m.longitud)))
-    const minB = Math.min(...motoristas.map((m) => distanciaKm(b.latitud!, b.longitud!, m.latitud, m.longitud)))
-    return minA - minB
-  })
-
-  for (const sol of ordenadas) {
-    const candidatos = motoristas
-      .filter((m) => carga[m.id] < maxPorMotorista)
-      .sort((a, b) =>
-        distanciaKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
-        distanciaKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
-      )
-    if (!candidatos.length) continue
-    carga[candidatos[0].id]++
-    resultado.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+  // Solicitudes con GPS: asignar al motorista más cercano que tenga GPS y capacidad
+  // Si ningún motorista tiene GPS, se tratan como sin GPS
+  if (conGPSMot.length > 0) {
+    const ordenadas = [...conGPSSol].sort((a, b) => {
+      const minA = Math.min(...conGPSMot.map((m) => distanciaKm(a.latitud!, a.longitud!, m.latitud, m.longitud)))
+      const minB = Math.min(...conGPSMot.map((m) => distanciaKm(b.latitud!, b.longitud!, m.latitud, m.longitud)))
+      return minA - minB
+    })
+    for (const sol of ordenadas) {
+      const candidatos = conGPSMot
+        .filter((m) => carga[m.id] < maxPorMotorista)
+        .sort((a, b) =>
+          distanciaKm(sol.latitud!, sol.longitud!, a.latitud, a.longitud) -
+          distanciaKm(sol.latitud!, sol.longitud!, b.latitud, b.longitud)
+        )
+      if (!candidatos.length) {
+        // sin capacidad en motoristas con GPS → al de menos carga global
+        sinGPSSol.push(sol); continue
+      }
+      carga[candidatos[0].id]++
+      resultado.push({ solicitud_id: sol.id, motorista_id: candidatos[0].id })
+    }
+  } else {
+    // Ningún motorista tiene GPS → todo va a reparto equitativo
+    sinGPSSol.push(...conGPSSol)
   }
 
-  // Sin GPS: distribuir equitativamente al motorista con menos carga
-  for (const sol of sinGPS) {
-    const motorista = motoristas.sort((a, b) => carga[a.id] - carga[b.id])[0]
+  // Solicitudes sin GPS (o desbordadas): reparto equitativo entre TODOS los motoristas
+  for (const sol of sinGPSSol) {
+    const motorista = [...motoristas].sort((a, b) => carga[a.id] - carga[b.id])[0]
     carga[motorista.id]++
     resultado.push({ solicitud_id: sol.id, motorista_id: motorista.id })
   }
@@ -675,15 +684,13 @@ export default function AdminTransportePage() {
     }))
     if (sols.length === 0) return // sin solicitudes, nada que redistribuir
 
-    // Obtener GPS de los motoristas nuevos
+    // Obtener datos de los motoristas (con o sin GPS)
     const { data: motData } = await supabase
       .from('registros_dui')
       .select('id, latitud, longitud')
       .in('id', motoristaIds)
-      .not('latitud', 'is', null)
-      .not('longitud', 'is', null)
-    const motoristasGps = (motData ?? []) as { id: string; latitud: number; longitud: number }[]
-    if (motoristasGps.length === 0) return // sin GPS, no se puede distribuir
+    const motoristasGps = (motData ?? []) as { id: string; latitud: number | null; longitud: number | null }[]
+    if (motoristasGps.length === 0) return // ningún motorista encontrado
 
     const asignaciones = distribuirMotoristas(
       motoristasGps.map(m => ({ id: m.id, latitud: m.latitud, longitud: m.longitud })),
@@ -733,9 +740,9 @@ export default function AdminTransportePage() {
     // Cargar motoristas asignados a este evento
     const { data: emData } = await supabase.from('evento_motoristas').select('motorista_id').eq('evento_id', eventoSeleccionado)
     const motoristaIdsEvento = (emData ?? []).map((r: any) => r.motorista_id)
-    const motoristas = registros.filter((r) => motoristaIdsEvento.includes(r.id) && r.latitud && r.longitud)
+    const motoristas = registros.filter((r) => motoristaIdsEvento.includes(r.id))
     if (motoristas.length === 0) {
-      alert('Este evento no tiene motoristas asignados con GPS. Editá el evento y seleccioná los motoristas disponibles.')
+      alert('Este evento no tiene motoristas asignados. Editá el evento y seleccioná los motoristas disponibles.')
       return
     }
     if (solicitudes.length === 0) {
@@ -746,7 +753,7 @@ export default function AdminTransportePage() {
 
     setDistribuyendo(true)
     const asignaciones = distribuirMotoristas(
-      motoristas.map((m) => ({ id: m.id, latitud: m.latitud!, longitud: m.longitud! })),
+      motoristas.map((m) => ({ id: m.id, latitud: m.latitud ?? null, longitud: m.longitud ?? null })),
       solicitudes.map((s) => ({ id: s.id, latitud: s.latitud, longitud: s.longitud }))
     )
 
