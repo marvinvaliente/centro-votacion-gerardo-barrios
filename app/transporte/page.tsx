@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   MapPin, Bus, Calendar, CheckCircle, XCircle, Clock,
@@ -502,7 +503,8 @@ function TransporteAcciones({
 }
 
 // ── Componente principal ─────────────────────────────────────
-export default function TransportePage() {
+function TransporteInner() {
+  const searchParams = useSearchParams()
   const [vista, setVista] = useState<Vista>('login')
   const [duiInput, setDuiInput] = useState('')
   const [registro, setRegistro] = useState<Registro | null>(null)
@@ -514,6 +516,81 @@ export default function TransportePage() {
   const [gpsMsg, setGpsMsg] = useState('')
   const [solicitando, setSolicitando] = useState<string | null>(null)
   const [mostrarMapa, setMostrarMapa] = useState(false)
+
+  // Auto-login si viene ?dui= desde el portal
+  useEffect(() => {
+    const duiParam = searchParams.get('dui')
+    if (duiParam) {
+      setDuiInput(duiParam)
+      buscarPorDuiDirecto(duiParam)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function buscarPorDuiDirecto(duiValor: string) {
+    setError('')
+    setCargando(true)
+    const dui = formatDui(duiValor.trim())
+    try {
+      const { data, error: err } = await supabase
+        .from('registros_dui')
+        .select(`
+          id, dui, nombre, telefono,
+          latitud, longitud, coordenadas_at,
+          padron:padron_id (cargo, jrv)
+        `)
+        .eq('dui', dui)
+        .single()
+
+      if (err || !data) {
+        setError('DUI no encontrado. Verificá el número e intentá de nuevo.')
+        setCargando(false)
+        return
+      }
+
+      const reg: Registro = {
+        id: data.id,
+        dui: data.dui,
+        nombre: data.nombre,
+        telefono: data.telefono,
+        cargo: (data.padron as any)?.cargo ?? 'Sin asignar',
+        jrv: (data.padron as any)?.jrv ?? '-',
+        latitud: data.latitud,
+        longitud: data.longitud,
+        coordenadas_at: data.coordenadas_at,
+      }
+
+      const { data: evs } = await supabase
+        .from('eventos_transporte')
+        .select('*')
+        .eq('activo', true)
+        .order('fecha', { ascending: true })
+
+      const { data: sols } = await supabase
+        .from('solicitudes_transporte')
+        .select(`
+          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at,
+          motorista:motorista_id (nombre, telefono)
+        `)
+        .eq('registro_id', reg.id)
+
+      setRegistro(reg)
+      setEventos(evs ?? [])
+      setSolicitudes(
+        (sols ?? []).map((s: any) => ({
+          id: s.id, evento_id: s.evento_id, estado: s.estado,
+          solicita_recogida: s.solicita_recogida, solicita_regreso: s.solicita_regreso,
+          motorista_id: s.motorista_id ?? null,
+          motorista_nombre: s.motorista?.nombre ?? null,
+          motorista_telefono: s.motorista?.telefono ?? null,
+          created_at: s.created_at,
+        }))
+      )
+      setVista('perfil')
+    } finally {
+      setCargando(false)
+    }
+  }
 
   async function buscarPorDui() {
     setError('')
@@ -951,5 +1028,13 @@ export default function TransportePage() {
         </div>
       </main>
     </>
+  )
+}
+
+export default function TransportePage() {
+  return (
+    <Suspense fallback={null}>
+      <TransporteInner />
+    </Suspense>
   )
 }

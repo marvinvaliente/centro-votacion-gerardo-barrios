@@ -1166,7 +1166,7 @@ export default function PortalPage() {
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,    href: null },
     { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen, href: null },
     { key: 'calendario',  label: 'Calendario',        icon: Calendar, href: null },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,      href: '/transporte' },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,      href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
   ]
 
   return (
