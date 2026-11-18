@@ -1246,23 +1246,34 @@ export default function PortalPage() {
       </aside>
 
       {/* ── Barra inferior móvil (< md) ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {NAV.map(({ key, label, icon: Icon, href }) => (
-          <button key={key}
-            onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
-            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
-            style={{ color: !href && seccion === key ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 56 }}>
-            <Icon size={18} />
-            <span style={{ fontSize: 10, fontWeight: !href && seccion === key ? 600 : 400 }}>{label}</span>
+        <div className="flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {NAV.map(({ key, label, icon: Icon, href }) => {
+            const activo = !href && seccion === key
+            return (
+              <button key={key}
+                onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
+                className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0 transition-colors relative"
+                style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 58, minWidth: 64, padding: '8px 4px' }}>
+                {activo && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
+                    style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
+                )}
+                <Icon size={20} />
+                <span style={{ fontSize: 9.5, fontWeight: activo ? 600 : 400, letterSpacing: '-.01em', lineHeight: 1.2, textAlign: 'center', maxWidth: 60 }}>
+                  {label}
+                </span>
+              </button>
+            )
+          })}
+          <button onClick={cerrarSesion}
+            className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
+            style={{ color: 'rgba(255,255,255,.35)', minHeight: 58, minWidth: 56, padding: '8px 4px' }}>
+            <LogOut size={20} />
+            <span style={{ fontSize: 9.5, lineHeight: 1.2 }}>Salir</span>
           </button>
-        ))}
-        <button onClick={cerrarSesion}
-          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5"
-          style={{ color: 'rgba(255,255,255,.4)', minHeight: 56 }}>
-          <LogOut size={18} />
-          <span style={{ fontSize: 10 }}>Salir</span>
-        </button>
+        </div>
       </nav>
 
       {/* Contenido */}
@@ -1279,7 +1290,7 @@ export default function PortalPage() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6">
 
           {/* ── MI PERFIL ── */}
           {seccion === 'perfil' && (

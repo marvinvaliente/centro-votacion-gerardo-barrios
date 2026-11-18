@@ -808,9 +808,15 @@ function TransporteInner() {
   // ── VISTA LOGIN ──────────────────────────────────────────────
   if (vista === 'login') {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-          <div className="flex flex-col items-center mb-8">
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4 gap-4">
+        {/* Botón volver al portal */}
+        <a href="/portal"
+          className="flex items-center gap-1.5 text-sm text-blue-700 hover:text-blue-900 self-start sm:self-center transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+          Volver al portal
+        </a>
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 sm:p-8">
+          <div className="flex flex-col items-center mb-6">
             <div className="bg-blue-600 text-white rounded-full p-3 mb-3">
               <Bus className="w-8 h-8" />
             </div>
@@ -872,18 +878,24 @@ function TransporteInner() {
 
       <main className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="bg-blue-600 text-white px-4 py-4 shadow">
+        <header className="bg-blue-600 text-white px-4 py-3 shadow">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             <button
               onClick={() => { setVista('login'); setRegistro(null); setDuiInput('') }}
-              className="p-1 hover:bg-blue-500 rounded-full transition-colors"
+              className="p-2 hover:bg-blue-500 rounded-full transition-colors flex-shrink-0"
+              title="Cerrar sesión de transporte"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="font-bold text-lg leading-tight">{registro?.nombre}</h1>
-              <p className="text-blue-200 text-xs">{registro?.cargo} · JRV {registro?.jrv}</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-base leading-tight truncate">{registro?.nombre}</h1>
+              <p className="text-blue-200 text-xs truncate">{registro?.cargo} · JRV {registro?.jrv}</p>
             </div>
+            <a href="/portal"
+              className="flex-shrink-0 flex items-center gap-1 text-xs text-blue-200 hover:text-white bg-blue-500 hover:bg-blue-400 rounded-lg px-2.5 py-1.5 transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Portal
+            </a>
           </div>
         </header>
 
