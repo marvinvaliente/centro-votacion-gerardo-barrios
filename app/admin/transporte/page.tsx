@@ -704,8 +704,11 @@ export default function AdminTransportePage() {
     await supabase.from('evento_motoristas').delete().eq('evento_id', eventoId)
     if (motoristaIds.length > 0) {
       await supabase.from('evento_motoristas').insert(motoristaIds.map(mid => ({ evento_id: eventoId, motorista_id: mid })))
-      // Redistribuir automáticamente las solicitudes existentes
       await redistribuirEvento(eventoId, motoristaIds)
+    } else {
+      // Sin motoristas: limpiar todas las asignaciones existentes
+      await supabase.from('solicitudes_transporte').update({ motorista_id: null }).eq('evento_id', eventoId)
+      if (eventoSeleccionado === eventoId) await cargarSolicitudes(eventoId)
     }
     await cargarEventos(); setEditandoEvento(null); setMotoristasEvento([])
   }
