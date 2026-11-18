@@ -763,11 +763,18 @@ function TransporteInner() {
   }
 
   async function autoDistribuirEvento(eventoId: string): Promise<Record<string, { nombre: string; telefono: string | null }>> {
-    // 1. Obtener motoristas con GPS
+    // 1. Obtener motoristas asignados a este evento
+    const { data: emData } = await supabase
+      .from('evento_motoristas')
+      .select('motorista_id')
+      .eq('evento_id', eventoId)
+    const motoristaIds = (emData ?? []).map((r: any) => r.motorista_id)
+    if (motoristaIds.length === 0) return {}
+
     const { data: motData } = await supabase
       .from('registros_dui')
       .select('id, nombre, telefono, latitud, longitud')
-      .eq('es_motorista', true)
+      .in('id', motoristaIds)
       .not('latitud', 'is', null)
       .not('longitud', 'is', null)
 

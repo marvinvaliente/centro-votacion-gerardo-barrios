@@ -146,9 +146,11 @@ function estadoBadge(estado: string | null) {
 }
 
 // ── Formulario de Evento ─────────────────────────────────────
-function FormEvento({ inicial, onGuardar, onCancelar }: {
+function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, onGuardar, onCancelar }: {
   inicial?: Partial<Evento>
-  onGuardar: (ev: Partial<Evento>) => Promise<void>
+  motoristasDisponibles: { id: string; nombre: string; telefono: string | null }[]
+  motoristasSeleccionados: string[]
+  onGuardar: (ev: Partial<Evento>, motoristaIds: string[]) => Promise<void>
   onCancelar: () => void
 }) {
   const [form, setForm] = useState({
@@ -167,6 +169,7 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     punto_reunion_lat: inicial?.punto_reunion_lat ?? null as number | null,
     punto_reunion_lng: inicial?.punto_reunion_lng ?? null as number | null,
   })
+  const [selMotoristas, setSelMotoristas] = useState<string[]>(motoristasSeleccionados)
   const [guardando, setGuardando] = useState(false)
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
   const [gpsMsg, setGpsMsg] = useState('')
@@ -177,6 +180,12 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
   const [usarPuntoReunion, setUsarPuntoReunion] = useState(
     !!(inicial?.punto_reunion_lat && inicial?.punto_reunion_lng)
   )
+
+  function toggleMotorista(id: string) {
+    setSelMotoristas(prev =>
+      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+    )
+  }
 
   function capturarGPS() {
     setGpsEstado('cargando'); setGpsMsg('Obteniendo...')
@@ -288,7 +297,7 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
       punto_reunion_nombre: usarPuntoReunion ? (form.punto_reunion_nombre.trim() || null) : null,
       punto_reunion_lat: usarPuntoReunion ? form.punto_reunion_lat : null,
       punto_reunion_lng: usarPuntoReunion ? form.punto_reunion_lng : null,
-    })
+    }, selMotoristas)
     setGuardando(false)
   }
 
@@ -473,6 +482,45 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
             onChange={(e) => setForm({ ...form, activo: e.target.checked })} className="rounded" />
           <label htmlFor="activo" className="text-sm text-gray-700">Evento activo (visible para usuarios)</label>
         </div>
+
+        {/* Motoristas asignados al evento */}
+        {(form.transporte_recogida || form.transporte_regreso) && (
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium text-gray-600 block mb-2">
+              Motoristas disponibles para este evento
+              {selMotoristas.length > 0 && (
+                <span className="ml-2 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {selMotoristas.length} seleccionado{selMotoristas.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </label>
+            {motoristasDisponibles.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">No hay perfiles de motorista registrados aún.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {motoristasDisponibles.map(m => {
+                  const sel = selMotoristas.includes(m.id)
+                  return (
+                    <label key={m.id}
+                      className={`flex items-center gap-3 p-2.5 rounded-xl border-2 cursor-pointer transition-colors ${sel ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <input type="checkbox" checked={sel} onChange={() => toggleMotorista(m.id)}
+                        className="w-4 h-4 accent-blue-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{m.nombre}</p>
+                        {m.telefono && <p className="text-xs text-gray-400">{m.telefono}</p>}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            {selMotoristas.length === 0 && motoristasDisponibles.length > 0 && (
+              <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                ⚠️ Sin motoristas asignados no habrá distribución automática.
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex gap-2 justify-end">
         <button onClick={onCancelar} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">Cancelar</button>
@@ -537,6 +585,7 @@ export default function AdminTransportePage() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null)
   const [mostrarFormEvento, setMostrarFormEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<Evento | null>(null)
+  const [motoristasEvento, setMotoristasEvento] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [distribuyendo, setDistribuyendo] = useState(false)
   const [toggleando, setToggleando] = useState<string | null>(null)
@@ -599,14 +648,27 @@ export default function AdminTransportePage() {
     if (eventoSeleccionado) cargarSolicitudes(eventoSeleccionado)
   }, [eventoSeleccionado, cargarSolicitudes])
 
-  async function crearEvento(ev: Partial<Evento>) {
-    await supabase.from('eventos_transporte').insert(ev)
+  async function cargarMotoristasEvento(eventoId: string) {
+    const { data } = await supabase.from('evento_motoristas').select('motorista_id').eq('evento_id', eventoId)
+    setMotoristasEvento((data ?? []).map((r: any) => r.motorista_id))
+  }
+
+  async function crearEvento(ev: Partial<Evento>, motoristaIds: string[]) {
+    const { data } = await supabase.from('eventos_transporte').insert(ev).select().single()
+    if (data?.id && motoristaIds.length > 0) {
+      await supabase.from('evento_motoristas').insert(motoristaIds.map(mid => ({ evento_id: data.id, motorista_id: mid })))
+    }
     await cargarEventos(); setMostrarFormEvento(false)
   }
-  async function actualizarEvento(ev: Partial<Evento>) {
+  async function actualizarEvento(ev: Partial<Evento>, motoristaIds: string[]) {
     if (!editandoEvento) return
     await supabase.from('eventos_transporte').update(ev).eq('id', editandoEvento.id)
-    await cargarEventos(); setEditandoEvento(null)
+    // Reemplazar motoristas del evento
+    await supabase.from('evento_motoristas').delete().eq('evento_id', editandoEvento.id)
+    if (motoristaIds.length > 0) {
+      await supabase.from('evento_motoristas').insert(motoristaIds.map(mid => ({ evento_id: editandoEvento.id, motorista_id: mid })))
+    }
+    await cargarEventos(); setEditandoEvento(null); setMotoristasEvento([])
   }
   async function eliminarEvento(id: string) {
     if (!confirm('¿Eliminar este evento? Se eliminarán todas las solicitudes asociadas.')) return
@@ -624,9 +686,12 @@ export default function AdminTransportePage() {
 
   async function autoDistribuir() {
     if (!eventoSeleccionado) return
-    const motoristas = registros.filter((r) => r.es_motorista && r.latitud && r.longitud)
+    // Cargar motoristas asignados a este evento
+    const { data: emData } = await supabase.from('evento_motoristas').select('motorista_id').eq('evento_id', eventoSeleccionado)
+    const motoristaIdsEvento = (emData ?? []).map((r: any) => r.motorista_id)
+    const motoristas = registros.filter((r) => motoristaIdsEvento.includes(r.id) && r.latitud && r.longitud)
     if (motoristas.length === 0) {
-      alert('No hay motoristas con GPS registrado. Asegurate de que los motoristas tengan ubicación registrada.')
+      alert('Este evento no tiene motoristas asignados con GPS. Editá el evento y seleccioná los motoristas disponibles.')
       return
     }
     if (solicitudes.length === 0) {
@@ -722,7 +787,12 @@ export default function AdminTransportePage() {
             </button>
           </div>
           {mostrarFormEvento && !editandoEvento && (
-            <FormEvento onGuardar={crearEvento} onCancelar={() => setMostrarFormEvento(false)} />
+            <FormEvento
+              motoristasDisponibles={registros.filter(r => r.es_motorista).map(r => ({ id: r.id, nombre: r.nombre, telefono: r.telefono }))}
+              motoristasSeleccionados={[]}
+              onGuardar={crearEvento}
+              onCancelar={() => setMostrarFormEvento(false)}
+            />
           )}
           {eventos.length === 0 && !mostrarFormEvento && (
             <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-100">
@@ -734,7 +804,13 @@ export default function AdminTransportePage() {
             <div key={ev.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               {editandoEvento?.id === ev.id ? (
                 <div className="p-4">
-                  <FormEvento inicial={ev} onGuardar={actualizarEvento} onCancelar={() => setEditandoEvento(null)} />
+                  <FormEvento
+                    inicial={ev}
+                    motoristasDisponibles={registros.filter(r => r.es_motorista).map(r => ({ id: r.id, nombre: r.nombre, telefono: r.telefono }))}
+                    motoristasSeleccionados={motoristasEvento}
+                    onGuardar={actualizarEvento}
+                    onCancelar={() => { setEditandoEvento(null); setMotoristasEvento([]) }}
+                  />
                 </div>
               ) : (
                 <div className="p-4">
@@ -769,7 +845,7 @@ export default function AdminTransportePage() {
                       {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => { setEditandoEvento(ev); setMostrarFormEvento(false) }}
+                      <button onClick={() => { setEditandoEvento(ev); setMostrarFormEvento(false); cargarMotoristasEvento(ev.id) }}
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                         <Edit2 className="w-4 h-4" />
                       </button>
