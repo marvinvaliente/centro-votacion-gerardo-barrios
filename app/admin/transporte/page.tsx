@@ -537,11 +537,79 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
 
 // ── Algoritmo de distribución ────────────────────────────────
 /**
- * Agrupa pasajeros por cercanía geográfica entre ellos (k-means simplificado).
- * Crea N grupos (uno por motorista) donde cada grupo contiene pasajeros
- * geográficamente cercanos entre sí — ideal para rutas compartidas.
+ * Agrupa pasajeros por cercanía geográfica entre ellos (k-means++ con múltiples reinicios).
+ * Usa inicialización k-means++ para garantizar centroides bien separados desde el inicio,
+ * y ejecuta varios reinicios eligiendo la solución con menor dispersión interna total.
  * Los pasajeros sin GPS se reparten equitativamente al final.
  */
+
+/** Inicialización k-means++: elige k centroides bien separados entre sí */
+function kmeansppInit(puntos: { lat: number; lng: number }[], k: number): { lat: number; lng: number }[] {
+  if (puntos.length === 0) return []
+  const centroides: { lat: number; lng: number }[] = []
+  // Primer centroide: el punto más cercano al centro geográfico (más representativo)
+  const centroLat = puntos.reduce((s, p) => s + p.lat, 0) / puntos.length
+  const centroLng = puntos.reduce((s, p) => s + p.lng, 0) / puntos.length
+  let mejor = 0
+  let mejorDist = Infinity
+  puntos.forEach((p, i) => {
+    const d = distanciaKm(p.lat, p.lng, centroLat, centroLng)
+    if (d < mejorDist) { mejorDist = d; mejor = i }
+  })
+  centroides.push({ ...puntos[mejor] })
+
+  // Siguientes centroides: probabilidad proporcional a dist² al centroide más cercano
+  while (centroides.length < k) {
+    const dists = puntos.map(p =>
+      Math.min(...centroides.map(c => distanciaKm(p.lat, p.lng, c.lat, c.lng))) ** 2
+    )
+    const total = dists.reduce((s, d) => s + d, 0)
+    if (total === 0) {
+      centroides.push({ ...puntos[centroides.length % puntos.length] })
+      continue
+    }
+    // Selección determinista: punto con mayor distancia al centroide más cercano
+    const maxIdx = dists.indexOf(Math.max(...dists))
+    centroides.push({ ...puntos[maxIdx] })
+  }
+  return centroides
+}
+
+/** Ejecuta un paso completo de k-means y devuelve {asignados, centroides, inercia} */
+function kmeansRun(
+  conGPS: { id: string; latitud: number; longitud: number }[],
+  k: number,
+  centroidesIniciales: { lat: number; lng: number }[]
+): { asignados: number[]; centroides: { lat: number; lng: number }[]; inercia: number } {
+  let centroides = centroidesIniciales.map(c => ({ ...c }))
+  let asignados: number[] = new Array(conGPS.length).fill(0)
+
+  for (let iter = 0; iter < 30; iter++) {
+    const nuevos = conGPS.map(s =>
+      centroides.reduce((best, c, ci) => {
+        const d = distanciaKm(s.latitud, s.longitud, c.lat, c.lng)
+        return d < best.d ? { ci, d } : best
+      }, { ci: 0, d: Infinity }).ci
+    )
+    if (nuevos.every((v, i) => v === asignados[i])) break
+    asignados = nuevos
+    for (let ci = 0; ci < k; ci++) {
+      const miembros = conGPS.filter((_, i) => asignados[i] === ci)
+      if (miembros.length === 0) continue
+      centroides[ci] = {
+        lat: miembros.reduce((s, p) => s + p.latitud, 0) / miembros.length,
+        lng: miembros.reduce((s, p) => s + p.longitud, 0) / miembros.length,
+      }
+    }
+  }
+
+  // Inercia: suma total de distancias al centroide propio (mide qué tan compactos son los grupos)
+  const inercia = conGPS.reduce((sum, s, i) =>
+    sum + distanciaKm(s.latitud, s.longitud, centroides[asignados[i]].lat, centroides[asignados[i]].lng), 0)
+
+  return { asignados, centroides, inercia }
+}
+
 function distribuirMotoristas(
   motoristas: { id: string; latitud?: number | null; longitud?: number | null }[],
   solicitudes: { id: string; latitud: number | null; longitud: number | null }[]
@@ -554,37 +622,39 @@ function distribuirMotoristas(
   const resultado: { solicitud_id: string; motorista_id: string }[] = []
 
   if (conGPS.length > 0) {
-    // Inicializar centroides: distribuir uniformemente entre los puntos disponibles
-    let centroides: { lat: number; lng: number }[] = []
-    if (conGPS.length <= k) {
-      // Menos pasajeros que motoristas → un centroide por pasajero, resto no importa
-      centroides = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
-      while (centroides.length < k) centroides.push({ ...centroides[0] })
-    } else {
-      // Seleccionar k puntos espaciados uniformemente
-      const paso = Math.floor(conGPS.length / k)
-      for (let i = 0; i < k; i++) centroides.push({ lat: conGPS[i * paso].latitud, lng: conGPS[i * paso].longitud })
-    }
+    const puntos = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
 
-    // K-means: iterar hasta convergencia (máx 20 iteraciones)
-    let asignados: number[] = new Array(conGPS.length).fill(0)
-    for (let iter = 0; iter < 20; iter++) {
-      // Asignar cada pasajero al centroide más cercano
-      const nuevos = conGPS.map(s =>
-        centroides.reduce((best, c, ci) => {
-          const d = distanciaKm(s.latitud, s.longitud, c.lat, c.lng)
-          return d < best.d ? { ci, d } : best
-        }, { ci: 0, d: Infinity }).ci
-      )
-      if (nuevos.every((v, i) => v === asignados[i])) break // convergió
-      asignados = nuevos
-      // Recalcular centroides
-      for (let ci = 0; ci < k; ci++) {
-        const miembros = conGPS.filter((_, i) => asignados[i] === ci)
-        if (miembros.length === 0) continue
-        centroides[ci] = {
-          lat: miembros.reduce((s, p) => s + p.latitud, 0) / miembros.length,
-          lng: miembros.reduce((s, p) => s + p.longitud, 0) / miembros.length,
+    let mejorAsignados: number[] = []
+    let mejoresCentroides: { lat: number; lng: number }[] = []
+    let mejorInercia = Infinity
+
+    if (conGPS.length <= k) {
+      // Menos pasajeros que motoristas → uno por grupo
+      mejorAsignados = conGPS.map((_, i) => i)
+      mejoresCentroides = puntos
+    } else {
+      // Múltiples reinicios con k-means++: elegir la solución con menor inercia total
+      const REINICIOS = 8
+      for (let r = 0; r < REINICIOS; r++) {
+        // Para reinicio 0: centroide del cluster más denso como primer punto
+        // Para reinicios 1+: perturbar ligeramente los centroides del mejor resultado anterior
+        let centroidesIniciales: { lat: number; lng: number }[]
+        if (r === 0 || mejorInercia === Infinity) {
+          centroidesIniciales = kmeansppInit(puntos, k)
+        } else {
+          // Perturbar los mejores centroides con pequeño ruido para explorar variantes
+          const ruido = 0.002 * r // ~200m por reinicio
+          centroidesIniciales = mejoresCentroides.map((c, ci) => ({
+            lat: c.lat + (ci % 2 === 0 ? ruido : -ruido),
+            lng: c.lng + (ci % 2 === 0 ? -ruido : ruido),
+          }))
+        }
+
+        const { asignados, centroides, inercia } = kmeansRun(conGPS, k, centroidesIniciales)
+        if (inercia < mejorInercia) {
+          mejorInercia = inercia
+          mejorAsignados = asignados
+          mejoresCentroides = centroides
         }
       }
     }
@@ -592,9 +662,11 @@ function distribuirMotoristas(
     // Balancear grupos para que tengan tamaño similar
     const maxPorGrupo = Math.ceil(conGPS.length / k)
     const cuentaGrupo = new Array(k).fill(0)
-    // Primero asignar los más seguros (los más cercanos a su centroide)
     const ordenados = conGPS
-      .map((s, i) => ({ s, i, grupo: asignados[i], dist: distanciaKm(s.latitud, s.longitud, centroides[asignados[i]].lat, centroides[asignados[i]].lng) }))
+      .map((s, i) => ({
+        s, i, grupo: mejorAsignados[i],
+        dist: distanciaKm(s.latitud, s.longitud, mejoresCentroides[mejorAsignados[i]]?.lat ?? s.latitud, mejoresCentroides[mejorAsignados[i]]?.lng ?? s.longitud)
+      }))
       .sort((a, b) => a.dist - b.dist)
     const grupoFinal = new Array(conGPS.length).fill(-1)
     for (const { i, grupo } of ordenados) {
@@ -602,14 +674,12 @@ function distribuirMotoristas(
         grupoFinal[i] = grupo; cuentaGrupo[grupo]++
       }
     }
-    // Los que quedaron sin grupo → al grupo con menos carga
     for (let i = 0; i < conGPS.length; i++) {
       if (grupoFinal[i] === -1) {
         const g = cuentaGrupo.indexOf(Math.min(...cuentaGrupo))
         grupoFinal[i] = g; cuentaGrupo[g]++
       }
     }
-    // Mapear grupo → motorista
     conGPS.forEach((s, i) => {
       resultado.push({ solicitud_id: s.id, motorista_id: motoristas[grupoFinal[i]].id })
     })

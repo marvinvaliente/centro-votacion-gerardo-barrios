@@ -793,7 +793,7 @@ function TransporteInner() {
 
     if (sols.length === 0) return {}
 
-    // 3. Clustering geográfico de pasajeros (k-means simplificado)
+    // 3. Clustering geográfico de pasajeros (k-means++ con múltiples reinicios)
     // Agrupa pasajeros cercanos entre sí → cada grupo va con un motorista
     const k = motoristas.length
     const conGPS = sols.filter((s) => s.latitud && s.longitud) as { id: string; latitud: number; longitud: number }[]
@@ -801,37 +801,67 @@ function TransporteInner() {
     const asignaciones: { solicitud_id: string; motorista_id: string }[] = []
 
     if (conGPS.length > 0) {
-      // Inicializar centroides espaciados uniformemente
-      let centroides: { lat: number; lng: number }[] = []
-      if (conGPS.length <= k) {
-        centroides = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
-        while (centroides.length < k) centroides.push({ ...centroides[0] })
-      } else {
-        const paso = Math.floor(conGPS.length / k)
-        for (let i = 0; i < k; i++) centroides.push({ lat: conGPS[i * paso].latitud, lng: conGPS[i * paso].longitud })
+      const puntos = conGPS.map(s => ({ lat: s.latitud, lng: s.longitud }))
+
+      // K-means++ init: primer centroide = punto más cercano al centro geográfico;
+      // siguientes = punto más lejano a cualquier centroide ya elegido
+      function kppInit(pts: { lat: number; lng: number }[], kk: number) {
+        const cl: { lat: number; lng: number }[] = []
+        const cLat = pts.reduce((s, p) => s + p.lat, 0) / pts.length
+        const cLng = pts.reduce((s, p) => s + p.lng, 0) / pts.length
+        let best = 0, bd = Infinity
+        pts.forEach((p, i) => { const d = distKm(p.lat, p.lng, cLat, cLng); if (d < bd) { bd = d; best = i } })
+        cl.push({ ...pts[best] })
+        while (cl.length < kk) {
+          const dists = pts.map(p => Math.min(...cl.map(c => distKm(p.lat, p.lng, c.lat, c.lng))) ** 2)
+          const total = dists.reduce((s, d) => s + d, 0)
+          if (total === 0) { cl.push({ ...pts[cl.length % pts.length] }); continue }
+          cl.push({ ...pts[dists.indexOf(Math.max(...dists))] })
+        }
+        return cl
       }
-      // K-means hasta convergencia
-      let asignados: number[] = new Array(conGPS.length).fill(0)
-      for (let iter = 0; iter < 20; iter++) {
-        const nuevos = conGPS.map(s =>
-          centroides.reduce((best, c, ci) => {
-            const d = distKm(s.latitud, s.longitud, c.lat, c.lng)
-            return d < best.d ? { ci, d } : best
-          }, { ci: 0, d: Infinity }).ci
-        )
-        if (nuevos.every((v, i) => v === asignados[i])) break
-        asignados = nuevos
-        for (let ci = 0; ci < k; ci++) {
-          const mb = conGPS.filter((_, i) => asignados[i] === ci)
-          if (mb.length === 0) continue
-          centroides[ci] = { lat: mb.reduce((s, p) => s + p.latitud, 0) / mb.length, lng: mb.reduce((s, p) => s + p.longitud, 0) / mb.length }
+
+      // Un paso de k-means: retorna {asignados, centroides, inercia}
+      function kRun(pts: typeof conGPS, kk: number, cInit: { lat: number; lng: number }[]) {
+        let cs = cInit.map(c => ({ ...c }))
+        let asg: number[] = new Array(pts.length).fill(0)
+        for (let iter = 0; iter < 30; iter++) {
+          const nw = pts.map(s => cs.reduce((b, c, ci) => { const d = distKm(s.latitud, s.longitud, c.lat, c.lng); return d < b.d ? { ci, d } : b }, { ci: 0, d: Infinity }).ci)
+          if (nw.every((v, i) => v === asg[i])) break
+          asg = nw
+          for (let ci = 0; ci < kk; ci++) {
+            const mb = pts.filter((_, i) => asg[i] === ci)
+            if (mb.length === 0) continue
+            cs[ci] = { lat: mb.reduce((s, p) => s + p.latitud, 0) / mb.length, lng: mb.reduce((s, p) => s + p.longitud, 0) / mb.length }
+          }
+        }
+        const inercia = pts.reduce((sum, s, i) => sum + distKm(s.latitud, s.longitud, cs[asg[i]].lat, cs[asg[i]].lng), 0)
+        return { asignados: asg, centroides: cs, inercia }
+      }
+
+      let mejorAsignados: number[] = []
+      let mejoresCentroides: { lat: number; lng: number }[] = []
+      let mejorInercia = Infinity
+
+      if (conGPS.length <= k) {
+        mejorAsignados = conGPS.map((_, i) => i)
+        mejoresCentroides = puntos
+      } else {
+        const REINICIOS = 8
+        for (let r = 0; r < REINICIOS; r++) {
+          const cInit = r === 0 || mejorInercia === Infinity
+            ? kppInit(puntos, k)
+            : mejoresCentroides.map((c, ci) => { const rn = 0.002 * r; return { lat: c.lat + (ci % 2 === 0 ? rn : -rn), lng: c.lng + (ci % 2 === 0 ? -rn : rn) } })
+          const { asignados, centroides, inercia } = kRun(conGPS, k, cInit)
+          if (inercia < mejorInercia) { mejorInercia = inercia; mejorAsignados = asignados; mejoresCentroides = centroides }
         }
       }
+
       // Balancear grupos
       const maxPorGrupo = Math.ceil(conGPS.length / k)
       const cuentaGrupo = new Array(k).fill(0)
       const ordenados = conGPS
-        .map((s, i) => ({ s, i, grupo: asignados[i], dist: distKm(s.latitud, s.longitud, centroides[asignados[i]].lat, centroides[asignados[i]].lng) }))
+        .map((s, i) => ({ s, i, grupo: mejorAsignados[i], dist: distKm(s.latitud, s.longitud, mejoresCentroides[mejorAsignados[i]]?.lat ?? s.latitud, mejoresCentroides[mejorAsignados[i]]?.lng ?? s.longitud) }))
         .sort((a, b) => a.dist - b.dist)
       const grupoFinal = new Array(conGPS.length).fill(-1)
       for (const { i, grupo } of ordenados) {
