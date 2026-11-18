@@ -38,6 +38,14 @@ type Solicitud = {
 type TabActiva = 'eventos' | 'motoristas' | 'ubicaciones' | 'solicitudes'
 
 // ── Utilidades ───────────────────────────────────────────────
+function fmt12(hora: string | null | undefined): string {
+  if (!hora) return ''
+  const [h, m] = hora.slice(0, 5).split(':').map(Number)
+  const ampm = h < 12 ? 'AM' : 'PM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -467,8 +475,8 @@ export default function AdminTransportePage() {
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
                         📅 {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
-                        {ev.hora_fin && ` – ${ev.hora_fin.slice(0, 5)}`}
+                        {ev.hora && ` · ${fmt12(ev.hora)}`}
+                        {ev.hora_fin && ` – ${fmt12(ev.hora_fin)}`}
                       </p>
                       {ev.lugar && <p className="text-sm text-gray-500">📍 {ev.lugar}</p>}
                       {ev.evento_latitud && ev.evento_longitud && (

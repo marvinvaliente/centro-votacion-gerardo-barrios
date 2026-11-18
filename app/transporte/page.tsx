@@ -57,6 +57,15 @@ type Vista = 'login' | 'perfil'
 const DEFAULT_LAT = 13.9942
 const DEFAULT_LNG = -89.5629
 
+/** Convierte "HH:MM" o "HH:MM:SS" (24h) a "h:MM AM/PM" */
+function fmt12(hora: string | null | undefined): string {
+  if (!hora) return ''
+  const [h, m] = hora.slice(0, 5).split(':').map(Number)
+  const ampm = h < 12 ? 'AM' : 'PM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 /** Devuelve true si ya pasaron 30 min desde la hora de finalización del evento */
 function eventoVencido(ev: Evento): boolean {
   if (!ev.hora_fin) return false
@@ -471,7 +480,7 @@ function TransporteAcciones({
       {/* Cierre de plazo */}
       {ev.hora_fin && (
         <p className="text-xs text-gray-400">
-          ⏱ Tenés hasta las {(() => { const [h,m] = ev.hora_fin!.slice(0,5).split(':').map(Number); const d = new Date(); d.setHours(h,m+30); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` })()} para registrar tu solicitud
+          ⏱ Tenés hasta las {(() => { const [h,m] = ev.hora_fin!.slice(0,5).split(':').map(Number); const cierre = h * 60 + m + 30; const hc = Math.floor(cierre / 60) % 24; const mc = cierre % 60; return fmt12(`${String(hc).padStart(2,'0')}:${String(mc).padStart(2,'0')}`) })()} para registrar tu solicitud
         </p>
       )}
 
@@ -930,8 +939,8 @@ export default function TransportePage() {
                           <h3 className="font-medium text-gray-900 text-sm">{ev.nombre}</h3>
                           <p className="text-xs text-gray-500 mt-0.5">
                             📅 {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                            {ev.hora && ` · ${ev.hora.slice(0, 5)}`}
-                            {ev.hora_fin && ` – ${ev.hora_fin.slice(0, 5)}`}
+                            {ev.hora && ` · ${fmt12(ev.hora)}`}
+                            {ev.hora_fin && ` – ${fmt12(ev.hora_fin)}`}
                           </p>
                           {ev.lugar && <p className="text-xs text-gray-500">📍 {ev.lugar}</p>}
                           {ev.evento_latitud && ev.evento_longitud && (
