@@ -348,13 +348,13 @@ export default function PortalPage() {
     }
 
     // 2. Detección de rostro (FaceDetector API — Chrome/Android)
-    if ('FaceDetector' in window) {
-      try {
+    try {
+      if ('FaceDetector' in window) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const detector = new (window as any).FaceDetector({ fastMode: false, maxDetectedFaces: 5 })
         const img = new Image()
         img.src = objectUrl
-        await new Promise(r => { img.onload = r })
+        await new Promise<void>((r, rej) => { img.onload = () => r(); img.onerror = () => rej() })
         const rostros = await detector.detect(img)
         if (rostros.length === 0) {
           setPerfilValReg(false)
@@ -366,9 +366,9 @@ export default function PortalPage() {
           setPerfilRazonReg('Se detectaron varios rostros. La foto debe mostrar solo su cara.')
           setValidandoPReg(false); return
         }
-      } catch {
-        // Si falla la detección, se permite continuar
       }
+    } catch {
+      // Si falla la detección (API no soportada o error), se permite continuar
     }
 
     setPerfilValReg(true); setPerfilRazonReg('Foto válida'); setValidandoPReg(false)
