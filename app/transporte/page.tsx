@@ -944,6 +944,12 @@ function TransporteInner() {
             Ingresá tu DUI sin espacios ni guiones.<br />
             Solo personal registrado puede acceder.
           </p>
+
+          <a href="/guia-transporte.html" target="_blank"
+            className="mt-4 flex items-center justify-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+            ¿Cómo solicitar transporte? Ver guía rápida
+          </a>
         </div>
       </main>
     )
