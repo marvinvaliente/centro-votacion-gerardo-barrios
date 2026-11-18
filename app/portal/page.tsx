@@ -185,7 +185,12 @@ export default function PortalPage() {
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
-    if (stored) { const u = JSON.parse(stored); setUsuario(u); cargarDatos(u) }
+    if (stored) {
+      const u = JSON.parse(stored)
+      setUsuario(u)
+      // Solo cargar datos si tiene id real (no el fallback 'admin')
+      if (u.id !== 'admin') cargarDatos(u)
+    }
   }, [])
 
   function formatDUI(v: string) {
@@ -215,7 +220,23 @@ export default function PortalPage() {
     if (!acceso) { setErrorAdmin('Contraseña incorrecta'); setPasswordAdmin(''); return }
     sessionStorage.setItem(ADMIN_SESSION, '1')
     sessionStorage.setItem('admin_dui', duiFmt)
-    window.location.href = '/admin'
+
+    // Cargar datos del admin para mostrarlo en el portal (como cualquier usuario)
+    const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
+    if (usrAdmin) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
+      setUsuario(usrAdmin); cargarDatos(usrAdmin)
+    } else {
+      // Admin sin registro en tabla usuarios → crear objeto mínimo
+      const adminFallback: Usuario = {
+        id: 'admin', nombre: 'Administrador', dui: duiFmt,
+        email: null, telefono: null, rol: 'administrador',
+        activo: true, autorizado: true,
+        registro_dui_id: null, foto_perfil_url: null,
+      }
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(adminFallback))
+      setUsuario(adminFallback)
+    }
   }
 
   async function verificarDUI() {
@@ -475,7 +496,12 @@ export default function PortalPage() {
     }
   }
 
-  function cerrarSesion() { sessionStorage.removeItem(SESSION_KEY); setUsuario(null); setDui('') }
+  function cerrarSesion() {
+    sessionStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(ADMIN_SESSION)
+    sessionStorage.removeItem('admin_dui')
+    setUsuario(null); setDui('')
+  }
 
   // ── Validar foto ──
   async function validarFoto(file: File): Promise<boolean> {
@@ -1161,12 +1187,14 @@ export default function PortalPage() {
   }
 
   /* ── PORTAL ── */
+  const esAdmin = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,     href: null },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,    href: null },
-    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen, href: null },
-    { key: 'calendario',  label: 'Calendario',        icon: Calendar, href: null },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,      href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,       href: null },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,      href: null },
+    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen,   href: null },
+    { key: 'calendario',  label: 'Calendario',        icon: Calendar,   href: null },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,        href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
+    ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin' }] : []),
   ]
 
   return (
