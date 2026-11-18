@@ -426,7 +426,7 @@ function TransporteAcciones({
     onSolicitar({
       recogida: selRecogida,
       regreso: selRegreso,
-      tipo_recogida: selRecogida ? tipoRecogida : 'domicilio',
+      tipo_recogida: selRecogida && tienePuntoReunion ? 'punto_reunion' : 'domicilio',
     })
   }
 
@@ -447,7 +447,7 @@ function TransporteAcciones({
             Sí, agregar también {falta}
           </button>
           <button
-            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso, tipo_recogida: selRecogida ? tipoRecogida : 'domicilio' }) }}
+            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso, tipo_recogida: selRecogida && tienePuntoReunion ? 'punto_reunion' : 'domicilio' }) }}
             className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-1.5"
           >
             <CheckCircle className="w-4 h-4 text-gray-500" />
@@ -491,37 +491,24 @@ function TransporteAcciones({
         )}
       </div>
 
-      {/* Punto de reunión: aparece si el evento lo tiene y el usuario marcó recogida */}
+      {/* Punto de reunión: si el evento lo tiene, es el único método de recogida */}
       {selRecogida && tienePuntoReunion && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2">
-          <p className="text-xs font-semibold text-orange-700">¿Cómo querés ser recogido?</p>
-          <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${tipoRecogida === 'domicilio' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-            <input type="radio" name="tipo_recogida" value="domicilio"
-              checked={tipoRecogida === 'domicilio'}
-              onChange={() => setTipoRecogida('domicilio')}
-              className="w-3.5 h-3.5 mt-0.5 accent-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">🏠 Recogida en mi casa</p>
-              <p className="text-xs text-gray-400">El motorista pasará a recogerte según tus coordenadas GPS</p>
-            </div>
-          </label>
-          <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${tipoRecogida === 'punto_reunion' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-            <input type="radio" name="tipo_recogida" value="punto_reunion"
-              checked={tipoRecogida === 'punto_reunion'}
-              onChange={() => setTipoRecogida('punto_reunion')}
-              className="w-3.5 h-3.5 mt-0.5 accent-orange-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-800">📍 Me uno en el punto de reunión</p>
-              {ev.punto_reunion_nombre && <p className="text-xs text-orange-700 font-medium">{ev.punto_reunion_nombre}</p>}
-              {ev.punto_reunion_lat && (
-                <a href={`https://www.google.com/maps?q=${ev.punto_reunion_lat},${ev.punto_reunion_lng}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5">
-                  <ExternalLink className="w-3 h-3" />Ver en Maps
-                </a>
-              )}
-            </div>
-          </label>
+        <div className="bg-orange-50 border border-orange-300 rounded-xl p-3 flex items-start gap-2.5">
+          <MapPin className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-orange-800">📍 Punto de reunión obligatorio</p>
+            {ev.punto_reunion_nombre && (
+              <p className="text-sm text-orange-700 font-medium">{ev.punto_reunion_nombre}</p>
+            )}
+            <p className="text-xs text-orange-600 mt-0.5">Para este evento la recogida es únicamente en el punto de reunión indicado</p>
+            {ev.punto_reunion_lat && (
+              <a href={`https://www.google.com/maps?q=${ev.punto_reunion_lat},${ev.punto_reunion_lng}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5 mt-1">
+                <ExternalLink className="w-3 h-3" />Ver ubicación en Maps
+              </a>
+            )}
+          </div>
         </div>
       )}
 
