@@ -38,6 +38,9 @@ type Evento = {
   transporte_recogida: boolean
   transporte_regreso: boolean
   activo: boolean
+  punto_reunion_nombre: string | null
+  punto_reunion_lat: number | null
+  punto_reunion_lng: number | null
 }
 
 type Solicitud = {
@@ -50,6 +53,7 @@ type Solicitud = {
   motorista_nombre: string | null
   motorista_telefono: string | null
   created_at: string
+  tipo_recogida: 'domicilio' | 'punto_reunion' | null
 }
 
 type Vista = 'login' | 'perfil'
@@ -327,11 +331,13 @@ function TransporteAcciones({
   sol: Solicitud | undefined
   solicitando: boolean
   tieneGps: boolean
-  onSolicitar: (opts: { recogida: boolean; regreso: boolean }) => void
+  onSolicitar: (opts: { recogida: boolean; regreso: boolean; tipo_recogida?: 'domicilio' | 'punto_reunion' }) => void
   onCancelar: () => void
 }) {
   const [selRecogida, setSelRecogida] = useState(false)
   const [selRegreso, setSelRegreso]   = useState(false)
+  const [tipoRecogida, setTipoRecogida] = useState<'domicilio' | 'punto_reunion'>('domicilio')
+  const tienePuntoReunion = !!(ev.punto_reunion_lat && ev.punto_reunion_lng)
 
   const tieneAlguno = ev.transporte_recogida || ev.transporte_regreso
   const ningunaSeleccionada = !selRecogida && !selRegreso
@@ -375,6 +381,9 @@ function TransporteAcciones({
           {sol.solicita_recogida && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">🚐 Llevarme al evento</span>
           )}
+          {sol.solicita_recogida && sol.tipo_recogida === 'punto_reunion' && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">📍 Punto de reunión</span>
+          )}
           {sol.solicita_regreso && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 Llevarme a casa</span>
           )}
@@ -414,7 +423,11 @@ function TransporteAcciones({
       setConfirmando(true)
       return
     }
-    onSolicitar({ recogida: selRecogida, regreso: selRegreso })
+    onSolicitar({
+      recogida: selRecogida,
+      regreso: selRegreso,
+      tipo_recogida: selRecogida ? tipoRecogida : 'domicilio',
+    })
   }
 
   if (confirmando) {
@@ -434,7 +447,7 @@ function TransporteAcciones({
             Sí, agregar también {falta}
           </button>
           <button
-            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso }) }}
+            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso, tipo_recogida: selRecogida ? tipoRecogida : 'domicilio' }) }}
             className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-1.5"
           >
             <CheckCircle className="w-4 h-4 text-gray-500" />
@@ -463,7 +476,7 @@ function TransporteAcciones({
         {ev.transporte_recogida && (
           <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             <input type="checkbox" checked={selRecogida}
-              onChange={(e) => setSelRecogida(e.target.checked)}
+              onChange={(e) => { setSelRecogida(e.target.checked); if (!e.target.checked) setTipoRecogida('domicilio') }}
               className="w-3.5 h-3.5 accent-blue-600" />
             🚐 Llevarme al evento
           </label>
@@ -477,6 +490,40 @@ function TransporteAcciones({
           </label>
         )}
       </div>
+
+      {/* Punto de reunión: aparece si el evento lo tiene y el usuario marcó recogida */}
+      {selRecogida && tienePuntoReunion && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-2">
+          <p className="text-xs font-semibold text-orange-700">¿Cómo querés ser recogido?</p>
+          <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${tipoRecogida === 'domicilio' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+            <input type="radio" name="tipo_recogida" value="domicilio"
+              checked={tipoRecogida === 'domicilio'}
+              onChange={() => setTipoRecogida('domicilio')}
+              className="w-3.5 h-3.5 mt-0.5 accent-blue-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">🏠 Recogida en mi casa</p>
+              <p className="text-xs text-gray-400">El motorista pasará a recogerte según tus coordenadas GPS</p>
+            </div>
+          </label>
+          <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${tipoRecogida === 'punto_reunion' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+            <input type="radio" name="tipo_recogida" value="punto_reunion"
+              checked={tipoRecogida === 'punto_reunion'}
+              onChange={() => setTipoRecogida('punto_reunion')}
+              className="w-3.5 h-3.5 mt-0.5 accent-orange-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">📍 Me uno en el punto de reunión</p>
+              {ev.punto_reunion_nombre && <p className="text-xs text-orange-700 font-medium">{ev.punto_reunion_nombre}</p>}
+              {ev.punto_reunion_lat && (
+                <a href={`https://www.google.com/maps?q=${ev.punto_reunion_lat},${ev.punto_reunion_lng}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                  <ExternalLink className="w-3 h-3" />Ver en Maps
+                </a>
+              )}
+            </div>
+          </label>
+        </div>
+      )}
 
       {/* Cierre de plazo */}
       {ev.hora_fin && (
@@ -569,7 +616,7 @@ function TransporteInner() {
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
         .select(`
-          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at,
+          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at, tipo_recogida,
           motorista:motorista_id (nombre, telefono)
         `)
         .eq('registro_id', reg.id)
@@ -583,6 +630,7 @@ function TransporteInner() {
           motorista_id: s.motorista_id ?? null,
           motorista_nombre: s.motorista?.nombre ?? null,
           motorista_telefono: s.motorista?.telefono ?? null,
+          tipo_recogida: s.tipo_recogida ?? 'domicilio',
           created_at: s.created_at,
         }))
       )
@@ -634,7 +682,7 @@ function TransporteInner() {
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
         .select(`
-          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at,
+          id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at, tipo_recogida,
           motorista:motorista_id (nombre, telefono)
         `)
         .eq('registro_id', reg.id)
@@ -648,6 +696,7 @@ function TransporteInner() {
           motorista_id: s.motorista_id ?? null,
           motorista_nombre: s.motorista?.nombre ?? null,
           motorista_telefono: s.motorista?.telefono ?? null,
+          tipo_recogida: s.tipo_recogida ?? 'domicilio',
           created_at: s.created_at,
         }))
       )
@@ -748,7 +797,7 @@ function TransporteInner() {
 
   async function solicitarTransporte(
     eventoId: string,
-    opts: { recogida: boolean; regreso: boolean }
+    opts: { recogida: boolean; regreso: boolean; tipo_recogida?: 'domicilio' | 'punto_reunion' }
   ) {
     if (!registro) return
     setSolicitando(eventoId)
@@ -761,8 +810,9 @@ function TransporteInner() {
           estado: 'pendiente',
           solicita_recogida: opts.recogida,
           solicita_regreso: opts.regreso,
+          tipo_recogida: opts.tipo_recogida ?? 'domicilio',
         })
-        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at')
+        .select('id, evento_id, estado, solicita_recogida, solicita_regreso, motorista_id, created_at, tipo_recogida')
         .single()
 
       if (err) { alert('Error al solicitar transporte.'); return }
@@ -770,7 +820,8 @@ function TransporteInner() {
       // Agregar al estado local sin motorista inicialmente
       const nuevaSol: Solicitud = {
         ...data,
-        motorista_id: null, motorista_nombre: null, motorista_telefono: null
+        motorista_id: null, motorista_nombre: null, motorista_telefono: null,
+        tipo_recogida: data.tipo_recogida ?? 'domicilio',
       }
       setSolicitudes((prev) => [...prev, nuevaSol])
 

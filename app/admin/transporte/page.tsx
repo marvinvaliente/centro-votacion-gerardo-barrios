@@ -19,6 +19,9 @@ type Evento = {
   evento_latitud: number | null; evento_longitud: number | null
   transporte_recogida: boolean; transporte_regreso: boolean
   activo: boolean; created_at: string
+  punto_reunion_nombre: string | null
+  punto_reunion_lat: number | null
+  punto_reunion_lng: number | null
 }
 
 type Registro = {
@@ -160,11 +163,20 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     transporte_recogida: inicial?.transporte_recogida ?? false,
     transporte_regreso: inicial?.transporte_regreso ?? false,
     activo: inicial?.activo ?? true,
+    punto_reunion_nombre: inicial?.punto_reunion_nombre ?? '',
+    punto_reunion_lat: inicial?.punto_reunion_lat ?? null as number | null,
+    punto_reunion_lng: inicial?.punto_reunion_lng ?? null as number | null,
   })
   const [guardando, setGuardando] = useState(false)
   const [gpsEstado, setGpsEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
   const [gpsMsg, setGpsMsg] = useState('')
   const [mapsInput, setMapsInput] = useState('')
+  const [prEstado, setPrEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle')
+  const [prMsg, setPrMsg] = useState('')
+  const [prInput, setPrInput] = useState('')
+  const [usarPuntoReunion, setUsarPuntoReunion] = useState(
+    !!(inicial?.punto_reunion_lat && inicial?.punto_reunion_lng)
+  )
 
   function capturarGPS() {
     setGpsEstado('cargando'); setGpsMsg('Obteniendo...')
@@ -222,6 +234,46 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
     }
   }
 
+  function parsearPR(texto: string) {
+    setPrInput(texto)
+    if (!texto.trim()) return
+    let lat: number | null = null; let lng: number | null = null
+    const coordDirecta = texto.match(/^[-\s]*(-?\d{1,3}\.\d+)[,\s]+(-?\d{1,3}\.\d+)\s*$/)
+    if (coordDirecta) { lat = parseFloat(coordDirecta[1]); lng = parseFloat(coordDirecta[2]) }
+    if (!lat) {
+      const arroba = texto.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+      if (arroba) { lat = parseFloat(arroba[1]); lng = parseFloat(arroba[2]) }
+    }
+    if (!lat) {
+      const qParam = texto.match(/[?&](?:q|ll)=(-?\d{1,3}\.\d+)[,+](-?\d{1,3}\.\d+)/)
+      if (qParam) { lat = parseFloat(qParam[1]); lng = parseFloat(qParam[2]) }
+    }
+    if (!lat) {
+      const data3d = texto.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/)
+      if (data3d) { lat = parseFloat(data3d[1]); lng = parseFloat(data3d[2]) }
+    }
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+      setForm((f) => ({ ...f, punto_reunion_lat: lat, punto_reunion_lng: lng }))
+      setPrEstado('ok'); setPrMsg(`${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+    } else if (texto.length > 10) {
+      setPrEstado('error'); setPrMsg('No se pudieron extraer coordenadas.')
+    }
+  }
+
+  function capturarGPSPR() {
+    setPrEstado('cargando'); setPrMsg('Obteniendo...')
+    if (!navigator.geolocation) { setPrEstado('error'); setPrMsg('GPS no disponible.'); return }
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setForm((f) => ({ ...f, punto_reunion_lat: p.coords.latitude, punto_reunion_lng: p.coords.longitude }))
+        setPrInput('')
+        setPrEstado('ok'); setPrMsg(`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`)
+      },
+      () => { setPrEstado('error'); setPrMsg('No se pudo obtener la ubicación.') },
+      { enableHighAccuracy: true, timeout: 15000 }
+    )
+  }
+
   async function submit() {
     if (!form.nombre.trim() || !form.fecha) return
     setGuardando(true)
@@ -233,6 +285,9 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
       transporte_recogida: form.transporte_recogida,
       transporte_regreso: form.transporte_regreso,
       activo: form.activo,
+      punto_reunion_nombre: usarPuntoReunion ? (form.punto_reunion_nombre.trim() || null) : null,
+      punto_reunion_lat: usarPuntoReunion ? form.punto_reunion_lat : null,
+      punto_reunion_lng: usarPuntoReunion ? form.punto_reunion_lng : null,
     })
     setGuardando(false)
   }
@@ -343,6 +398,71 @@ function FormEvento({ inicial, onGuardar, onCancelar }: {
             </label>
           </div>
         </div>
+        {/* Punto de reunión */}
+        {form.transporte_recogida && (
+          <div className="sm:col-span-2">
+            <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors mb-3 ${usarPuntoReunion ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <input type="checkbox" checked={usarPuntoReunion}
+                onChange={(e) => setUsarPuntoReunion(e.target.checked)}
+                className="w-4 h-4 accent-orange-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">📍 Habilitar punto de reunión</p>
+                <p className="text-xs text-gray-400">El personal puede elegir reunirse aquí en lugar de ser recogido en casa</p>
+              </div>
+            </label>
+            {usarPuntoReunion && (
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Punto de reunión</p>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Nombre del punto</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    value={form.punto_reunion_nombre}
+                    onChange={(e) => setForm({ ...form, punto_reunion_nombre: e.target.value })}
+                    placeholder="Ej: Parque Central, Alcaldía Municipal" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">GPS del punto de reunión</label>
+                  <div className="mt-1 relative">
+                    <input type="text"
+                      placeholder="Pegá el link de Google Maps o coordenadas"
+                      value={prInput}
+                      onChange={(e) => parsearPR(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-orange-400 placeholder:text-gray-300"
+                    />
+                    {prInput && (
+                      <button type="button" onClick={() => { setPrInput(''); setPrEstado('idle'); setPrMsg(''); setForm((f) => ({ ...f, punto_reunion_lat: null, punto_reunion_lng: null })) }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 my-2">
+                    <div className="flex-1 h-px bg-gray-200" /><span className="text-xs text-gray-400">o</span><div className="flex-1 h-px bg-gray-200" />
+                  </div>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <button type="button" onClick={capturarGPSPR} disabled={prEstado === 'cargando'}
+                      className="flex items-center gap-1.5 text-xs bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white px-3 py-1.5 rounded-lg">
+                      {prEstado === 'cargando' ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                      Usar mi ubicación actual
+                    </button>
+                    {form.punto_reunion_lat && (
+                      <a href={`https://www.google.com/maps?q=${form.punto_reunion_lat},${form.punto_reunion_lng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                        <ExternalLink className="w-3 h-3" />Ver en Maps
+                      </a>
+                    )}
+                  </div>
+                  {prMsg && (
+                    <p className={`text-xs mt-1.5 ${prEstado === 'ok' ? 'text-green-600' : prEstado === 'error' ? 'text-red-500' : 'text-blue-600'}`}>
+                      {prEstado === 'ok' ? '✓ ' : ''}{prMsg}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Descripción</label>
           <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
