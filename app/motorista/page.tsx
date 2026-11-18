@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   Truck, ChevronLeft, Loader2, Phone, MapPin, Navigation,
-  Users, Calendar, Clock, CheckCircle, XCircle, Bus,
-  Map, ExternalLink, User, AlertTriangle, RefreshCw, Info
+  Users, Calendar, Clock, CheckCircle, Bus,
+  Map, ExternalLink, User, AlertTriangle, RefreshCw, Info,
+  MessageCircle, CreditCard, Check
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -36,6 +37,10 @@ type Pasajero = {
   solicita_recogida: boolean; solicita_regreso: boolean
   latitud: number | null; longitud: number | null
   estado: string
+  recogido: boolean
+  recogido_at: string | null
+  completado: boolean
+  completado_at: string | null
 }
 
 type EventoConPasajeros = Evento & { pasajeros: Pasajero[] }
@@ -60,7 +65,6 @@ function fmtFecha(fecha: string) {
   return d.toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-/** URL de Google Maps con ruta optimizada para todos los pasajeros */
 function buildGoogleMapsUrl(
   motoristaLat: number | null, motoristaLng: number | null,
   eventoLat: number | null, eventoLng: number | null,
@@ -70,7 +74,6 @@ function buildGoogleMapsUrl(
   if (conGPS.length === 0) return '#'
 
   if (tipo === 'recogida') {
-    // Recogida: origen = motorista, destino = evento, waypoints = pasajeros
     const origin = motoristaLat && motoristaLng
       ? `${motoristaLat},${motoristaLng}`
       : `${conGPS[0].latitud},${conGPS[0].longitud}`
@@ -80,7 +83,6 @@ function buildGoogleMapsUrl(
     const waypoints = conGPS.map(p => `${p.latitud},${p.longitud}`).join('|')
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`
   } else {
-    // Regreso: origen = evento, destino = último pasajero, waypoints = pasajeros
     const origin = eventoLat && eventoLng
       ? `${eventoLat},${eventoLng}`
       : `${conGPS[0].latitud},${conGPS[0].longitud}`
@@ -91,42 +93,74 @@ function buildGoogleMapsUrl(
 }
 
 // ── Tarjeta de pasajero ───────────────────────────────────────
-function TarjetaPasajero({ p }: { p: Pasajero }) {
+function TarjetaPasajero({
+  p,
+  onMarcarRecogido,
+  onMarcarCompletado,
+}: {
+  p: Pasajero
+  onMarcarRecogido: (id: string, valor: boolean) => void
+  onMarcarCompletado: (id: string, valor: boolean) => void
+}) {
   const tipos = [
-    p.solicita_recogida && '🚐 Llevarme al evento',
-    p.solicita_regreso  && '🏠 Llevarme a casa',
+    p.solicita_recogida && '🚐 Al evento',
+    p.solicita_regreso  && '🏠 A casa',
   ].filter(Boolean).join(' · ')
 
+  const whatsappUrl = p.telefono
+    ? `https://wa.me/503${p.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${p.nombre.split(' ')[0]}, soy tu motorista asignado. Ya voy en camino a recogerte. 🚐`)}`
+    : null
+
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+    <div className={`bg-white rounded-xl border shadow-sm p-4 transition-all ${p.completado ? 'border-green-200 bg-green-50/50' : p.recogido ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100'}`}>
+
+      {/* Cabecera */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-indigo-600" />
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${p.completado ? 'bg-green-100' : p.recogido ? 'bg-blue-100' : 'bg-indigo-100'}`}>
+            <User className={`w-4 h-4 ${p.completado ? 'text-green-600' : p.recogido ? 'text-blue-600' : 'text-indigo-600'}`} />
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{p.nombre}</p>
             <p className="text-xs text-gray-400 mt-0.5">{p.cargo} · JRV {p.jrv}</p>
           </div>
         </div>
-        {/* GPS indicator */}
-        {p.latitud ? (
-          <span className="flex-shrink-0 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5 flex items-center gap-1">
-            <MapPin className="w-3 h-3" /> GPS ✓
+        {/* Estado badge */}
+        {p.completado ? (
+          <span className="flex-shrink-0 text-xs bg-green-100 text-green-700 border border-green-200 rounded-full px-2 py-0.5 flex items-center gap-1 font-medium">
+            <CheckCircle className="w-3 h-3" /> Completado
+          </span>
+        ) : p.recogido ? (
+          <span className="flex-shrink-0 text-xs bg-blue-100 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 flex items-center gap-1 font-medium">
+            <Check className="w-3 h-3" /> Recogido
           </span>
         ) : (
-          <span className="flex-shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 flex items-center gap-1">
-            <MapPin className="w-3 h-3" /> Sin GPS
+          <span className="flex-shrink-0 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">
+            Pendiente
           </span>
         )}
       </div>
 
-      {/* Detalle */}
+      {/* Info */}
       <div className="mt-3 space-y-2">
-        <p className="text-xs text-gray-500 font-medium">{tipos}</p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-xs text-gray-500">{tipos}</span>
+          <span className="text-xs font-mono text-gray-400 flex items-center gap-1">
+            <CreditCard className="w-3 h-3" /> {p.dui}
+          </span>
+          {p.latitud ? (
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> GPS ✓
+            </span>
+          ) : (
+            <span className="text-xs text-amber-600 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> Sin GPS
+            </span>
+          )}
+        </div>
 
+        {/* Acciones de contacto */}
         <div className="flex flex-wrap gap-2">
-          {/* Llamar */}
           {p.telefono && (
             <a href={`tel:${p.telefono}`}
               className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 transition-colors">
@@ -134,8 +168,13 @@ function TarjetaPasajero({ p }: { p: Pasajero }) {
               {p.telefono}
             </a>
           )}
-
-          {/* Ver en mapa */}
+          {whatsappUrl && (
+            <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs bg-green-500 hover:bg-green-600 text-white rounded-lg px-3 py-1.5 transition-colors">
+              <MessageCircle className="w-3.5 h-3.5" />
+              WhatsApp
+            </a>
+          )}
           {p.latitud && p.longitud && (
             <a href={`https://www.google.com/maps?q=${p.latitud},${p.longitud}`}
               target="_blank" rel="noopener noreferrer"
@@ -145,6 +184,34 @@ function TarjetaPasajero({ p }: { p: Pasajero }) {
             </a>
           )}
         </div>
+
+        {/* Checklist de ruta */}
+        <div className="flex gap-2 pt-1 border-t border-gray-100">
+          <button
+            onClick={() => onMarcarRecogido(p.solicitud_id, !p.recogido)}
+            disabled={p.completado}
+            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors ${
+              p.recogido
+                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40'
+            }`}
+          >
+            <Check className="w-3.5 h-3.5" />
+            {p.recogido ? 'Recogido ✓' : 'Marcar recogido'}
+          </button>
+          <button
+            onClick={() => onMarcarCompletado(p.solicitud_id, !p.completado)}
+            disabled={!p.recogido}
+            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors ${
+              p.completado
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 disabled:opacity-40'
+            }`}
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            {p.completado ? 'Traslado completado ✓' : 'Completar traslado'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -152,16 +219,22 @@ function TarjetaPasajero({ p }: { p: Pasajero }) {
 
 // ── Tarjeta de evento ─────────────────────────────────────────
 function TarjetaEvento({
-  ev, motorista, abierto, onToggle
+  ev, motorista, abierto, onToggle,
+  onMarcarRecogido, onMarcarCompletado,
 }: {
   ev: EventoConPasajeros
   motorista: Motorista
   abierto: boolean
   onToggle: () => void
+  onMarcarRecogido: (solicitudId: string, valor: boolean) => void
+  onMarcarCompletado: (solicitudId: string, valor: boolean) => void
 }) {
-  const recogida = ev.pasajeros.filter(p => p.solicita_recogida)
-  const regreso  = ev.pasajeros.filter(p => p.solicita_regreso)
-  const conGPS   = ev.pasajeros.filter(p => p.latitud && p.longitud)
+  const recogida   = ev.pasajeros.filter(p => p.solicita_recogida)
+  const regreso    = ev.pasajeros.filter(p => p.solicita_regreso)
+  const conGPS     = ev.pasajeros.filter(p => p.latitud && p.longitud)
+  const recogidos  = ev.pasajeros.filter(p => p.recogido)
+  const completados = ev.pasajeros.filter(p => p.completado)
+  const todoCompleto = ev.pasajeros.length > 0 && completados.length === ev.pasajeros.length
 
   const urlRecogida = buildGoogleMapsUrl(
     motorista.latitud, motorista.longitud,
@@ -175,42 +248,40 @@ function TarjetaEvento({
   )
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${todoCompleto ? 'border-green-200' : 'border-gray-100'}`}>
       {/* Header evento */}
       <button onClick={onToggle} className="w-full text-left p-4 hover:bg-gray-50 transition-colors">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-bold text-gray-900 text-sm">{ev.nombre}</h3>
-              <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
-                {ev.pasajeros.length} pasajero{ev.pasajeros.length !== 1 ? 's' : ''}
-              </span>
+              {todoCompleto
+                ? <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium">✅ Completado</span>
+                : <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
+                    {ev.pasajeros.length} pasajero{ev.pasajeros.length !== 1 ? 's' : ''}
+                  </span>
+              }
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
               <span className="flex items-center gap-1 text-xs text-gray-500">
-                <Calendar className="w-3.5 h-3.5" />
-                {fmtFecha(ev.fecha)}
+                <Calendar className="w-3.5 h-3.5" />{fmtFecha(ev.fecha)}
               </span>
               {ev.hora && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Clock className="w-3.5 h-3.5" />
-                  {fmt12(ev.hora)}{ev.hora_fin ? ` – ${fmt12(ev.hora_fin)}` : ''}
+                  <Clock className="w-3.5 h-3.5" />{fmt12(ev.hora)}{ev.hora_fin ? ` – ${fmt12(ev.hora_fin)}` : ''}
                 </span>
               )}
               {ev.lugar && (
                 <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {ev.lugar}
+                  <MapPin className="w-3.5 h-3.5" />{ev.lugar}
                 </span>
               )}
             </div>
           </div>
-          <span className="text-gray-400 flex-shrink-0 mt-0.5">
-            {abierto ? '▲' : '▼'}
-          </span>
+          <span className="text-gray-400 flex-shrink-0 mt-0.5">{abierto ? '▲' : '▼'}</span>
         </div>
 
-        {/* Resumen chips */}
+        {/* Progreso */}
         <div className="flex flex-wrap gap-2 mt-2">
           {recogida.length > 0 && (
             <span className="text-xs bg-blue-50 text-blue-700 rounded-full px-2.5 py-0.5">
@@ -220,6 +291,16 @@ function TarjetaEvento({
           {regreso.length > 0 && (
             <span className="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2.5 py-0.5">
               🏠 {regreso.length} a casa
+            </span>
+          )}
+          {recogidos.length > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2.5 py-0.5">
+              ✓ {recogidos.length} recogido{recogidos.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {completados.length > 0 && (
+            <span className="text-xs bg-green-100 text-green-700 rounded-full px-2.5 py-0.5">
+              ✅ {completados.length}/{ev.pasajeros.length} completados
             </span>
           )}
           {conGPS.length < ev.pasajeros.length && (
@@ -266,13 +347,20 @@ function TarjetaEvento({
           {/* Lista de pasajeros */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Pasajeros asignados ({ev.pasajeros.length})
+              Pasajeros ({ev.pasajeros.length})
             </p>
             {ev.pasajeros.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">No hay pasajeros asignados aún</p>
             ) : (
               <div className="space-y-2">
-                {ev.pasajeros.map(p => <TarjetaPasajero key={p.solicitud_id} p={p} />)}
+                {ev.pasajeros.map(p => (
+                  <TarjetaPasajero
+                    key={p.solicitud_id}
+                    p={p}
+                    onMarcarRecogido={onMarcarRecogido}
+                    onMarcarCompletado={onMarcarCompletado}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -294,7 +382,6 @@ function MotoristaInner() {
   const [cargandoDatos, setCargandoDatos] = useState(false)
   const [eventoAbierto, setEventoAbierto] = useState<string | null>(null)
 
-  // Auto-login desde portal
   useEffect(() => {
     const duiParam = searchParams.get('dui')
     if (duiParam) {
@@ -340,7 +427,6 @@ function MotoristaInner() {
   async function cargarEventos(mot: Motorista) {
     setCargandoDatos(true)
     try {
-      // Cargar eventos activos
       const { data: evs } = await supabase
         .from('eventos_transporte')
         .select('*')
@@ -349,18 +435,17 @@ function MotoristaInner() {
 
       if (!evs || evs.length === 0) { setEventos([]); return }
 
-      // Cargar solicitudes asignadas a este motorista
       const { data: sols } = await supabase
         .from('solicitudes_transporte')
         .select(`
           id, evento_id, solicita_recogida, solicita_regreso, estado,
+          recogido, recogido_at, completado, completado_at,
           registro:registro_id (id, nombre, dui, telefono, latitud, longitud,
             padron:padron_id(cargo, jrv))
         `)
         .eq('motorista_id', mot.id)
         .in('evento_id', evs.map(e => e.id))
 
-      // Agrupar pasajeros por evento
       const pasajerosPorEvento: Record<string, Pasajero[]> = {}
       for (const s of (sols ?? [])) {
         const reg = (s as any).registro
@@ -378,10 +463,13 @@ function MotoristaInner() {
           latitud: reg?.latitud ?? null,
           longitud: reg?.longitud ?? null,
           estado: s.estado,
+          recogido: s.recogido ?? false,
+          recogido_at: s.recogido_at ?? null,
+          completado: s.completado ?? false,
+          completado_at: s.completado_at ?? null,
         })
       }
 
-      // Solo eventos con al menos un pasajero asignado a este motorista
       const eventosConPasajeros: EventoConPasajeros[] = evs
         .map(ev => ({ ...ev, pasajeros: pasajerosPorEvento[ev.id] ?? [] }))
         .filter(ev => ev.pasajeros.length > 0)
@@ -391,6 +479,37 @@ function MotoristaInner() {
     } finally {
       setCargandoDatos(false)
     }
+  }
+
+  async function marcarRecogido(solicitudId: string, valor: boolean) {
+    // Actualizar estado local inmediatamente (optimistic)
+    setEventos(prev => prev.map(ev => ({
+      ...ev,
+      pasajeros: ev.pasajeros.map(p =>
+        p.solicitud_id === solicitudId
+          ? { ...p, recogido: valor, recogido_at: valor ? new Date().toISOString() : null }
+          : p
+      )
+    })))
+    await supabase.from('solicitudes_transporte').update({
+      recogido: valor,
+      recogido_at: valor ? new Date().toISOString() : null,
+    }).eq('id', solicitudId)
+  }
+
+  async function marcarCompletado(solicitudId: string, valor: boolean) {
+    setEventos(prev => prev.map(ev => ({
+      ...ev,
+      pasajeros: ev.pasajeros.map(p =>
+        p.solicitud_id === solicitudId
+          ? { ...p, completado: valor, completado_at: valor ? new Date().toISOString() : null }
+          : p
+      )
+    })))
+    await supabase.from('solicitudes_transporte').update({
+      completado: valor,
+      completado_at: valor ? new Date().toISOString() : null,
+    }).eq('id', solicitudId)
   }
 
   // ── Vista login ───────────────────────────────────────────
@@ -455,8 +574,9 @@ function MotoristaInner() {
   }
 
   // ── Vista dashboard ───────────────────────────────────────
-  const totalPasajeros = eventos.reduce((acc, ev) => acc + ev.pasajeros.length, 0)
-  const conGPSTotal    = eventos.reduce((acc, ev) => acc + ev.pasajeros.filter(p => p.latitud).length, 0)
+  const totalPasajeros  = eventos.reduce((acc, ev) => acc + ev.pasajeros.length, 0)
+  const conGPSTotal     = eventos.reduce((acc, ev) => acc + ev.pasajeros.filter(p => p.latitud).length, 0)
+  const completadosTotal = eventos.reduce((acc, ev) => acc + ev.pasajeros.filter(p => p.completado).length, 0)
 
   return (
     <main className="min-h-screen bg-gray-50 pb-10">
@@ -465,8 +585,7 @@ function MotoristaInner() {
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => { setVista('login'); setMotorista(null); setDuiInput('') }}
-            className="p-2 hover:bg-indigo-600 rounded-full transition-colors flex-shrink-0"
-            title="Cerrar sesión">
+            className="p-2 hover:bg-indigo-600 rounded-full transition-colors flex-shrink-0">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
@@ -498,30 +617,36 @@ function MotoristaInner() {
             <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-800">
               <span className="font-semibold">Tu ubicación no está registrada.</span>{' '}
-              Ingresá al <a href="/transporte" className="underline">portal de transporte</a> y marcá tu punto de destino para que las rutas sean más precisas.
+              Ingresá al <a href="/transporte" className="underline">portal de transporte</a> para marcar tu punto de origen.
             </p>
           </div>
         )}
 
-        {/* Métricas resumen */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Métricas */}
+        <div className="grid grid-cols-4 gap-2">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
-            <p className="text-2xl font-bold text-indigo-600">{eventos.length}</p>
+            <p className="text-xl font-bold text-indigo-600">{eventos.length}</p>
             <p className="text-xs text-gray-500 mt-0.5 leading-tight">Evento{eventos.length !== 1 ? 's' : ''}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
-            <p className="text-2xl font-bold text-blue-600">{totalPasajeros}</p>
+            <p className="text-xl font-bold text-blue-600">{totalPasajeros}</p>
             <p className="text-xs text-gray-500 mt-0.5 leading-tight">Pasajero{totalPasajeros !== 1 ? 's' : ''}</p>
           </div>
           <div className={`rounded-xl border shadow-sm p-3 text-center ${conGPSTotal === totalPasajeros && totalPasajeros > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'}`}>
-            <p className={`text-2xl font-bold ${conGPSTotal === totalPasajeros && totalPasajeros > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+            <p className={`text-xl font-bold ${conGPSTotal === totalPasajeros && totalPasajeros > 0 ? 'text-green-600' : 'text-gray-600'}`}>
               {conGPSTotal}/{totalPasajeros}
             </p>
             <p className="text-xs text-gray-500 mt-0.5 leading-tight">Con GPS</p>
           </div>
+          <div className={`rounded-xl border shadow-sm p-3 text-center ${completadosTotal === totalPasajeros && totalPasajeros > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'}`}>
+            <p className={`text-xl font-bold ${completadosTotal === totalPasajeros && totalPasajeros > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+              {completadosTotal}/{totalPasajeros}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5 leading-tight">Completados</p>
+          </div>
         </div>
 
-        {/* Sin asignaciones */}
+        {/* Cargando */}
         {cargandoDatos && (
           <div className="text-center py-10">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mx-auto mb-3" />
@@ -529,6 +654,7 @@ function MotoristaInner() {
           </div>
         )}
 
+        {/* Sin asignaciones */}
         {!cargandoDatos && eventos.length === 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
             <Bus className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -552,15 +678,16 @@ function MotoristaInner() {
             motorista={motorista!}
             abierto={eventoAbierto === ev.id}
             onToggle={() => setEventoAbierto(prev => prev === ev.id ? null : ev.id)}
+            onMarcarRecogido={marcarRecogido}
+            onMarcarCompletado={marcarCompletado}
           />
         ))}
 
-        {/* Info pie */}
         {!cargandoDatos && eventos.length > 0 && (
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-2">
             <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-blue-700">
-              Las asignaciones se actualizan automáticamente. Usá el botón ↺ para refrescar antes de salir.
+              Marcá a cada pasajero como recogido cuando subas, y como completado cuando lo dejes en su destino.
             </p>
           </div>
         )}
