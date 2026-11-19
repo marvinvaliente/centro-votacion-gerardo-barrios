@@ -301,9 +301,16 @@ export default function PortalPage() {
   const [guardandoAsist, setGuardandoAsist]     = useState<string | null>(null)
   // Agenda
   const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales'>('actividades')
-  // Eventos de transporte (para pestaña Transporte en Agenda)
+  // Eventos de transporte
   const [eventosTransporte, setEventosTransporte] = useState<any[]>([])
   const [scoreAgenda, setScoreAgenda] = useState<{ asistidas: number; total: number } | null>(null)
+  // CRUD eventos de transporte (admin)
+  const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, activo: true }
+  const [modalEvento, setModalEvento] = useState(false)
+  const [editandoEvento, setEditandoEvento] = useState<any | null>(null)
+  const [formEv, setFormEv] = useState(FORM_EV_VACIO)
+  const [guardandoEv, setGuardandoEv] = useState(false)
+  const [eliminandoEv, setEliminandoEv] = useState<string | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
@@ -749,6 +756,57 @@ export default function PortalPage() {
     await supabase.from('actividades').delete().eq('id', id)
     setActividades(prev => prev.filter(a => a.id !== id))
     setEliminandoAct(null)
+  }
+
+  // ── CRUD eventos de transporte (admin) ──
+  function abrirNuevoEvento() {
+    setEditandoEvento(null)
+    setFormEv(FORM_EV_VACIO)
+    setModalEvento(true)
+  }
+
+  function abrirEditarEvento(ev: any) {
+    setEditandoEvento(ev)
+    setFormEv({
+      nombre: ev.titulo, descripcion: ev.descripcion ?? '',
+      fecha: ev.fecha, hora: ev.hora ?? '', hora_fin: ev.hora_fin ?? '',
+      lugar: ev.lugar ?? '', transporte_recogida: ev.transporte_recogida,
+      transporte_regreso: ev.transporte_regreso, activo: ev.activo,
+    })
+    setModalEvento(true)
+  }
+
+  async function guardarEvento() {
+    if (!formEv.nombre.trim() || !formEv.fecha) return
+    setGuardandoEv(true)
+    const payload = {
+      nombre: formEv.nombre.trim(),
+      descripcion: formEv.descripcion || null,
+      fecha: formEv.fecha,
+      hora: formEv.hora || null,
+      hora_fin: formEv.hora_fin || null,
+      lugar: formEv.lugar || null,
+      transporte_recogida: formEv.transporte_recogida,
+      transporte_regreso: formEv.transporte_regreso,
+      activo: formEv.activo,
+    }
+    if (editandoEvento) {
+      await supabase.from('eventos_transporte').update(payload).eq('id', editandoEvento.id)
+      setEventosTransporte(prev => prev.map(e => e.id === editandoEvento.id ? { ...e, ...payload } : e))
+    } else {
+      const { data } = await supabase.from('eventos_transporte').insert(payload).select().single()
+      if (data) setEventosTransporte(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha)))
+    }
+    setGuardandoEv(false)
+    setModalEvento(false)
+  }
+
+  async function eliminarEvento(id: string) {
+    if (!confirm('¿Eliminar este evento de transporte?')) return
+    setEliminandoEv(id)
+    await supabase.from('eventos_transporte').delete().eq('id', id)
+    setEventosTransporte(prev => prev.filter(e => e.id !== id))
+    setEliminandoEv(null)
   }
 
   // Categorías de materiales
@@ -1763,9 +1821,14 @@ export default function PortalPage() {
                       </div>
                     )
                   })()}
-                  {/* Botón nueva actividad (solo admin) */}
+                  {/* Botones nueva actividad / nuevo evento (solo admin) */}
                   {esAdmin && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2 flex-wrap">
+                      <button onClick={abrirNuevoEvento}
+                        className="btn btn-sm"
+                        style={{ background: '#2563eb18', color: '#2563eb', border: '1.5px solid #2563eb44' }}>
+                        <Bus size={13} /> Nuevo evento transporte
+                      </button>
                       <button onClick={() => setModalActividad(true)} className="btn btn-primary">
                         <Plus size={14} /> Nueva actividad
                       </button>
@@ -1817,17 +1880,35 @@ export default function PortalPage() {
                           </div>
                           <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0">
                             {esTransporte ? (
-                              /* Botón solicitar transporte — solo si activo y no pasado */
-                              (() => {
-                                const hoy = new Date().toISOString().slice(0,10)
-                                return (a as any).activo && a.fecha >= hoy ? (
-                                  <a href={`/transporte?evento=${a.id}&dui=${usuario?.dui?.replace(/\D/g,'') ?? ''}`}
-                                    className="btn btn-sm"
-                                    style={{ background: color, color: 'white', border: 'none' }}>
-                                    <Bus size={11} /> Solicitar
-                                  </a>
-                                ) : null
-                              })()
+                              /* Acciones evento de transporte */
+                              <>
+                                {(() => {
+                                  const hoy = new Date().toISOString().slice(0,10)
+                                  return (a as any).activo && a.fecha >= hoy ? (
+                                    <a href={`/transporte?evento=${a.id}&dui=${usuario?.dui?.replace(/\D/g,'') ?? ''}`}
+                                      className="btn btn-sm"
+                                      style={{ background: color, color: 'white', border: 'none' }}>
+                                      <Bus size={11} /> Solicitar
+                                    </a>
+                                  ) : null
+                                })()}
+                                {esAdmin && (
+                                  <>
+                                    <button onClick={() => abrirEditarEvento(a)}
+                                      className="btn btn-sm"
+                                      style={{ background: 'var(--fondo)', color: 'var(--texto-muted)', border: '1.5px solid var(--borde)' }}
+                                      title="Editar evento">
+                                      <Pencil size={11} />
+                                    </button>
+                                    <button onClick={() => eliminarEvento(a.id)}
+                                      disabled={eliminandoEv === a.id}
+                                      className="btn btn-danger btn-sm"
+                                      title="Eliminar evento">
+                                      <Trash2 size={11} />
+                                    </button>
+                                  </>
+                                )}
+                              </>
                             ) : (
                               /* Botones de actividad normal */
                               <>
@@ -1972,6 +2053,72 @@ export default function PortalPage() {
               <button onClick={() => setModalActividad(false)} className="btn btn-ghost flex-1 justify-center">Cancelar</button>
               <button onClick={crearActividad} disabled={guardandoAct || !formAct.titulo || !formAct.fecha} className="btn btn-primary flex-1 justify-center">
                 <Plus size={14} />{guardandoAct ? 'Guardando...' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nuevo/editar evento de transporte */}
+      {modalEvento && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setModalEvento(false)}>
+          <div className="card w-full max-w-md overflow-hidden" style={{ boxShadow: 'var(--sombra-lg)' }} onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--borde)', background: 'var(--fondo)' }}>
+              <div className="font-semibold flex items-center gap-2"><Bus size={15} style={{ color: '#2563eb' }} />{editandoEvento ? 'Editar evento' : 'Nuevo evento de transporte'}</div>
+              <button onClick={() => setModalEvento(false)} className="btn btn-ghost btn-sm w-8 h-8 p-0 justify-center"><X size={14} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="field-label">Nombre *</label>
+                <input type="text" value={formEv.nombre} onChange={e => setFormEv(p => ({ ...p, nombre: e.target.value }))} className="input" placeholder="Nombre del evento" />
+              </div>
+              <div>
+                <label className="field-label">Descripción</label>
+                <textarea value={formEv.descripcion} onChange={e => setFormEv(p => ({ ...p, descripcion: e.target.value }))} className="input" rows={2} placeholder="Descripción opcional" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="field-label">Fecha *</label>
+                  <input type="date" value={formEv.fecha} onChange={e => setFormEv(p => ({ ...p, fecha: e.target.value }))} className="input" />
+                </div>
+                <div>
+                  <label className="field-label">Lugar</label>
+                  <input type="text" value={formEv.lugar} onChange={e => setFormEv(p => ({ ...p, lugar: e.target.value }))} className="input" placeholder="Lugar" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="field-label">Hora inicio</label>
+                  <input type="time" value={formEv.hora} onChange={e => setFormEv(p => ({ ...p, hora: e.target.value }))} className="input" />
+                </div>
+                <div>
+                  <label className="field-label">Hora fin</label>
+                  <input type="time" value={formEv.hora_fin} onChange={e => setFormEv(p => ({ ...p, hora_fin: e.target.value }))} className="input" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="field-label">Opciones de transporte</label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="checkbox" checked={formEv.transporte_recogida} onChange={e => setFormEv(p => ({ ...p, transporte_recogida: e.target.checked }))} />
+                  Ofrecer recogida (ir al evento)
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="checkbox" checked={formEv.transporte_regreso} onChange={e => setFormEv(p => ({ ...p, transporte_regreso: e.target.checked }))} />
+                  Ofrecer regreso (vuelta a casa)
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="checkbox" checked={formEv.activo} onChange={e => setFormEv(p => ({ ...p, activo: e.target.checked }))} />
+                  Evento activo (visible para solicitudes)
+                </label>
+              </div>
+            </div>
+            <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)' }}>
+              <button onClick={() => setModalEvento(false)} className="btn btn-ghost">Cancelar</button>
+              <button onClick={guardarEvento} disabled={guardandoEv || !formEv.nombre.trim() || !formEv.fecha}
+                className="btn btn-primary" style={{ background: '#2563eb' }}>
+                {guardandoEv ? '...' : editandoEvento ? 'Guardar cambios' : 'Crear evento'}
               </button>
             </div>
           </div>
