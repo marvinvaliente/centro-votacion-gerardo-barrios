@@ -39,10 +39,10 @@ export default function AsistenciaPublicaPage() {
     setEstado('buscando')
     setResultado(null)
 
-    // Buscar el registro por DUI
+    // Buscar el registro por DUI en todos los usuarios del sistema
     const { data: registro, error: errReg } = await supabase
       .from('registros_dui')
-      .select('id')
+      .select('id, nombre')
       .eq('dui', duiFormateado)
       .single()
 
@@ -51,41 +51,36 @@ export default function AsistenciaPublicaPage() {
       return
     }
 
-    // Buscar solicitud de transporte para este evento
-    const { data: sol, error: errSol } = await supabase
-      .from('solicitudes_transporte')
-      .select('id, asistio, asistio_at, registro:registros_dui!registro_id(nombre)')
+    const nombre = registro.nombre ?? '—'
+
+    // Verificar si ya registró asistencia
+    const { data: yaExiste } = await supabase
+      .from('asistencias_evento')
+      .select('id, asistio_at')
       .eq('evento_id', eventoId)
       .eq('registro_id', registro.id)
-      .neq('estado', 'cancelado')
       .single()
 
-    if (errSol || !sol) {
-      setEstado('no_encontrado')
-      return
-    }
-
-    const nombre = (sol.registro as any)?.nombre ?? '—'
-
-    if (sol.asistio) {
-      setResultado({ solicitud_id: sol.id, nombre, asistio: true, asistio_at: sol.asistio_at })
+    if (yaExiste) {
+      setResultado({ solicitud_id: yaExiste.id, nombre, asistio: true, asistio_at: yaExiste.asistio_at })
       setEstado('ya_registrado')
       return
     }
 
-    // Marcar asistencia
+    // Registrar asistencia
     const ahora = new Date().toISOString()
-    const { error: errUpd } = await supabase
-      .from('solicitudes_transporte')
-      .update({ asistio: true, asistio_at: ahora })
-      .eq('id', sol.id)
+    const { data: nueva, error: errIns } = await supabase
+      .from('asistencias_evento')
+      .insert({ evento_id: eventoId, registro_id: registro.id, asistio_at: ahora })
+      .select('id')
+      .single()
 
-    if (errUpd) {
+    if (errIns || !nueva) {
       setEstado('error')
       return
     }
 
-    setResultado({ solicitud_id: sol.id, nombre, asistio: true, asistio_at: ahora })
+    setResultado({ solicitud_id: nueva.id, nombre, asistio: true, asistio_at: ahora })
     setEstado('encontrado')
   }, [dui, eventoId])
 
