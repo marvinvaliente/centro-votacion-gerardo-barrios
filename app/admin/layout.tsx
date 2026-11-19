@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Link2, BookOpen, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus } from 'lucide-react'
+import { LayoutGrid, Link2, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 
@@ -19,8 +19,7 @@ const BLOQUEO_SEG    = 10 * 60
 const NAV = [
   { href: '/admin/mi-perfil',   label: 'Mi Perfil',               icon: User },
   { href: '/admin/mi-jrv',      label: 'Mi JRV',                  icon: Users },
-  { href: '/admin/materiales',   label: 'Material de Capacitación',icon: BookOpen },
-  { href: '/admin/calendario',   label: 'Calendario',              icon: Calendar },
+  { href: '/portal',             label: 'Agenda',                   icon: Calendar },
   { href: '/admin',              label: 'Panel General',           icon: LayoutGrid },
   { href: '/admin/asignacion',   label: 'Asignación de Cargos',    icon: Link2 },
   { href: '/admin/transporte',   label: 'Transporte',              icon: Bus },
