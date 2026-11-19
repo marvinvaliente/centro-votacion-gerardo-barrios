@@ -816,8 +816,8 @@ export default function PortalPage() {
 
   async function confirmarRsvpConTransporte() {
     if (!modalRsvp || !usuario) return
-    // Si recogida a domicilio y aún no hay GPS, bloquear
-    if (modalRsvp.recogida_domicilio && !rsvpGpsLat) {
+    // Si aún no hay GPS, bloquear (siempre necesario para organizar la ruta)
+    if (!rsvpGpsLat) {
       setRsvpGpsError('Necesitamos su ubicación para organizar la ruta del vehículo.')
       return
     }
@@ -2434,39 +2434,7 @@ export default function PortalPage() {
                   )}
                 </div>
 
-                {/* GPS — solo si es recogida a domicilio */}
-                {modalRsvp.recogida_domicilio && (
-                  <div>
-                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>📍 Su ubicación de recogida</p>
-                    <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
-                      Necesitamos saber dónde recogerle para organizar la ruta del vehículo.
-                    </p>
-                    {rsvpGpsLat && rsvpGpsLng ? (
-                      <div className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                        <MapPin size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</p>
-                          <p className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</p>
-                        </div>
-                        <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
-                          className="text-xs px-2 py-1 rounded-lg" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
-                          Actualizar
-                        </button>
-                      </div>
-                    ) : (
-                      <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
-                        className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                        style={{ background: '#2563eb', color: '#fff' }}>
-                        {rsvpGpsCapturando
-                          ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
-                          : <><MapPin size={14} /> Capturar mi ubicación actual</>}
-                      </button>
-                    )}
-                    {rsvpGpsError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{rsvpGpsError}</p>}
-                  </div>
-                )}
-
-                {/* Si NO es a domicilio → solo confirmar, ya tienen el punto de reunión */}
+                {/* Punto de reunión — si aplica */}
                 {!modalRsvp.recogida_domicilio && modalRsvp.punto_reunion && (
                   <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                     <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>📍 Punto de reunión</p>
@@ -2474,6 +2442,40 @@ export default function PortalPage() {
                     <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Por favor preséntese puntualmente en ese lugar.</p>
                   </div>
                 )}
+
+                {/* GPS — siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
+                <div>
+                  <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>
+                    📍 {modalRsvp.recogida_domicilio ? 'Su ubicación de recogida' : 'Su ubicación de destino (regreso)'}
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
+                    {modalRsvp.recogida_domicilio
+                      ? 'Necesitamos saber dónde recogerle para organizar la ruta del vehículo.'
+                      : 'Registre su ubicación para que el vehículo pueda llevarle de regreso a casa.'}
+                  </p>
+                  {rsvpGpsLat && rsvpGpsLng ? (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                      <MapPin size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</p>
+                        <p className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</p>
+                      </div>
+                      <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                        className="text-xs px-2 py-1 rounded-lg" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
+                        Actualizar
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                      style={{ background: '#2563eb', color: '#fff' }}>
+                      {rsvpGpsCapturando
+                        ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
+                        : <><MapPin size={14} /> Capturar mi ubicación actual</>}
+                    </button>
+                  )}
+                  {rsvpGpsError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{rsvpGpsError}</p>}
+                </div>
               </div>
             )}
             </div>
@@ -2483,7 +2485,7 @@ export default function PortalPage() {
               {rsvpPaso === 2 ? (
                 <>
                   <button onClick={() => setRsvpPaso(1)} className="btn btn-ghost text-sm">← Volver</button>
-                  <button onClick={confirmarRsvpConTransporte} disabled={rsvpSolicitando || (modalRsvp.recogida_domicilio && !rsvpGpsLat)}
+                  <button onClick={confirmarRsvpConTransporte} disabled={rsvpSolicitando || !rsvpGpsLat}
                     className="btn btn-primary text-sm font-semibold flex items-center gap-2"
                     style={{ background: '#16a34a' }}>
                     {rsvpSolicitando
