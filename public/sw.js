@@ -1,7 +1,9 @@
 // Service Worker — SIRCEV PWA
-// Versión: se actualiza automáticamente con cada deploy de Vercel
+// Versión: se actualiza con cada deploy (timestamp inyectado en build)
+// IMPORTANTE: next.config.mjs envía Cache-Control: no-cache para este archivo
+// para que el navegador siempre lo re-descargue y detecte cambios.
 
-const CACHE_NAME = 'sircev-v1'
+const CACHE_NAME = 'sircev-v20261119-2'
 
 // Al instalar: pre-cachear recursos esenciales
 self.addEventListener('install', (event) => {
