@@ -41,30 +41,28 @@ export default function AsistenciaPage() {
 
   const cargar = useCallback(async () => {
     setCargando(true)
-    const [{ data: ev }, { data: sols }] = await Promise.all([
+    const [{ data: ev }, { data: asists }] = await Promise.all([
       supabase.from('eventos_transporte').select('id,nombre,fecha,hora,lugar').eq('id', eventoId).single(),
       supabase
-        .from('solicitudes_transporte')
+        .from('asistencias_evento')
         .select(`
-          id, asistio, asistio_at, motorista_id,
-          registro:registros_dui!registro_id(id, nombre, dui, telefono),
-          motorista:registros_dui!motorista_id(nombre)
+          id, asistio_at,
+          registro:registros_dui!registro_id(id, nombre, dui, telefono)
         `)
         .eq('evento_id', eventoId)
-        .neq('estado', 'cancelado')
-        .order('asistio', { ascending: true }),
+        .order('asistio_at', { ascending: true }),
     ])
     setEvento(ev)
     setPasajeros(
-      (sols ?? []).map((s: any) => ({
+      (asists ?? []).map((s: any) => ({
         solicitud_id: s.id,
         registro_id: s.registro?.id ?? '',
         nombre: s.registro?.nombre ?? '—',
         dui: s.registro?.dui ?? null,
         telefono: s.registro?.telefono ?? null,
         foto_perfil_url: null,
-        motorista_nombre: s.motorista?.nombre ?? null,
-        asistio: s.asistio ?? false,
+        motorista_nombre: null,
+        asistio: true,
         asistio_at: s.asistio_at ?? null,
       }))
     )
@@ -75,17 +73,11 @@ export default function AsistenciaPage() {
 
   async function toggleAsistencia(solicitudId: string, actual: boolean) {
     setMarcando(solicitudId)
-    const ahora = new Date().toISOString()
-    await supabase
-      .from('solicitudes_transporte')
-      .update({ asistio: !actual, asistio_at: !actual ? ahora : null })
-      .eq('id', solicitudId)
-    setPasajeros(prev =>
-      prev.map(p => p.solicitud_id === solicitudId
-        ? { ...p, asistio: !actual, asistio_at: !actual ? ahora : null }
-        : p
-      )
-    )
+    if (actual) {
+      // Eliminar registro (anular asistencia)
+      await supabase.from('asistencias_evento').delete().eq('id', solicitudId)
+      setPasajeros(prev => prev.filter(p => p.solicitud_id !== solicitudId))
+    }
     setMarcando(null)
   }
 
@@ -93,7 +85,7 @@ export default function AsistenciaPage() {
     p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
     (p.dui ?? '').includes(busqueda)
   )
-  const presentes = pasajeros.filter(p => p.asistio).length
+  const presentes = pasajeros.length
   const total = pasajeros.length
 
   if (cargando) return (
@@ -120,22 +112,19 @@ export default function AsistenciaPage() {
       </div>
 
       {/* Contador */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
-          <div className="flex items-center justify-center gap-1 text-2xl font-bold text-gray-900">
-            <Users className="w-5 h-5 text-gray-400" />{total}
-          </div>
-          <p className="text-xs text-gray-500 mt-0.5">Registrados</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-green-50 rounded-xl border border-green-100 shadow-sm p-3 text-center">
-          <div className="flex items-center justify-center gap-1 text-2xl font-bold text-green-700">
-            <UserCheck className="w-5 h-5" />{presentes}
+          <div className="flex items-center justify-center gap-1 text-3xl font-bold text-green-700">
+            <UserCheck className="w-6 h-6" />{presentes}
           </div>
           <p className="text-xs text-green-600 mt-0.5">Presentes</p>
         </div>
-        <div className="bg-amber-50 rounded-xl border border-amber-100 shadow-sm p-3 text-center">
-          <p className="text-2xl font-bold text-amber-700">{total - presentes}</p>
-          <p className="text-xs text-amber-600 mt-0.5">Pendientes</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">
+          <div className="flex items-center justify-center gap-1 text-3xl font-bold text-gray-500">
+            <Users className="w-6 h-6 text-gray-400" />
+            {filtrados.length !== total ? filtrados.length : total}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">{filtrados.length !== total ? 'Filtrados' : 'Total registros'}</p>
         </div>
       </div>
 
