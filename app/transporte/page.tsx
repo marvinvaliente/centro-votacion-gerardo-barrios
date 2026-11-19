@@ -413,167 +413,31 @@ function TransporteAcciones({
     )
   }
 
-  // No ha solicitado aún
-  const ambosDisponibles = ev.transporte_recogida && ev.transporte_regreso
-  const soloUno = ambosDisponibles && (selRecogida !== selRegreso) // exactamente uno marcado
-  const [confirmando, setConfirmando] = useState(false)
-
-  function intentarSolicitar() {
-    // Si ambos están disponibles y solo marcó uno, pedir confirmación
-    if (ambosDisponibles && soloUno) {
-      setConfirmando(true)
-      return
-    }
-    onSolicitar({
-      recogida: selRecogida,
-      regreso: selRegreso,
-      tipo_recogida: selRecogida && tienePuntoReunion ? 'punto_reunion' : 'domicilio',
-    })
-  }
-
-  if (confirmando) {
-    const falta = selRecogida ? '🏠 Llevarme a casa' : '🚐 Llevarme al evento'
-    const tieneLabel = selRecogida ? '🚐 Llevarme al evento' : '🏠 Llevarme a casa'
-    return (
-      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-        <p className="text-sm font-semibold text-amber-800">¡Un momento antes de confirmar! 🙂</p>
-        <p className="text-sm text-amber-700">
-          Seleccionaste solo <span className="font-medium">{tieneLabel}</span>. Para este evento también está disponible <span className="font-medium">{falta}</span>. ¿Lo vas a necesitar?
-        </p>
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => setConfirmando(false)}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-lg flex items-center justify-center gap-1.5"
-          >
-            Sí, agregar también {falta}
-          </button>
-          <button
-            onClick={() => { setConfirmando(false); onSolicitar({ recogida: selRecogida, regreso: selRegreso, tipo_recogida: selRecogida && tienePuntoReunion ? 'punto_reunion' : 'domicilio' }) }}
-            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2 rounded-lg flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle className="w-4 h-4 text-gray-500" />
-            No, solo necesito {tieneLabel}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  // No ha solicitado aún — redirigir al portal para solicitar
   return (
-    <div className="mt-3 space-y-2">
-      {/* Aviso si no tiene GPS */}
-      {!tieneGps && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-          <MapPin className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-700">
-            <span className="font-semibold">Antes de solicitar, indicá tu punto de destino. 📍</span>{' '}
-            Usá los botones de arriba para marcarlo — así podemos organizarte la ruta correctamente.
+    <div className="mt-3">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <span className="text-xl flex-shrink-0">🗓️</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-blue-900 leading-tight">
+            ¿Necesitás transporte para este evento?
           </p>
+          <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+            Para solicitar transporte, confirmá tu asistencia desde el{' '}
+            <strong>Portal de colaboradores</strong>. Ahí podés indicar si necesitás
+            que te lleven al evento, que te regresen, o ambas opciones — todo en un solo paso. 😊
+          </p>
+          <a
+            href="/portal"
+            className="inline-flex items-center gap-1.5 mt-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+            Ir al Portal
+          </a>
         </div>
-      )}
-
-      <p className="text-xs text-gray-500 font-medium">Seleccioná el transporte que necesitás:</p>
-      <div className="flex gap-2 flex-wrap">
-        {ev.transporte_recogida && (
-          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRecogida ? 'border-blue-500 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            <input type="checkbox" checked={selRecogida}
-              onChange={(e) => {
-                setSelRecogida(e.target.checked)
-                if (!e.target.checked) { setTipoRecogida('domicilio'); setTooltipVisible(null) }
-                else setTooltipVisible('recogida')
-              }}
-              className="w-3.5 h-3.5 accent-blue-600" />
-            🚐 Llevarme al evento
-          </label>
-        )}
-        {ev.transporte_regreso && (
-          <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer text-sm transition-colors ${!tieneGps ? 'opacity-40 pointer-events-none' : ''} ${selRegreso ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            <input type="checkbox" checked={selRegreso}
-              onChange={(e) => {
-                setSelRegreso(e.target.checked)
-                if (!e.target.checked) setTooltipVisible(null)
-                else setTooltipVisible('regreso')
-              }}
-              className="w-3.5 h-3.5 accent-indigo-600" />
-            🏠 Llevarme a casa
-          </label>
-        )}
       </div>
-
-      {/* Mensajes emergentes por opción */}
-      {tooltipVisible === 'recogida' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-2.5">
-          <span className="text-lg flex-shrink-0">🚐</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-blue-800">Llevarme al evento</p>
-            <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">
-              {tienePuntoReunion && ev.punto_reunion_nombre
-                ? <>Un motorista te esperará en <strong>{ev.punto_reunion_nombre}</strong> y te llevará al evento desde ese punto de reunión.</>
-                : <>Un motorista pasará a buscarte <strong>en el punto que marcaste en el mapa</strong> y te llevará directamente al evento.</>
-              }
-            </p>
-          </div>
-          <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-blue-400 hover:text-blue-600 ml-1">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-      {tooltipVisible === 'regreso' && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-start gap-2.5">
-          <span className="text-lg flex-shrink-0">🏠</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-indigo-800">Llevarme a casa</p>
-            <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
-              Al finalizar el evento, el motorista te llevará de regreso <strong>al punto que marcaste en el mapa</strong>. Verificá que tus coordenadas GPS sean correctas.
-            </p>
-          </div>
-          <button onClick={() => setTooltipVisible(null)} className="flex-shrink-0 text-indigo-400 hover:text-indigo-600 ml-1">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Punto de reunión: si el evento lo tiene, es el único método de recogida */}
-      {selRecogida && tienePuntoReunion && (
-        <div className="bg-orange-50 border border-orange-300 rounded-xl p-3 flex items-start gap-2.5">
-          <MapPin className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-orange-800">📍 Punto de reunión obligatorio</p>
-            {ev.punto_reunion_nombre && (
-              <p className="text-sm text-orange-700 font-medium">{ev.punto_reunion_nombre}</p>
-            )}
-            <p className="text-xs text-orange-600 mt-0.5">Para este evento la recogida es únicamente en el punto de reunión indicado</p>
-            {ev.punto_reunion_lat && (
-              <a href={`https://www.google.com/maps?q=${ev.punto_reunion_lat},${ev.punto_reunion_lng}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5 mt-1">
-                <ExternalLink className="w-3 h-3" />Ver ubicación en Maps
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Cierre de plazo */}
-      {ev.hora_fin && (
-        <p className="text-xs text-gray-400">
-          ⏱ Tenés hasta las {(() => { const [h,m] = ev.hora_fin!.slice(0,5).split(':').map(Number); const cierre = h * 60 + m + 30; const hc = Math.floor(cierre / 60) % 24; const mc = cierre % 60; return fmt12(`${String(hc).padStart(2,'0')}:${String(mc).padStart(2,'0')}`) })()} para registrar tu solicitud
-        </p>
-      )}
-
-      <button
-        onClick={intentarSolicitar}
-        disabled={solicitando || ningunaSeleccionada || !tieneGps}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-1.5"
-      >
-        {solicitando
-          ? <><Loader2 className="w-4 h-4 animate-spin" />Registrando tu solicitud...</>
-          : <><Bus className="w-4 h-4" />{!tieneGps ? 'Primero indicá tu punto de destino' : ningunaSeleccionada ? 'Seleccioná al menos una opción' : 'Solicitar transporte'}</>}
-      </button>
-
-      <p className="text-xs text-gray-400 text-center">
-        Si en esta ocasión no vas a necesitar transporte, no es necesario que hagas nada aquí. 🙂
-      </p>
     </div>
   )
 }
@@ -985,10 +849,10 @@ function TransporteInner() {
             Solo personal registrado puede acceder.
           </p>
 
-          <a href="/guia-transporte.html" target="_blank"
+          <a href="/portal"
             className="mt-4 flex items-center justify-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 font-medium">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
-            ¿Cómo solicitar transporte? Ver guía rápida
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            Para solicitar transporte, usá el Portal de colaboradores
           </a>
         </div>
       </main>
@@ -1039,13 +903,13 @@ function TransporteInner() {
             <div className="flex items-center gap-2 mb-0.5">
               <MapPin className={`w-5 h-5 ${registro?.latitud && registro?.longitud ? 'text-blue-600' : 'text-red-600'}`} />
               <h2 className={`font-semibold ${registro?.latitud && registro?.longitud ? 'text-gray-800' : 'text-red-800'}`}>
-                {registro?.latitud && registro?.longitud ? '¿Dónde te dejamos?' : '📍 Paso obligatorio: indicá tu destino'}
+                {registro?.latitud && registro?.longitud ? '📍 Tu punto de destino' : '📍 Paso importante: indicá tu destino'}
               </h2>
             </div>
-            <p className={`text-xs mb-3 ml-7 ${registro?.latitud && registro?.longitud ? 'text-gray-400' : 'text-red-600 font-medium'}`}>
+            <p className={`text-xs mb-3 ml-7 ${registro?.latitud && registro?.longitud ? 'text-gray-500' : 'text-red-600 font-medium'}`}>
               {registro?.latitud && registro?.longitud
-                ? 'Marcá tu vivienda u otro lugar donde querés que te llevemos al finalizar el evento'
-                : 'Necesitás registrar tu punto de destino para poder solicitar transporte.'}
+                ? 'Esta información es indispensable para que los motoristas puedan organizar las rutas y saber dónde recogerte o dejarte. ¡Mantenerla actualizada hace todo más fácil! 🗺️'
+                : 'Esta información es indispensable para los motoristas. Sin tu punto de destino, no es posible organizar la ruta ni asignarte transporte.'}
             </p>
 
             {registro?.latitud && registro?.longitud ? (
@@ -1076,7 +940,7 @@ function TransporteInner() {
               </div>
             ) : (
               <p className="text-sm text-gray-500 mb-4">
-                Todavía no tenés un destino registrado. Usá los botones de abajo para marcarlo fácilmente — ¡solo toma un momento! 😊
+                Todavía no tenés un punto de destino registrado. Los motoristas necesitan esta información para organizar las rutas — ¡marcarlo solo toma un momento! 😊
               </p>
             )}
 
@@ -1092,16 +956,20 @@ function TransporteInner() {
               className={`w-full flex items-center justify-center gap-2 text-white font-medium py-3 px-4 rounded-xl transition-colors text-sm ${registro?.latitud && registro?.longitud ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}
             >
               <Map className="w-5 h-5" />
-              {registro?.latitud ? 'Cambiar punto de destino' : 'Marcar mi destino en el mapa'}
+              {registro?.latitud ? 'Actualizar mi punto de destino' : 'Registrar mi punto de destino'}
             </button>
           </section>
 
           {/* Eventos y solicitudes */}
-          <section className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 ${!(registro?.latitud && registro?.longitud) ? 'opacity-40 pointer-events-none select-none' : ''}`}>
-            <div className="flex items-center gap-2 mb-4">
+          <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center gap-2 mb-1">
               <Calendar className="w-5 h-5 text-blue-600" />
               <h2 className="font-semibold text-gray-800">Eventos y Transporte</h2>
             </div>
+            <p className="text-xs text-gray-400 mb-4 ml-7">
+              Confirmá tu asistencia y solicitá transporte desde el{' '}
+              <a href="/portal" className="text-blue-500 hover:underline font-medium">Portal de colaboradores</a>.
+            </p>
 
             {eventos.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
