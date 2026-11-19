@@ -23,6 +23,7 @@ type Evento = {
   punto_reunion_nombre: string | null
   punto_reunion_lat: number | null
   punto_reunion_lng: number | null
+  actividad_id: string | null
 }
 
 type Registro = {
@@ -169,8 +170,14 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
     punto_reunion_nombre: inicial?.punto_reunion_nombre ?? '',
     punto_reunion_lat: inicial?.punto_reunion_lat ?? null as number | null,
     punto_reunion_lng: inicial?.punto_reunion_lng ?? null as number | null,
+    actividad_id: inicial?.actividad_id ?? null as string | null,
   })
   const [selMotoristas, setSelMotoristas] = useState<string[]>(motoristasSeleccionados)
+  const [actividades, setActividades] = useState<{ id: string; titulo: string; fecha: string }[]>([])
+  useEffect(() => {
+    supabase.from('actividades').select('id,titulo,fecha').order('fecha', { ascending: false }).limit(50)
+      .then(({ data }) => setActividades(data ?? []))
+  }, [])
   // Sincronizar cuando el padre carga los motoristas del evento (carga async)
   useEffect(() => { setSelMotoristas(motoristasSeleccionados) }, [motoristasSeleccionados])
   const [guardando, setGuardando] = useState(false)
@@ -300,6 +307,7 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
       punto_reunion_nombre: usarPuntoReunion ? (form.punto_reunion_nombre.trim() || null) : null,
       punto_reunion_lat: usarPuntoReunion ? form.punto_reunion_lat : null,
       punto_reunion_lng: usarPuntoReunion ? form.punto_reunion_lng : null,
+      actividad_id: form.actividad_id,
     }, selMotoristas)
     setGuardando(false)
   }
@@ -475,6 +483,22 @@ function FormEvento({ inicial, motoristasDisponibles, motoristasSeleccionados, o
             )}
           </div>
         )}
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-gray-600">Vincular a actividad (para asistencia automática)</label>
+          <select
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            value={form.actividad_id ?? ''}
+            onChange={(e) => setForm({ ...form, actividad_id: e.target.value || null })}
+          >
+            <option value="">— Sin vincular —</option>
+            {actividades.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.titulo} ({new Date(a.fecha + 'T12:00:00').toLocaleDateString('es-SV', { day: 'numeric', month: 'short', year: 'numeric' })})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-0.5">Al marcar el regreso completado, se registrará asistencia automáticamente.</p>
+        </div>
         <div className="sm:col-span-2">
           <label className="text-xs font-medium text-gray-600">Descripción</label>
           <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"

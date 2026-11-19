@@ -538,18 +538,35 @@ function MotoristaInner() {
   }
 
   async function marcarCompletado(solicitudId: string, valor: boolean) {
+    const ahora = new Date().toISOString()
+    // Optimistic update
     setEventos(prev => prev.map(ev => ({
       ...ev,
       pasajeros: ev.pasajeros.map(p =>
         p.solicitud_id === solicitudId
-          ? { ...p, completado: valor, completado_at: valor ? new Date().toISOString() : null }
+          ? { ...p, completado: valor, completado_at: valor ? ahora : null }
           : p
       )
     })))
     await supabase.from('solicitudes_transporte').update({
       completado: valor,
-      completado_at: valor ? new Date().toISOString() : null,
+      completado_at: valor ? ahora : null,
     }).eq('id', solicitudId)
+
+    // Si se confirma entrega a casa y el evento tiene actividad vinculada → marcar asistencia
+    if (valor) {
+      // Buscar registro_id del pasajero y actividad_id del evento
+      const evento = eventos.find(ev => ev.pasajeros.some(p => p.solicitud_id === solicitudId))
+      const pasajero = evento?.pasajeros.find(p => p.solicitud_id === solicitudId)
+      const actividadId = (evento as any)?.actividad_id
+      if (actividadId && pasajero?.registro_id) {
+        // Upsert silencioso — ignora si ya existe (UNIQUE constraint)
+        await supabase.from('asistencias_actividad').upsert(
+          { actividad_id: actividadId, registro_id: pasajero.registro_id, asistio_at: ahora },
+          { onConflict: 'actividad_id,registro_id', ignoreDuplicates: true }
+        )
+      }
+    }
   }
 
   // ── Vista login ───────────────────────────────────────────
