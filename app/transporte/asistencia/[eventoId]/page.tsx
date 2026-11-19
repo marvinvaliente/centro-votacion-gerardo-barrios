@@ -107,7 +107,7 @@ export default function AsistenciaPublicaPage() {
             <ShieldCheck className="w-9 h-9 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Registro de Asistencia</h1>
-          <p className="text-sm text-gray-500">Transporte — Capacitación General</p>
+          <p className="text-sm text-gray-500">Capacitación General</p>
         </div>
 
         {/* Mensaje de confianza */}
