@@ -40,7 +40,7 @@ type Solicitud = {
   cargo: string; jrv: string; latitud: number | null; longitud: number | null
 }
 
-type TabActiva = 'eventos' | 'motoristas' | 'ubicaciones' | 'solicitudes'
+type TabActiva = 'motoristas' | 'ubicaciones' | 'solicitudes'
 
 // ── Utilidades ───────────────────────────────────────────────
 function fmt12(hora: string | null | undefined): string {
@@ -724,7 +724,7 @@ function distribuirMotoristas(
 
 // ── Componente principal ─────────────────────────────────────
 export default function AdminTransportePage() {
-  const [tab, setTab] = useState<TabActiva>('eventos')
+  const [tab, setTab] = useState<TabActiva>('motoristas')
   const [eventos, setEventos] = useState<Evento[]>([])
   const [registros, setRegistros] = useState<Registro[]>([])
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -970,7 +970,6 @@ export default function AdminTransportePage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         {([
-          { key: 'eventos',     label: 'Eventos',     icon: Calendar },
           { key: 'motoristas',  label: 'Motoristas',  icon: Truck },
           { key: 'ubicaciones', label: 'Ubicaciones', icon: MapPin },
           { key: 'solicitudes', label: 'Solicitudes', icon: Users },
@@ -982,92 +981,6 @@ export default function AdminTransportePage() {
           </button>
         ))}
       </div>
-
-      {/* ── TAB EVENTOS ── */}
-      {tab === 'eventos' && (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-gray-800">Eventos ({eventos.length})</h2>
-            <button onClick={() => { setMostrarFormEvento(true); setEditandoEvento(null) }}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg">
-              <Plus className="w-4 h-4" />Nuevo evento
-            </button>
-          </div>
-          {mostrarFormEvento && !editandoEvento && (
-            <FormEvento
-              motoristasDisponibles={registros.filter(r => r.es_motorista).map(r => ({ id: r.id, nombre: r.nombre, telefono: r.telefono }))}
-              motoristasSeleccionados={[]}
-              onGuardar={crearEvento}
-              onCancelar={() => setMostrarFormEvento(false)}
-            />
-          )}
-          {eventos.length === 0 && !mostrarFormEvento && (
-            <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-100">
-              <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p>No hay eventos. Creá el primero.</p>
-            </div>
-          )}
-          {eventos.map((ev) => (
-            <div key={ev.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              {editandoEvento?.id === ev.id ? (
-                <div className="p-4">
-                  <FormEvento
-                    inicial={ev}
-                    motoristasDisponibles={registros.filter(r => r.es_motorista).map(r => ({ id: r.id, nombre: r.nombre, telefono: r.telefono }))}
-                    motoristasSeleccionados={motoristasEvento}
-                    onGuardar={actualizarEvento}
-                    onCancelar={() => { setEditandoEvento(null); setMotoristasEvento([]) }}
-                  />
-                </div>
-              ) : (
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900">{ev.nombre}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ev.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {ev.activo ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        📅 {new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-SV', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        {ev.hora && ` · ${fmt12(ev.hora)}`}
-                        {ev.hora_fin && ` – ${fmt12(ev.hora_fin)}`}
-                      </p>
-                      {ev.lugar && <p className="text-sm text-gray-500">📍 {ev.lugar}</p>}
-                      {ev.evento_latitud && ev.evento_longitud && (
-                        <a href={`https://www.google.com/maps?q=${ev.evento_latitud},${ev.evento_longitud}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-0.5">
-                          <MapPin className="w-3 h-3" />Ver ubicación del evento
-                        </a>
-                      )}
-                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                        {ev.transporte_recogida && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">🚐 Llevarme al evento</span>}
-                        {ev.transporte_regreso && <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">🏠 Llevarme a casa</span>}
-                        {!ev.transporte_recogida && !ev.transporte_regreso && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin transporte configurado</span>
-                        )}
-                      </div>
-                      {ev.descripcion && <p className="text-xs text-gray-400 mt-1">{ev.descripcion}</p>}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => { setEditandoEvento(ev); setMostrarFormEvento(false); cargarMotoristasEvento(ev.id) }}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => eliminarEvento(ev.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ── TAB MOTORISTAS ── */}
       {tab === 'motoristas' && (
