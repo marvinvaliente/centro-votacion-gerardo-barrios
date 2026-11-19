@@ -75,7 +75,7 @@ function iconoMime(mime: string) {
 
 const TIPOS_ACTIVIDAD = ['general', 'capacitación', 'reunión']
 
-type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario' | 'transporte' | 'asistencia'
+type Seccion = 'perfil' | 'jrv' | 'agenda' | 'transporte' | 'materiales' | 'calendario' | 'asistencia'
 
 /* ── Componente de sección Asistencia ── */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) {
@@ -299,6 +299,9 @@ export default function PortalPage() {
   // Asistencia
   const [asistencias, setAsistencias]           = useState<Record<string, boolean | null>>({})
   const [guardandoAsist, setGuardandoAsist]     = useState<string | null>(null)
+  // Agenda
+  const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales'>('actividades')
+  const [scoreAgenda, setScoreAgenda] = useState<{ asistidas: number; total: number } | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
@@ -609,6 +612,15 @@ export default function PortalPage() {
       const map: Record<string, boolean | null> = {}
       asist.forEach((a: { actividad_id: string; presente: boolean | null }) => { map[a.actividad_id] = a.presente })
       setAsistencias(map)
+    }
+    // Score de asistencia (asistencias_actividad)
+    if (u.id) {
+      const hoy = new Date().toISOString().slice(0, 10)
+      const [{ count: totalActs }, { count: asistidas }] = await Promise.all([
+        supabase.from('actividades').select('id', { count: 'exact', head: true }).lte('fecha', hoy),
+        supabase.from('asistencias_actividad').select('id', { count: 'exact', head: true }).eq('registro_id', u.id),
+      ])
+      setScoreAgenda({ total: totalActs ?? 0, asistidas: asistidas ?? 0 })
     }
   }
 
@@ -1329,9 +1341,7 @@ export default function PortalPage() {
   const NAV = [
     { key: 'perfil',      label: 'Mi Perfil',        icon: User,         href: null },
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,        href: null },
-    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen,     href: null },
-    { key: 'asistencia',  label: 'Asistencia',        icon: ClipboardCheck, href: null },
-    { key: 'calendario',  label: 'Calendario',        icon: Calendar,     href: null },
+    { key: 'agenda',      label: 'Agenda',            icon: Calendar,     href: null },
     { key: 'transporte',  label: 'Transporte',        icon: Bus,          href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}` }] : []),
     ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin' }] : []),
@@ -1685,118 +1695,185 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── MATERIALES ── */}
-          {seccion === 'materiales' && (
+          {/* ── AGENDA (Actividades + Materiales + Asistencia unificados) ── */}
+          {seccion === 'agenda' && (
             <div className="max-w-4xl space-y-4">
-              <div className="flex flex-wrap gap-2 mb-2">
-                {catsMat.map(c => (
-                  <button key={c} onClick={() => setFiltroMat(c)} className="btn btn-sm"
-                    style={{ background: filtroMat === c ? 'var(--navy)' : 'var(--superficie)', color: filtroMat === c ? 'white' : 'var(--texto-muted)', border: `1.5px solid ${filtroMat === c ? 'var(--navy)' : 'var(--borde)'}` }}>
-                    {c}
+              {/* Pestañas */}
+              <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--fondo)', border: '1px solid var(--borde)' }}>
+                {([['actividades', Calendar, 'Actividades'], ['materiales', BookOpen, 'Materiales']] as const).map(([tab, Icon, label]) => (
+                  <button key={tab} onClick={() => setTabAgenda(tab)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium flex-1 justify-center transition-all"
+                    style={{
+                      background: tabAgenda === tab ? 'white' : 'transparent',
+                      color: tabAgenda === tab ? 'var(--navy)' : 'var(--texto-muted)',
+                      boxShadow: tabAgenda === tab ? 'var(--sombra)' : 'none',
+                    }}>
+                    <Icon size={14} /> {label}
                   </button>
                 ))}
               </div>
-              {matsFiltrados.length === 0 ? (
-                <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
-                  <BookOpen size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay materiales disponibles
-                </div>
-              ) : (
-                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px,1fr))' }}>
-                  {matsFiltrados.map(m => (
-                    <div key={m.id} className="card p-4 flex flex-col gap-3">
-                      {m.tipo_mime.startsWith('image/') && <img src={m.archivo_url} alt={m.nombre} className="w-full rounded-lg object-cover" style={{ height: 120 }} />}
-                      <div className="flex items-start gap-2">
-                        <div className="flex-shrink-0 mt-0.5">{iconoMime(m.tipo_mime)}</div>
+
+              {/* Tab: Actividades */}
+              {tabAgenda === 'actividades' && (
+                <div className="space-y-4">
+                  {/* Score */}
+                  {scoreAgenda && scoreAgenda.total > 0 && (() => {
+                    const pct = Math.round((scoreAgenda.asistidas / scoreAgenda.total) * 100)
+                    return (
+                      <div className="card p-4 flex items-center gap-4">
+                        <div className="relative w-14 h-14 shrink-0">
+                          <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(200,168,75,.15)" strokeWidth="3" />
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#c8a84b" strokeWidth="3"
+                              strokeDasharray={`${pct} ${100 - pct}`} strokeLinecap="round" />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ color: '#c8a84b' }}>{pct}%</span>
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm truncate">{m.nombre}</div>
-                          {m.descripcion && <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--texto-muted)' }}>{m.descripcion}</p>}
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="badge badge-blue" style={{ fontSize: 10 }}><Tag size={8} className="inline mr-1" />{m.categoria}</span>
-                            <span className="text-xs" style={{ color: 'var(--texto-muted)' }}>{formatBytes(m.tamanio)}</span>
-                          </div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--texto)' }}>
+                            {scoreAgenda.asistidas} de {scoreAgenda.total} {scoreAgenda.total === 1 ? 'actividad' : 'actividades'}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                            {pct === 100 ? '¡Asistencia perfecta! 🌟' : pct >= 80 ? 'Excelente participación' : pct >= 50 ? 'Buena participación' : 'Recuerde marcar su asistencia'}
+                          </p>
                         </div>
                       </div>
-                      <button onClick={() => descargarArchivo(m.archivo_url, m.nombre)} className="btn btn-ghost btn-sm justify-center">
-                        <Download size={12} /> Descargar
+                    )
+                  })()}
+                  {/* Botón nueva actividad (solo admin) */}
+                  {esAdmin && (
+                    <div className="flex justify-end">
+                      <button onClick={() => setModalActividad(true)} className="btn btn-primary">
+                        <Plus size={14} /> Nueva actividad
                       </button>
+                    </div>
+                  )}
+                  {/* Lista por mes */}
+                  {Object.keys(actsPorMes).length === 0 ? (
+                    <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
+                      <Calendar size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay actividades programadas
+                    </div>
+                  ) : Object.entries(actsPorMes).map(([mes, acts]) => (
+                    <div key={mes} className="card overflow-hidden">
+                      <div className="px-5 py-3 font-semibold text-sm" style={{ background: 'var(--fondo)', borderBottom: '1px solid var(--borde)' }}>
+                        {new Date(mes + '-01').toLocaleDateString('es-SV', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                      </div>
+                      {acts.map((a, i) => (
+                        <div key={a.id} className="px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-3 sm:gap-4"
+                          style={{ borderBottom: i < acts.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
+                          <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
+                            <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+                              style={{ background: TIPO_COLORES[a.tipo] + '18', border: `1px solid ${TIPO_COLORES[a.tipo]}44` }}>
+                              <div className="font-bold text-sm leading-none" style={{ color: TIPO_COLORES[a.tipo] }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
+                              <div className="text-xs" style={{ color: TIPO_COLORES[a.tipo], opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm">{a.titulo}</div>
+                              {a.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{a.descripcion}</p>}
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {a.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{a.hora.slice(0, 5)}{a.hora_fin ? ` – ${a.hora_fin.slice(0,5)}` : ''}</span>}
+                                {a.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{a.lugar}</span>}
+                                <span className="badge" style={{ background: TIPO_COLORES[a.tipo] + '18', color: TIPO_COLORES[a.tipo], fontSize: 10 }}>{a.tipo}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0">
+                            {/* Botón asistencia pública si ventana abierta */}
+                            {(() => {
+                              const hoy = new Date().toISOString().slice(0,10)
+                              const esHoy = a.fecha === hoy
+                              const ahora = new Date()
+                              let ventanaAbierta = false
+                              if (esHoy && a.hora) {
+                                const [hh, mm] = a.hora.split(':').map(Number)
+                                const inicio = new Date(); inicio.setHours(hh, mm, 0, 0)
+                                if (a.hora_fin) {
+                                  const [hf, mf] = a.hora_fin.split(':').map(Number)
+                                  const fin = new Date(); fin.setHours(hf, mf, 59, 999)
+                                  ventanaAbierta = ahora >= inicio && ahora <= fin
+                                } else { ventanaAbierta = ahora >= inicio }
+                              } else if (esHoy && !a.hora) { ventanaAbierta = true }
+                              return ventanaAbierta ? (
+                                <a href={`/asistencia/${a.id}`}
+                                  className="btn btn-sm"
+                                  style={{ background: '#16a34a', color: 'white', border: 'none' }}
+                                  title="Registrar asistencia">
+                                  <ClipboardCheck size={11} /> Asistir
+                                </a>
+                              ) : null
+                            })()}
+                            <button
+                              onClick={() => confirmarAsistencia(a.id)}
+                              disabled={guardandoAsist === a.id}
+                              className="btn btn-sm flex-1 sm:flex-none justify-center"
+                              style={{
+                                background: asistencias[a.id] === true ? 'var(--verde-light)' : 'var(--fondo)',
+                                color:      asistencias[a.id] === true ? 'var(--verde)' : 'var(--texto-muted)',
+                                border:     `1.5px solid ${asistencias[a.id] === true ? '#a7f3d0' : 'var(--borde)'}`,
+                              }}>
+                              {guardandoAsist === a.id ? '...' : asistencias[a.id] === true ? <><CheckCircle size={11} /> Confirmado</> : 'Confirmar asistencia'}
+                            </button>
+                            {esAdmin && (
+                              <a href={`/admin/asistencia/${a.id}`}
+                                className="btn btn-sm"
+                                style={{ background: 'rgba(200,168,75,.12)', color: '#c8a84b', border: '1px solid rgba(200,168,75,.3)' }}
+                                title="Ver asistencia">
+                                <ClipboardCheck size={11} />
+                              </a>
+                            )}
+                            {a.creado_por === usuario.id && (
+                              <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
+                                <Trash2 size={11} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ── ASISTENCIA ── */}
-          {seccion === 'asistencia' && (
-            <AsistenciaSection dui={usuario?.dui ?? ''} registroId={usuario?.id ?? null} />
-          )}
-
-          {/* ── CALENDARIO ── */}
-          {seccion === 'calendario' && (
-            <div className="max-w-2xl space-y-5">
-              <div className="flex justify-end">
-                <button onClick={() => setModalActividad(true)} className="btn btn-primary">
-                  <Plus size={14} /> Nueva actividad
-                </button>
-              </div>
-              {Object.keys(actsPorMes).length === 0 ? (
-                <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
-                  <Calendar size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay actividades programadas
-                </div>
-              ) : Object.entries(actsPorMes).map(([mes, acts]) => (
-                <div key={mes} className="card overflow-hidden">
-                  <div className="px-5 py-3 font-semibold text-sm" style={{ background: 'var(--fondo)', borderBottom: '1px solid var(--borde)' }}>
-                    {new Date(mes + '-01').toLocaleDateString('es-SV', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+              {/* Tab: Materiales */}
+              {tabAgenda === 'materiales' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {catsMat.map(c => (
+                      <button key={c} onClick={() => setFiltroMat(c)} className="btn btn-sm"
+                        style={{ background: filtroMat === c ? 'var(--navy)' : 'var(--superficie)', color: filtroMat === c ? 'white' : 'var(--texto-muted)', border: `1.5px solid ${filtroMat === c ? 'var(--navy)' : 'var(--borde)'}` }}>
+                        {c}
+                      </button>
+                    ))}
                   </div>
-                  {acts.map((a, i) => (
-                    <div key={a.id} className="px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-3 sm:gap-4"
-                      style={{ borderBottom: i < acts.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
-                      <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
-                          style={{ background: TIPO_COLORES[a.tipo] + '18', border: `1px solid ${TIPO_COLORES[a.tipo]}44` }}>
-                          <div className="font-bold text-sm leading-none" style={{ color: TIPO_COLORES[a.tipo] }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
-                          <div className="text-xs" style={{ color: TIPO_COLORES[a.tipo], opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm">{a.titulo}</div>
-                          {a.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{a.descripcion}</p>}
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {a.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{a.hora.slice(0, 5)}</span>}
-                            {a.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{a.lugar}</span>}
-                            <span className="badge" style={{ background: TIPO_COLORES[a.tipo] + '18', color: TIPO_COLORES[a.tipo], fontSize: 10 }}>{a.tipo}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0">
-                        <button
-                          onClick={() => confirmarAsistencia(a.id)}
-                          disabled={guardandoAsist === a.id}
-                          className="btn btn-sm flex-1 sm:flex-none justify-center"
-                          style={{
-                            background: asistencias[a.id] === true ? 'var(--verde-light)' : 'var(--fondo)',
-                            color:      asistencias[a.id] === true ? 'var(--verde)' : 'var(--texto-muted)',
-                            border:     `1.5px solid ${asistencias[a.id] === true ? '#a7f3d0' : 'var(--borde)'}`,
-                          }}>
-                          {guardandoAsist === a.id ? '...' : asistencias[a.id] === true ? <><CheckCircle size={11} /> Confirmado</> : 'Confirmar asistencia'}
-                        </button>
-                        {esAdmin && (
-                          <a href={`/admin/asistencia/${a.id}`}
-                            className="btn btn-sm"
-                            style={{ background: 'rgba(200,168,75,.12)', color: '#c8a84b', border: '1px solid rgba(200,168,75,.3)' }}
-                            title="Ver asistencia">
-                            <ClipboardCheck size={11} />
-                          </a>
-                        )}
-                        {a.creado_por === usuario.id && (
-                          <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
+                  {matsFiltrados.length === 0 ? (
+                    <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
+                      <BookOpen size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay materiales disponibles
                     </div>
-                  ))}
+                  ) : (
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px,1fr))' }}>
+                      {matsFiltrados.map(m => (
+                        <div key={m.id} className="card p-4 flex flex-col gap-3">
+                          {m.tipo_mime.startsWith('image/') && <img src={m.archivo_url} alt={m.nombre} className="w-full rounded-lg object-cover" style={{ height: 120 }} />}
+                          <div className="flex items-start gap-2">
+                            <div className="flex-shrink-0 mt-0.5">{iconoMime(m.tipo_mime)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm truncate">{m.nombre}</div>
+                              {m.descripcion && <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--texto-muted)' }}>{m.descripcion}</p>}
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="badge badge-blue" style={{ fontSize: 10 }}><Tag size={8} className="inline mr-1" />{m.categoria}</span>
+                                <span className="text-xs" style={{ color: 'var(--texto-muted)' }}>{formatBytes(m.tamanio)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <button onClick={() => descargarArchivo(m.archivo_url, m.nombre)} className="btn btn-ghost btn-sm justify-center">
+                            <Download size={12} /> Descargar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </main>
