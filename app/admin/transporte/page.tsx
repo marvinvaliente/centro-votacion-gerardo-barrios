@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   Bus, Calendar, MapPin, Users, Plus, Edit2, Trash2, CheckCircle,
-  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User, ClipboardList
+  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User, ClipboardList, Link2
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -1263,13 +1263,26 @@ export default function AdminTransportePage() {
                 </button>
               )}
               {eventoSeleccionado && solicitudes.length > 0 && (
-                <button
-                  onClick={() => router.push(`/admin/transporte/asistencia/${eventoSeleccionado}`)}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
-                >
-                  <ClipboardList className="w-4 h-4" />
-                  Registrar asistencia
-                </button>
+                <>
+                  <button
+                    onClick={() => router.push(`/admin/transporte/asistencia/${eventoSeleccionado}`)}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    Ver asistencia
+                  </button>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/transporte/asistencia/${eventoSeleccionado}`
+                      navigator.clipboard.writeText(url).catch(() => {})
+                      alert('Enlace copiado: ' + url)
+                    }}
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    Copiar enlace asistencia
+                  </button>
+                </>
               )}
             </div>
           </div>
