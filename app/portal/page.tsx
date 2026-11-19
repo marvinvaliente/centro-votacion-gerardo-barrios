@@ -2179,7 +2179,7 @@ export default function PortalPage() {
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
                           <div className="text-sm font-medium">Transporte de ida</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El bus le recoge para trasladarlo al evento</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El vehículo le recoge para trasladarlo al evento</div>
                         </div>
                       </label>
                     )}
@@ -2189,7 +2189,7 @@ export default function PortalPage() {
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
                           <div className="text-sm font-medium">Transporte de regreso</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El bus le lleva de vuelta a casa al finalizar</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El vehículo le lleva de vuelta a casa al finalizar</div>
                         </div>
                       </label>
                     )}
