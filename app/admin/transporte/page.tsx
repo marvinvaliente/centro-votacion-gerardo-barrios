@@ -889,21 +889,40 @@ export default function AdminTransportePage() {
   const conGPS = registros.filter((r) => r.latitud && r.longitud)
   const solicitudesAsignadas = solicitudes.filter((s) => s.motorista_id)
 
-  function googleMapsRuta(motoristaId: string) {
-    const sols = solicitudes.filter((s) => s.motorista_id === motoristaId && s.latitud && s.longitud)
-    const motorista = registros.find((r) => r.id === motoristaId)
-    if (sols.length === 0) return '#'
+  /** Construye URL de Google Maps con waypoints optimizados */
+  function buildMapsUrl(origin: string, dest: string, waypoints: string[]) {
+    const wp = waypoints.length > 0 ? `&waypoints=optimize:true|${waypoints.join('|')}` : ''
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}${wp}`
+  }
 
+  /** Ruta de RECOGIDA: punto de reunión → pasajeros → lugar del evento */
+  function rutaRecogida(motoristaId: string) {
+    const sols = solicitudes.filter((s) => s.motorista_id === motoristaId && s.latitud && s.longitud)
+    if (sols.length === 0) return null
     const ev = eventos.find((e) => e.id === eventoSeleccionado)
-    // Origen: lugar del evento (si está registrado), si no desde el primer pasajero
-    const origin = ev?.evento_latitud && ev?.evento_longitud
+    const origen = ev?.punto_reunion_lat && ev?.punto_reunion_lng
+      ? `${ev.punto_reunion_lat},${ev.punto_reunion_lng}`
+      : null
+    const destino = ev?.evento_latitud && ev?.evento_longitud
       ? `${ev.evento_latitud},${ev.evento_longitud}`
-      : `${sols[0].latitud},${sols[0].longitud}`
-    // Destino: último pasajero (ruta de regreso a casas)
+      : null
+    if (!origen || !destino) return null
+    const waypoints = sols.map((s) => `${s.latitud},${s.longitud}`)
+    return buildMapsUrl(origen, destino, waypoints)
+  }
+
+  /** Ruta de REGRESO: lugar del evento → pasajeros → último pasajero */
+  function rutaRegreso(motoristaId: string) {
+    const sols = solicitudes.filter((s) => s.motorista_id === motoristaId && s.latitud && s.longitud)
+    if (sols.length === 0) return null
+    const ev = eventos.find((e) => e.id === eventoSeleccionado)
+    const origen = ev?.evento_latitud && ev?.evento_longitud
+      ? `${ev.evento_latitud},${ev.evento_longitud}`
+      : null
+    if (!origen) return null
     const dest = `${sols[sols.length - 1].latitud},${sols[sols.length - 1].longitud}`
-    const waypoints = sols.slice(0, -1).map((s) => `${s.latitud},${s.longitud}`).join('|')
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? `&waypoints=${waypoints}` : ''}`
-    return url
+    const waypoints = sols.slice(0, -1).map((s) => `${s.latitud},${s.longitud}`)
+    return buildMapsUrl(origen, dest, waypoints)
   }
 
   if (cargando) return (
@@ -1259,9 +1278,10 @@ export default function AdminTransportePage() {
                     {motoristas.map((m) => {
                       const asignados = solicitudes.filter((s) => s.motorista_id === m.id)
                       if (asignados.length === 0) return null
-                      const ruta = googleMapsRuta(m.id)
+                      const urlRecogida = rutaRecogida(m.id)
+                      const urlRegreso = rutaRegreso(m.id)
                       return (
-                        <div key={m.id} className="bg-white border border-blue-100 rounded-xl p-3 flex items-center justify-between gap-2">
+                        <div key={m.id} className="bg-white border border-blue-100 rounded-xl p-3 space-y-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <div className="bg-blue-100 text-blue-700 rounded-full p-1.5 shrink-0">
                               <Truck className="w-4 h-4" />
@@ -1271,11 +1291,21 @@ export default function AdminTransportePage() {
                               <p className="text-xs text-gray-500">{m.telefono ?? '—'} · <span className="font-semibold text-blue-700">{asignados.length} pasajero{asignados.length !== 1 ? 's' : ''}</span></p>
                             </div>
                           </div>
-                          {ruta !== '#' && (
-                            <a href={ruta} target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg">
-                              <ExternalLink className="w-3 h-3" />Ruta
-                            </a>
+                          {(urlRecogida || urlRegreso) && (
+                            <div className="flex gap-2">
+                              {urlRecogida && (
+                                <a href={urlRecogida} target="_blank" rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center gap-1 text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded-lg">
+                                  <ExternalLink className="w-3 h-3" />Recogida
+                                </a>
+                              )}
+                              {urlRegreso && (
+                                <a href={urlRegreso} target="_blank" rel="noopener noreferrer"
+                                  className="flex-1 flex items-center justify-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 rounded-lg">
+                                  <ExternalLink className="w-3 h-3" />Regreso
+                                </a>
+                              )}
+                            </div>
                           )}
                         </div>
                       )
