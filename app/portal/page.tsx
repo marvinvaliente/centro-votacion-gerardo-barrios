@@ -78,7 +78,7 @@ const TIPOS_ACTIVIDAD = ['general', 'capacitación', 'reunión']
 type Seccion = 'perfil' | 'jrv' | 'agenda' | 'transporte' | 'materiales' | 'calendario' | 'asistencia'
 
 /* ── Componente de sección Asistencia ── */
-function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) {
+function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
   const [actividades, setActividades] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
   const [score, setScore] = useState<{ asistidas: number; total: number } | null>(null)
@@ -308,8 +308,7 @@ export default function PortalPage() {
     if (stored) {
       const u = JSON.parse(stored)
       setUsuario(u)
-      // Solo cargar datos si tiene id real (no el fallback 'admin')
-      if (u.id !== 'admin') cargarDatos(u)
+      cargarDatos(u)
     }
   }, [])
 
@@ -613,15 +612,16 @@ export default function PortalPage() {
       asist.forEach((a: { actividad_id: string; presente: boolean | null }) => { map[a.actividad_id] = a.presente })
       setAsistencias(map)
     }
-    // Score de asistencia (asistencias_actividad)
-    if (u.id) {
-      const hoy = new Date().toISOString().slice(0, 10)
-      const [{ count: totalActs }, { count: asistidas }] = await Promise.all([
-        supabase.from('actividades').select('id', { count: 'exact', head: true }).lte('fecha', hoy),
-        supabase.from('asistencias_actividad').select('id', { count: 'exact', head: true }).eq('registro_id', u.id),
-      ])
-      setScoreAgenda({ total: totalActs ?? 0, asistidas: asistidas ?? 0 })
-    }
+    // Score de asistencia (asistencias_actividad — usa registro_dui_id, no usuarios.id)
+    const registroIdScore = u.registro_dui_id
+    const hoy = new Date().toISOString().slice(0, 10)
+    const [{ count: totalActs }, { count: asistidas }] = await Promise.all([
+      supabase.from('actividades').select('id', { count: 'exact', head: true }).lte('fecha', hoy),
+      registroIdScore
+        ? supabase.from('asistencias_actividad').select('id', { count: 'exact', head: true }).eq('registro_id', registroIdScore)
+        : Promise.resolve({ count: 0 }),
+    ])
+    setScoreAgenda({ total: totalActs ?? 0, asistidas: asistidas ?? 0 })
   }
 
   function cerrarSesion() {
@@ -1821,7 +1821,7 @@ export default function PortalPage() {
                                 <ClipboardCheck size={11} />
                               </a>
                             )}
-                            {a.creado_por === usuario.id && (
+                            {(esAdmin || a.creado_por === usuario.id) && (
                               <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
                                 <Trash2 size={11} />
                               </button>
