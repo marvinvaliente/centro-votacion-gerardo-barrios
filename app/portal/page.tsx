@@ -300,7 +300,9 @@ export default function PortalPage() {
   const [asistencias, setAsistencias]           = useState<Record<string, boolean | null>>({})
   const [guardandoAsist, setGuardandoAsist]     = useState<string | null>(null)
   // Agenda
-  const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales'>('actividades')
+  const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales' | 'transporte'>('actividades')
+  // Eventos de transporte (para pestaña Transporte en Agenda)
+  const [eventosTransporte, setEventosTransporte] = useState<any[]>([])
   const [scoreAgenda, setScoreAgenda] = useState<{ asistidas: number; total: number } | null>(null)
 
   useEffect(() => {
@@ -605,6 +607,9 @@ export default function PortalPage() {
     if (mats) setMateriales(mats)
     const { data: acts } = await supabase.from('actividades').select('*').order('fecha').order('hora')
     if (acts) setActividades(acts)
+    // Eventos de transporte para pestaña Agenda > Transporte
+    const { data: evts } = await supabase.from('eventos_transporte').select('*').order('fecha', { ascending: true })
+    if (evts) setEventosTransporte(evts)
     // Cargar asistencias del usuario
     const { data: asist } = await supabase.from('asistencias').select('actividad_id, presente').eq('usuario_id', u.id)
     if (asist) {
@@ -1700,7 +1705,7 @@ export default function PortalPage() {
             <div className="max-w-4xl space-y-4">
               {/* Pestañas */}
               <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--fondo)', border: '1px solid var(--borde)' }}>
-                {([['actividades', Calendar, 'Actividades'], ['materiales', BookOpen, 'Materiales']] as const).map(([tab, Icon, label]) => (
+                {([['actividades', Calendar, 'Actividades'], ['materiales', BookOpen, 'Materiales'], ['transporte', Bus, 'Transporte']] as const).map(([tab, Icon, label]) => (
                   <button key={tab} onClick={() => setTabAgenda(tab)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium flex-1 justify-center transition-all"
                     style={{
@@ -1872,6 +1877,67 @@ export default function PortalPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab: Transporte — eventos con opción de solicitar viaje */}
+              {tabAgenda === 'transporte' && (
+                <div className="space-y-3">
+                  {esAdmin && (
+                    <div className="flex justify-end">
+                      <a href="/admin/transporte" className="btn btn-primary">
+                        <Truck size={14} /> Gestionar transporte
+                      </a>
+                    </div>
+                  )}
+                  {eventosTransporte.length === 0 ? (
+                    <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
+                      <Bus size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay eventos de transporte programados
+                    </div>
+                  ) : eventosTransporte.map(ev => {
+                    const hoy = new Date().toISOString().slice(0, 10)
+                    const esPasado = ev.fecha < hoy
+                    return (
+                      <div key={ev.id} className="card p-4" style={{ opacity: !ev.activo ? .55 : 1 }}>
+                        <div className="flex gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: 'rgba(37,99,235,.1)', border: '1px solid rgba(37,99,235,.2)' }}>
+                            <Bus size={18} style={{ color: '#2563eb' }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>{ev.nombre}</div>
+                            {ev.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{ev.descripcion}</p>}
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
+                                <Calendar size={10} />
+                                {new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-SV', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              </span>
+                              {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
+                                <Clock size={10} />{ev.hora.slice(0,5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0,5)}` : ''}
+                              </span>}
+                              {ev.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
+                                <MapPin size={10} />{ev.lugar}
+                              </span>}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {ev.transporte_recogida && <span className="badge" style={{ background: 'rgba(22,163,74,.1)', color: '#16a34a', fontSize: 10 }}>Recogida</span>}
+                              {ev.transporte_regreso  && <span className="badge" style={{ background: 'rgba(37,99,235,.1)', color: '#2563eb', fontSize: 10 }}>Regreso</span>}
+                              {!ev.activo && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>Inactivo</span>}
+                            </div>
+                          </div>
+                          {ev.activo && !esPasado && (
+                            <div className="flex-shrink-0 self-start">
+                              <a href={`/transporte?evento=${ev.id}&dui=${usuario?.dui?.replace(/\D/g,'') ?? ''}`}
+                                className="btn btn-sm"
+                                style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                                <Bus size={12} /> Solicitar
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
