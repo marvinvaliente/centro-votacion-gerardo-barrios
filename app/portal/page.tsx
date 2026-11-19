@@ -297,13 +297,18 @@ export default function PortalPage() {
   const [rsvpConf, setRsvpConf] = useState({ confirmado: true, necesita_recogida: false, necesita_regreso: false })
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
-  // CRUD eventos de transporte (admin)
+  // CRUD eventos (admin)
   const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, activo: true }
   const [modalEvento, setModalEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<any | null>(null)
   const [formEv, setFormEv] = useState(FORM_EV_VACIO)
   const [guardandoEv, setGuardandoEv] = useState(false)
   const [eliminandoEv, setEliminandoEv] = useState<string | null>(null)
+  // Link compartible del último evento creado
+  const [linkEvento, setLinkEvento] = useState<{ nombre: string; url: string } | null>(null)
+  const [linkCopiado, setLinkCopiado] = useState(false)
+  // Parámetro ?evento=id en URL para auto-abrir RSVP
+  const eventoIdUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('evento') : null
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
@@ -313,6 +318,21 @@ export default function PortalPage() {
       cargarDatos(u)
     }
   }, [])
+
+  // Si viene ?evento=id en la URL, navegar a Agenda y abrir RSVP
+  useEffect(() => {
+    if (!eventoIdUrl || !usuario || eventosTransporte.length === 0) return
+    const ev = eventosTransporte.find((e: any) => e.id === eventoIdUrl)
+    if (ev) {
+      setSeccion('agenda')
+      setTabAgenda('eventos')
+      abrirRsvp(ev)
+      // Limpiar el param de la URL sin recargar
+      const url = new URL(window.location.href)
+      url.searchParams.delete('evento')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [eventoIdUrl, eventosTransporte, usuario])
 
   function formatDUI(v: string) {
     const d = v.replace(/\D/g, '').slice(0, 9)
@@ -800,14 +820,20 @@ export default function PortalPage() {
       setEventosTransporte(prev => prev.map(e => e.id === editandoEvento.id ? { ...e, ...payload } : e))
     } else {
       const { data } = await supabase.from('eventos_transporte').insert(payload).select().single()
-      if (data) setEventosTransporte(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha)))
+      if (data) {
+        setEventosTransporte(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha)))
+        // Generar link compartible para el nuevo evento
+        const base = typeof window !== 'undefined' ? window.location.origin : 'https://centro-votacion-gerardo-barrios.vercel.app'
+        setLinkEvento({ nombre: data.nombre, url: `${base}/portal?evento=${data.id}` })
+        setLinkCopiado(false)
+      }
     }
     setGuardandoEv(false)
     setModalEvento(false)
   }
 
   async function eliminarEvento(id: string) {
-    if (!confirm('¿Eliminar este evento de transporte?')) return
+    if (!confirm('¿Eliminar este evento?')) return
     setEliminandoEv(id)
     await supabase.from('eventos_transporte').delete().eq('id', id)
     setEventosTransporte(prev => prev.filter(e => e.id !== id))
@@ -1909,6 +1935,20 @@ export default function PortalPage() {
                                   {yaConfirmado ? <><Pencil size={11} /> Editar confirmación</> : yaDeclinado ? 'Cambiar respuesta' : 'Confirmar asistencia'}
                                 </button>
                               )}
+                              {/* Compartir — visible para todos */}
+                              {(() => {
+                                const base = typeof window !== 'undefined' ? window.location.origin : 'https://centro-votacion-gerardo-barrios.vercel.app'
+                                const url = `${base}/portal?evento=${ev.id}`
+                                return (
+                                  <button
+                                    onClick={() => { navigator.clipboard.writeText(url).catch(() => {}); setLinkEvento({ nombre: ev.nombre, url }); setLinkCopiado(true) }}
+                                    className="btn btn-sm"
+                                    style={{ background: 'var(--fondo)', color: 'var(--texto-muted)', border: '1.5px solid var(--borde)' }}
+                                    title="Copiar link del evento">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                  </button>
+                                )
+                              })()}
                               {/* Admin: editar / eliminar */}
                               {esAdmin && (
                                 <>
@@ -2042,6 +2082,55 @@ export default function PortalPage() {
                 className="btn btn-primary" style={{ background: '#2563eb' }}>
                 {guardandoEv ? '...' : editandoEvento ? 'Guardar cambios' : 'Crear evento'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL LINK COMPARTIBLE ── */}
+      {linkEvento && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setLinkEvento(null)}>
+          <div className="card w-full max-w-sm overflow-hidden" style={{ boxShadow: 'var(--sombra-lg)' }} onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--borde)', background: 'var(--fondo)' }}>
+              <div className="font-semibold text-sm flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Link del evento
+              </div>
+              <button onClick={() => setLinkEvento(null)} className="btn btn-ghost btn-sm w-8 h-8 p-0 justify-center"><X size={14} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--texto-muted)' }}>Evento</p>
+                <p className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>{linkEvento.nombre}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--texto-muted)' }}>Link para compartir</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 min-w-0 px-3 py-2 rounded-lg text-xs font-mono truncate"
+                    style={{ background: 'var(--fondo)', border: '1px solid var(--borde)', color: 'var(--texto)' }}>
+                    {linkEvento.url}
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(linkEvento.url).catch(() => {})
+                      setLinkCopiado(true)
+                    }}
+                    className="btn btn-sm flex-shrink-0"
+                    style={{
+                      background: linkCopiado ? '#dcfce7' : '#2563eb',
+                      color: linkCopiado ? '#16a34a' : 'white',
+                      border: linkCopiado ? '1px solid #bbf7d0' : 'none',
+                      minWidth: 80,
+                    }}>
+                    {linkCopiado ? <><Check size={11} /> Copiado</> : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs" style={{ color: 'var(--texto-muted)' }}>
+                Al abrir este link, el colaborador verá directamente el formulario de confirmación de asistencia para este evento.
+              </p>
             </div>
           </div>
         </div>
