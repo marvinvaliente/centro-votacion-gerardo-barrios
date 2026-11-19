@@ -295,6 +295,8 @@ export default function PortalPage() {
   // Modal RSVP inline
   const [modalRsvp, setModalRsvp] = useState<any | null>(null) // evento completo
   const [rsvpConf, setRsvpConf] = useState({ confirmado: true, necesita_recogida: false, necesita_regreso: false })
+  const [rsvpJustificacion, setRsvpJustificacion] = useState('')
+  const [rsvpWarnJust, setRsvpWarnJust] = useState(false)
   const [rsvpWarnTransporte, setRsvpWarnTransporte] = useState(false)
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
@@ -737,6 +739,13 @@ export default function PortalPage() {
   async function guardarRsvp() {
     if (!modalRsvp || !usuario) return
 
+    // Validación: si no puede asistir, debe ingresar justificación
+    if (!rsvpConf.confirmado && !rsvpJustificacion.trim()) {
+      setRsvpWarnJust(true)
+      return
+    }
+    setRsvpWarnJust(false)
+
     // Advertencia: ofrece transporte, confirmó asistencia, pero no marcó nada
     const ofreceTrans = modalRsvp.transporte_recogida || modalRsvp.transporte_regreso
     if (rsvpConf.confirmado && ofreceTrans && !rsvpConf.necesita_recogida && !rsvpConf.necesita_regreso) {
@@ -752,6 +761,7 @@ export default function PortalPage() {
       confirmado: rsvpConf.confirmado,
       necesita_recogida: rsvpConf.confirmado ? rsvpConf.necesita_recogida : false,
       necesita_regreso: rsvpConf.confirmado ? rsvpConf.necesita_regreso : false,
+      justificacion_ausencia: rsvpConf.confirmado ? null : rsvpJustificacion.trim(),
       fecha_confirmacion: new Date().toISOString(),
     }
     const existing = confirmaciones[modalRsvp.id]
@@ -797,6 +807,8 @@ export default function PortalPage() {
       necesita_regreso: conf ? conf.necesita_regreso : false,
     })
     setRsvpWarnTransporte(false)
+    setRsvpWarnJust(false)
+    setRsvpJustificacion(conf?.justificacion_ausencia ?? '')
     setModalRsvp(ev)
   }
 
@@ -2213,6 +2225,35 @@ export default function PortalPage() {
                   ))}
                 </div>
               </div>
+              {/* Justificación de ausencia */}
+              {!rsvpConf.confirmado && (
+                <div>
+                  <label className="text-sm font-semibold block mb-1" style={{ color: 'var(--texto)' }}>
+                    ¿Puede indicarnos el motivo? <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
+                    Su justificación nos ayuda a planificar mejor. Será tratada con toda discreción.
+                  </p>
+                  <textarea
+                    rows={3}
+                    value={rsvpJustificacion}
+                    onChange={e => { setRsvpJustificacion(e.target.value); if (e.target.value.trim()) setRsvpWarnJust(false) }}
+                    placeholder="Ej. Compromisos de salud, trabajo, familia…"
+                    className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+                    style={{
+                      border: `1.5px solid ${rsvpWarnJust ? '#dc2626' : 'var(--borde)'}`,
+                      background: 'var(--fondo)',
+                      color: 'var(--texto)',
+                      outline: 'none',
+                    }}
+                  />
+                  {rsvpWarnJust && (
+                    <p className="text-xs mt-1" style={{ color: '#dc2626' }}>
+                      Por favor indique el motivo antes de enviar su respuesta.
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Transporte — solo si confirma asistencia y el evento ofrece */}
               {rsvpConf.confirmado && (modalRsvp.transporte_recogida || modalRsvp.transporte_regreso) && (
                 <div>
@@ -2291,7 +2332,7 @@ export default function PortalPage() {
               )}
             </div>
             <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)' }}>
-              <button onClick={() => { setModalRsvp(null); setRsvpWarnTransporte(false) }} className="btn btn-ghost">Ahora no</button>
+              <button onClick={() => { setModalRsvp(null); setRsvpWarnTransporte(false); setRsvpWarnJust(false); setRsvpJustificacion('') }} className="btn btn-ghost">Ahora no</button>
               <button onClick={guardarRsvp} disabled={!!guardandoConf}
                 className="btn btn-primary"
                 style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
