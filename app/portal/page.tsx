@@ -5,7 +5,7 @@ import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
-  FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck
+  FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import InstallPWA from '@/components/InstallPWA'
@@ -298,6 +298,14 @@ export default function PortalPage() {
   const [rsvpJustificacion, setRsvpJustificacion] = useState('')
   const [rsvpWarnJust, setRsvpWarnJust] = useState(false)
   const [rsvpWarnTransporte, setRsvpWarnTransporte] = useState(false)
+  // Paso 2 — formulario de transporte inline
+  const [rsvpPaso, setRsvpPaso] = useState<1 | 2>(1)
+  const [rsvpRegistroId, setRsvpRegistroId] = useState<string | null>(null)
+  const [rsvpGpsLat, setRsvpGpsLat] = useState<number | null>(null)
+  const [rsvpGpsLng, setRsvpGpsLng] = useState<number | null>(null)
+  const [rsvpGpsCapturando, setRsvpGpsCapturando] = useState(false)
+  const [rsvpGpsError, setRsvpGpsError] = useState('')
+  const [rsvpSolicitando, setRsvpSolicitando] = useState(false)
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
   // CRUD eventos (admin)
@@ -754,6 +762,18 @@ export default function PortalPage() {
     }
     setRsvpWarnTransporte(false)
 
+    // Si solicitó transporte → cargar registros_dui y avanzar al paso 2
+    if (rsvpConf.confirmado && (rsvpConf.necesita_recogida || rsvpConf.necesita_regreso)) {
+      const duiFmt = usuario.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario.dui.replace(/\D/g, '').slice(8, 9)
+      const { data: reg } = await supabase.from('registros_dui').select('id, latitud, longitud').eq('dui', duiFmt).single()
+      setRsvpRegistroId(reg?.id ?? null)
+      setRsvpGpsLat(reg?.latitud ?? null)
+      setRsvpGpsLng(reg?.longitud ?? null)
+      setRsvpGpsError('')
+      setRsvpPaso(2)
+      return
+    }
+
     setGuardandoConf(modalRsvp.id)
     const payload = {
       evento_id: modalRsvp.id,
@@ -774,12 +794,67 @@ export default function PortalPage() {
     }
     setGuardandoConf(null)
     setModalRsvp(null)
+  }
 
-    // Si solicitó transporte, redirigir al portal de transporte con DUI precargado
-    if (rsvpConf.confirmado && (rsvpConf.necesita_recogida || rsvpConf.necesita_regreso) && usuario.dui) {
-      const duiLimpio = usuario.dui.replace(/\D/g, '')
-      window.location.href = `/transporte?dui=${duiLimpio}`
+  async function capturarGpsRsvp() {
+    setRsvpGpsCapturando(true)
+    setRsvpGpsError('')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        setRsvpGpsLat(lat)
+        setRsvpGpsLng(lng)
+        if (rsvpRegistroId) {
+          await supabase.from('registros_dui').update({ latitud: lat, longitud: lng, coordenadas_at: new Date().toISOString() }).eq('id', rsvpRegistroId)
+        }
+        setRsvpGpsCapturando(false)
+      },
+      () => { setRsvpGpsError('No se pudo obtener su ubicación. Por favor intente de nuevo o active el GPS.'); setRsvpGpsCapturando(false) }
+    )
+  }
+
+  async function confirmarRsvpConTransporte() {
+    if (!modalRsvp || !usuario) return
+    // Si recogida a domicilio y aún no hay GPS, bloquear
+    if (modalRsvp.recogida_domicilio && !rsvpGpsLat) {
+      setRsvpGpsError('Necesitamos su ubicación para organizar la ruta del vehículo.')
+      return
     }
+    setRsvpSolicitando(true)
+    // 1. Guardar RSVP
+    const payload: any = {
+      evento_id: modalRsvp.id,
+      usuario_id: usuario.id,
+      confirmado: true,
+      necesita_recogida: rsvpConf.necesita_recogida,
+      necesita_regreso: rsvpConf.necesita_regreso,
+      justificacion_ausencia: null,
+      fecha_confirmacion: new Date().toISOString(),
+    }
+    const existing = confirmaciones[modalRsvp.id]
+    if (existing) {
+      await supabase.from('confirmaciones_evento').update(payload).eq('id', existing.id)
+      setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: { ...existing, ...payload } }))
+    } else {
+      const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
+      if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
+    }
+    // 2. Crear solicitud de transporte
+    if (rsvpRegistroId) {
+      const tienePuntoReunion = !modalRsvp.recogida_domicilio && !!modalRsvp.punto_reunion
+      await supabase.from('solicitudes_transporte').insert({
+        registro_id: rsvpRegistroId,
+        evento_id: modalRsvp.id,
+        estado: 'pendiente',
+        solicita_recogida: rsvpConf.necesita_recogida,
+        solicita_regreso: rsvpConf.necesita_regreso,
+        tipo_recogida: tienePuntoReunion ? 'punto_reunion' : 'domicilio',
+      })
+    }
+    setRsvpSolicitando(false)
+    setRsvpPaso(1)
+    setModalRsvp(null)
   }
 
   async function hacerCheckIn(eventoId: string) {
@@ -809,6 +884,8 @@ export default function PortalPage() {
     setRsvpWarnTransporte(false)
     setRsvpWarnJust(false)
     setRsvpJustificacion(conf?.justificacion_ausencia ?? '')
+    setRsvpPaso(1)
+    setRsvpGpsError('')
     setModalRsvp(ev)
   }
 
@@ -2203,10 +2280,14 @@ export default function PortalPage() {
           onClick={() => setModalRsvp(null)}>
           <div className="card w-full max-w-sm overflow-hidden" style={{ boxShadow: 'var(--sombra-lg)' }} onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--borde)', background: 'var(--fondo)' }}>
-              <div className="font-semibold text-sm flex items-center gap-2"><Calendar size={14} style={{ color: '#2563eb' }} />{modalRsvp.nombre}</div>
-              <button onClick={() => setModalRsvp(null)} className="btn btn-ghost btn-sm w-8 h-8 p-0 justify-center"><X size={14} /></button>
+              <div className="font-semibold text-sm flex items-center gap-2">
+                <Calendar size={14} style={{ color: '#2563eb' }} />{modalRsvp.nombre}
+                {rsvpPaso === 2 && <span className="text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: '#eff6ff', color: '#2563eb' }}>Transporte</span>}
+              </div>
+              <button onClick={() => { setModalRsvp(null); setRsvpPaso(1) }} className="btn btn-ghost btn-sm w-8 h-8 p-0 justify-center"><X size={14} /></button>
             </div>
             <div className="p-6 space-y-5">
+            {rsvpPaso === 1 && (<>
               {/* ¿Asistirás? */}
               <div>
                 <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>¿Podremos contar con usted en este evento?</p>
@@ -2330,14 +2411,96 @@ export default function PortalPage() {
                   </div>
                 </div>
               )}
+            </>)}
+
+            {/* ── PASO 2: Formulario de transporte inline ── */}
+            {rsvpPaso === 2 && (
+              <div className="space-y-4">
+                {/* Resumen de lo que solicitó */}
+                <div className="p-3 rounded-xl space-y-1.5" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>📋 Resumen de su solicitud</p>
+                  {rsvpConf.necesita_recogida && (
+                    <p className="text-xs" style={{ color: '#1e40af' }}>
+                      🚐 <strong>Transporte de ida</strong> —{' '}
+                      {modalRsvp.recogida_domicilio
+                        ? 'El vehículo pasará por su domicilio'
+                        : modalRsvp.punto_reunion
+                          ? `Punto de reunión: ${modalRsvp.punto_reunion}`
+                          : 'Desde el punto de reunión indicado'}
+                    </p>
+                  )}
+                  {rsvpConf.necesita_regreso && (
+                    <p className="text-xs" style={{ color: '#1e40af' }}>🏠 <strong>Transporte de regreso</strong> — hasta su domicilio o lugar indicado</p>
+                  )}
+                </div>
+
+                {/* GPS — solo si es recogida a domicilio */}
+                {modalRsvp.recogida_domicilio && (
+                  <div>
+                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>📍 Su ubicación de recogida</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
+                      Necesitamos saber dónde recogerle para organizar la ruta del vehículo.
+                    </p>
+                    {rsvpGpsLat && rsvpGpsLng ? (
+                      <div className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                        <MapPin size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</p>
+                          <p className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</p>
+                        </div>
+                        <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                          className="text-xs px-2 py-1 rounded-lg" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
+                          Actualizar
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                        style={{ background: '#2563eb', color: '#fff' }}>
+                        {rsvpGpsCapturando
+                          ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
+                          : <><MapPin size={14} /> Capturar mi ubicación actual</>}
+                      </button>
+                    )}
+                    {rsvpGpsError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{rsvpGpsError}</p>}
+                  </div>
+                )}
+
+                {/* Si NO es a domicilio → solo confirmar, ya tienen el punto de reunión */}
+                {!modalRsvp.recogida_domicilio && modalRsvp.punto_reunion && (
+                  <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>📍 Punto de reunión</p>
+                    <p className="text-sm font-medium" style={{ color: '#9a3412' }}>{modalRsvp.punto_reunion}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Por favor preséntese puntualmente en ese lugar.</p>
+                  </div>
+                )}
+              </div>
+            )}
             </div>
-            <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)' }}>
-              <button onClick={() => { setModalRsvp(null); setRsvpWarnTransporte(false); setRsvpWarnJust(false); setRsvpJustificacion('') }} className="btn btn-ghost">Ahora no</button>
-              <button onClick={guardarRsvp} disabled={!!guardandoConf}
-                className="btn btn-primary"
-                style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
-                {guardandoConf ? '...' : rsvpConf.confirmado ? 'Guardar mi confirmación' : 'Enviar respuesta'}
-              </button>
+
+            {/* Footer — cambia según el paso */}
+            <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)', justifyContent: rsvpPaso === 2 ? 'space-between' : 'flex-end' }}>
+              {rsvpPaso === 2 ? (
+                <>
+                  <button onClick={() => setRsvpPaso(1)} className="btn btn-ghost text-sm">← Volver</button>
+                  <button onClick={confirmarRsvpConTransporte} disabled={rsvpSolicitando || (modalRsvp.recogida_domicilio && !rsvpGpsLat)}
+                    className="btn btn-primary text-sm font-semibold flex items-center gap-2"
+                    style={{ background: '#16a34a' }}>
+                    {rsvpSolicitando
+                      ? <><Loader2 size={14} className="animate-spin" />Confirmando...</>
+                      : <><CheckCircle size={14} />Confirmar asistencia y transporte</>}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => { setModalRsvp(null); setRsvpWarnTransporte(false); setRsvpWarnJust(false); setRsvpJustificacion(''); setRsvpPaso(1) }} className="btn btn-ghost">Ahora no</button>
+                  <button onClick={guardarRsvp} disabled={!!guardandoConf}
+                    className="btn btn-primary"
+                    style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
+                    {guardandoConf ? '...' : rsvpConf.confirmado ? 'Guardar mi confirmación' : 'Enviar respuesta'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
