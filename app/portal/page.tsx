@@ -295,6 +295,7 @@ export default function PortalPage() {
   // Modal RSVP inline
   const [modalRsvp, setModalRsvp] = useState<any | null>(null) // evento completo
   const [rsvpConf, setRsvpConf] = useState({ confirmado: true, necesita_recogida: false, necesita_regreso: false })
+  const [rsvpWarnTransporte, setRsvpWarnTransporte] = useState(false)
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
   // CRUD eventos (admin)
@@ -735,6 +736,15 @@ export default function PortalPage() {
   // ── RSVP a evento ──
   async function guardarRsvp() {
     if (!modalRsvp || !usuario) return
+
+    // Advertencia: ofrece transporte, confirmó asistencia, pero no marcó nada
+    const ofreceTrans = modalRsvp.transporte_recogida || modalRsvp.transporte_regreso
+    if (rsvpConf.confirmado && ofreceTrans && !rsvpConf.necesita_recogida && !rsvpConf.necesita_regreso) {
+      setRsvpWarnTransporte(true)
+      return
+    }
+    setRsvpWarnTransporte(false)
+
     setGuardandoConf(modalRsvp.id)
     const payload = {
       evento_id: modalRsvp.id,
@@ -754,6 +764,12 @@ export default function PortalPage() {
     }
     setGuardandoConf(null)
     setModalRsvp(null)
+
+    // Si solicitó transporte, redirigir al portal de transporte con DUI precargado
+    if (rsvpConf.confirmado && (rsvpConf.necesita_recogida || rsvpConf.necesita_regreso) && usuario.dui) {
+      const duiLimpio = usuario.dui.replace(/\D/g, '')
+      window.location.href = `/transporte?dui=${duiLimpio}`
+    }
   }
 
   async function hacerCheckIn(eventoId: string) {
@@ -780,6 +796,7 @@ export default function PortalPage() {
       necesita_recogida: conf ? conf.necesita_recogida : false,
       necesita_regreso: conf ? conf.necesita_regreso : false,
     })
+    setRsvpWarnTransporte(false)
     setModalRsvp(ev)
   }
 
@@ -2232,12 +2249,49 @@ export default function PortalPage() {
                         </div>
                       </label>
                     )}
+                  {/* Advertencia: selección de transporte vacía */}
+                  {rsvpWarnTransporte && (
+                    <div className="mt-3 p-3 rounded-xl text-xs flex flex-col gap-2"
+                      style={{ background: '#fef9c3', border: '1px solid #fde047', color: '#854d0e' }}>
+                      <p className="font-medium">¿No necesita apoyo de transporte?</p>
+                      <p>Si no requiere vehículo, puede continuar sin seleccionar ninguna opción.</p>
+                      <button
+                        onClick={async () => {
+                          setRsvpWarnTransporte(false)
+                          // Forzar guardado sin transporte
+                          if (!modalRsvp || !usuario) return
+                          setGuardandoConf(modalRsvp.id)
+                          const payload = {
+                            evento_id: modalRsvp.id,
+                            usuario_id: usuario.id,
+                            confirmado: true,
+                            necesita_recogida: false,
+                            necesita_regreso: false,
+                            fecha_confirmacion: new Date().toISOString(),
+                          }
+                          const existing = confirmaciones[modalRsvp.id]
+                          if (existing) {
+                            await supabase.from('confirmaciones_evento').update(payload).eq('id', existing.id)
+                            setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: { ...existing, ...payload } }))
+                          } else {
+                            const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
+                            if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
+                          }
+                          setGuardandoConf(null)
+                          setModalRsvp(null)
+                        }}
+                        className="self-start px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: '#854d0e', color: '#fff' }}>
+                        Confirmar sin transporte
+                      </button>
+                    </div>
+                  )}
                   </div>
                 </div>
               )}
             </div>
             <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)' }}>
-              <button onClick={() => setModalRsvp(null)} className="btn btn-ghost">Ahora no</button>
+              <button onClick={() => { setModalRsvp(null); setRsvpWarnTransporte(false) }} className="btn btn-ghost">Ahora no</button>
               <button onClick={guardarRsvp} disabled={!!guardandoConf}
                 className="btn btn-primary"
                 style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
