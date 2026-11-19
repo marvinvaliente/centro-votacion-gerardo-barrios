@@ -306,6 +306,7 @@ export default function PortalPage() {
   const [rsvpGpsCapturando, setRsvpGpsCapturando] = useState(false)
   const [rsvpGpsError, setRsvpGpsError] = useState('')
   const [rsvpSolicitando, setRsvpSolicitando] = useState(false)
+  const [rsvpMapaExpandido, setRsvpMapaExpandido] = useState(false)
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
   // CRUD eventos (admin)
@@ -2492,7 +2493,6 @@ export default function PortalPage() {
                   </p>
                   {rsvpGpsLat && rsvpGpsLng ? (
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #bbf7d0' }}>
-                      {/* Mapa OpenStreetMap embebido */}
                       <div style={{ position: 'relative', height: 160 }}>
                         <iframe
                           title="Ubicación registrada"
@@ -2500,8 +2500,13 @@ export default function PortalPage() {
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           loading="lazy"
                         />
+                        <button onClick={() => setRsvpMapaExpandido(true)}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid #d1d5db', color: '#374151' }}
+                          title="Ver mapa completo">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                        </button>
                       </div>
-                      {/* Pie del mapa */}
                       <div className="flex items-center justify-between px-2.5 py-2" style={{ background: '#f0fdf4' }}>
                         <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin size={12} style={{ color: '#16a34a', flexShrink: 0 }} />
@@ -2516,7 +2521,6 @@ export default function PortalPage() {
                     </div>
                   ) : (
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--borde)' }}>
-                      {/* Mapa de referencia centrado en Santa Ana, El Salvador */}
                       <div style={{ position: 'relative', height: 140 }}>
                         <iframe
                           title="Mapa de referencia"
@@ -2527,6 +2531,12 @@ export default function PortalPage() {
                         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
                           <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>📍 Su ubicación aún no está registrada</span>
                         </div>
+                        <button onClick={() => setRsvpMapaExpandido(true)}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid #d1d5db', color: '#374151' }}
+                          title="Ver mapa completo">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                        </button>
                       </div>
                       <div className="px-2.5 py-2" style={{ background: 'var(--fondo)' }}>
                         <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
@@ -2569,6 +2579,56 @@ export default function PortalPage() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MAPA FULLSCREEN ── */}
+      {rsvpMapaExpandido && (
+        <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: '#000' }}>
+          {/* Barra superior */}
+          <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0" style={{ background: '#1e293b' }}>
+            <div className="flex items-center gap-2">
+              <MapPin size={14} style={{ color: '#60a5fa' }} />
+              <span className="text-sm font-semibold text-white">
+                {rsvpGpsLat && rsvpGpsLng ? 'Su ubicación registrada' : 'Mapa de referencia — Santa Ana'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {rsvpGpsLat && rsvpGpsLng && (
+                <span className="text-xs" style={{ color: '#94a3b8' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</span>
+              )}
+              <button onClick={() => setRsvpMapaExpandido(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          {/* Mapa */}
+          <div className="flex-1 relative">
+            <iframe
+              title="Mapa pantalla completa"
+              src={rsvpGpsLat && rsvpGpsLng
+                ? `https://www.openstreetmap.org/export/embed.html?bbox=${rsvpGpsLng - 0.012},${rsvpGpsLat - 0.009},${rsvpGpsLng + 0.012},${rsvpGpsLat + 0.009}&layer=mapnik&marker=${rsvpGpsLat},${rsvpGpsLng}`
+                : 'https://www.openstreetmap.org/export/embed.html?bbox=-89.6200,13.9600,-89.5100,14.0300&layer=mapnik'}
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            />
+          </div>
+          {/* Pie */}
+          <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0 gap-3" style={{ background: '#1e293b' }}>
+            <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+              className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+              style={{ background: '#2563eb', color: '#fff' }}>
+              {rsvpGpsCapturando
+                ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
+                : <><MapPin size={14} /> {rsvpGpsLat ? 'Actualizar mi ubicación' : 'Capturar mi ubicación'}</>}
+            </button>
+            <button onClick={() => setRsvpMapaExpandido(false)}
+              className="px-4 py-2 rounded-xl text-sm font-semibold"
+              style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
+              Cerrar
+            </button>
           </div>
         </div>
       )}
