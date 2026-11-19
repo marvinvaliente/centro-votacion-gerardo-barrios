@@ -298,7 +298,7 @@ export default function PortalPage() {
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
   // CRUD eventos (admin)
-  const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, activo: true }
+  const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, punto_reunion: '', recogida_domicilio: false, regreso_domicilio: false, activo: true }
   const [modalEvento, setModalEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<any | null>(null)
   const [formEv, setFormEv] = useState(FORM_EV_VACIO)
@@ -793,10 +793,14 @@ export default function PortalPage() {
   function abrirEditarEvento(ev: any) {
     setEditandoEvento(ev)
     setFormEv({
-      nombre: ev.titulo, descripcion: ev.descripcion ?? '',
+      nombre: ev.titulo ?? ev.nombre, descripcion: ev.descripcion ?? '',
       fecha: ev.fecha, hora: ev.hora ?? '', hora_fin: ev.hora_fin ?? '',
       lugar: ev.lugar ?? '', transporte_recogida: ev.transporte_recogida,
-      transporte_regreso: ev.transporte_regreso, activo: ev.activo,
+      transporte_regreso: ev.transporte_regreso,
+      punto_reunion: ev.punto_reunion ?? '',
+      recogida_domicilio: ev.recogida_domicilio ?? false,
+      regreso_domicilio: ev.regreso_domicilio ?? false,
+      activo: ev.activo,
     })
     setModalEvento(true)
   }
@@ -813,6 +817,9 @@ export default function PortalPage() {
       lugar: formEv.lugar || null,
       transporte_recogida: formEv.transporte_recogida,
       transporte_regreso: formEv.transporte_regreso,
+      punto_reunion: formEv.punto_reunion || null,
+      recogida_domicilio: formEv.recogida_domicilio,
+      regreso_domicilio: formEv.regreso_domicilio,
       activo: formEv.activo,
     }
     if (editandoEvento) {
@@ -2064,15 +2071,39 @@ export default function PortalPage() {
                 <label className="field-label">Opciones de transporte</label>
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input type="checkbox" checked={formEv.transporte_recogida} onChange={e => setFormEv(p => ({ ...p, transporte_recogida: e.target.checked }))} />
-                  Ofrecer recogida (ir al evento)
+                  Ofrecer recogida (ida al evento)
                 </label>
+                {formEv.transporte_recogida && (
+                  <label className="flex items-center gap-2 cursor-pointer text-sm ml-5">
+                    <input type="checkbox" checked={formEv.recogida_domicilio} onChange={e => setFormEv(p => ({ ...p, recogida_domicilio: e.target.checked }))} />
+                    Pasar a recoger en el domicilio de cada colaborador
+                  </label>
+                )}
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input type="checkbox" checked={formEv.transporte_regreso} onChange={e => setFormEv(p => ({ ...p, transporte_regreso: e.target.checked }))} />
                   Ofrecer regreso (vuelta a casa)
                 </label>
+                {formEv.transporte_regreso && (
+                  <label className="flex items-center gap-2 cursor-pointer text-sm ml-5">
+                    <input type="checkbox" checked={formEv.regreso_domicilio} onChange={e => setFormEv(p => ({ ...p, regreso_domicilio: e.target.checked }))} />
+                    Dejar en el domicilio de cada colaborador
+                  </label>
+                )}
+              </div>
+              {/* Punto de reunión — solo si algún transporte activo y NO es a domicilio */}
+              {(formEv.transporte_recogida || formEv.transporte_regreso) && (!formEv.recogida_domicilio || !formEv.regreso_domicilio) && (
+                <div>
+                  <label className="field-label">Punto de reunión</label>
+                  <input type="text" value={formEv.punto_reunion}
+                    onChange={e => setFormEv(p => ({ ...p, punto_reunion: e.target.value }))}
+                    className="input" placeholder="Ej: Parque Central de Santa Ana, frente a la alcaldía" />
+                  <p className="text-xs mt-1" style={{ color: 'var(--texto-muted)' }}>Se mostrará a los colaboradores al confirmar asistencia.</p>
+                </div>
+              )}
+              <div>
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input type="checkbox" checked={formEv.activo} onChange={e => setFormEv(p => ({ ...p, activo: e.target.checked }))} />
-                  Evento activo (visible para solicitudes)
+                  Evento activo (visible para confirmaciones)
                 </label>
               </div>
             </div>
@@ -2179,7 +2210,13 @@ export default function PortalPage() {
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
                           <div className="text-sm font-medium">Transporte de ida</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El vehículo le recoge para trasladarlo al evento</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
+                            {modalRsvp.recogida_domicilio
+                              ? 'El vehículo pasará a recogerle directamente en su domicilio.'
+                              : modalRsvp.punto_reunion
+                                ? <>El vehículo partirá desde el <strong>{modalRsvp.punto_reunion}</strong>. Por favor, preséntese puntualmente en ese lugar.</>
+                                : 'El vehículo le trasladará al evento desde el punto de reunión indicado.'}
+                          </div>
                         </div>
                       </label>
                     )}
@@ -2189,7 +2226,13 @@ export default function PortalPage() {
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
                           <div className="text-sm font-medium">Transporte de regreso</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El vehículo le lleva de vuelta a casa al finalizar</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
+                            {modalRsvp.regreso_domicilio
+                              ? 'Al finalizar el evento, el vehículo le llevará de regreso hasta su domicilio.'
+                              : modalRsvp.punto_reunion
+                                ? <>Al finalizar, el vehículo le dejará en <strong>{modalRsvp.punto_reunion}</strong>.</>
+                                : 'El vehículo le llevará de vuelta al punto de reunión al finalizar el evento.'}
+                          </div>
                         </div>
                       </label>
                     )}
