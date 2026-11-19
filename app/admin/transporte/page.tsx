@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import {
   Bus, Calendar, MapPin, Users, Plus, Edit2, Trash2, CheckCircle,
-  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User
+  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User, ClipboardList
 } from 'lucide-react'
 
 const supabase = createClient(
@@ -706,6 +707,7 @@ export default function AdminTransportePage() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState<string | null>(null)
   const [mostrarFormEvento, setMostrarFormEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<Evento | null>(null)
+  const router = useRouter()
   const [motoristasEvento, setMotoristasEvento] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [distribuyendo, setDistribuyendo] = useState(false)
@@ -1249,16 +1251,27 @@ export default function AdminTransportePage() {
                 ))}
               </select>
             </div>
-            {eventoSeleccionado && solicitudes.length > 0 && motoristas.length > 0 && (
-              <button
-                onClick={autoDistribuir}
-                disabled={distribuyendo}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
-              >
-                {distribuyendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
-                Auto-distribuir motoristas
-              </button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {eventoSeleccionado && solicitudes.length > 0 && motoristas.length > 0 && (
+                <button
+                  onClick={autoDistribuir}
+                  disabled={distribuyendo}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                >
+                  {distribuyendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
+                  Auto-distribuir motoristas
+                </button>
+              )}
+              {eventoSeleccionado && solicitudes.length > 0 && (
+                <button
+                  onClick={() => router.push(`/admin/transporte/asistencia/${eventoSeleccionado}`)}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Registrar asistencia
+                </button>
+              )}
+            </div>
           </div>
 
           {!eventoSeleccionado && (
