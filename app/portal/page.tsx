@@ -806,6 +806,10 @@ export default function PortalPage() {
   }
 
   async function capturarGpsRsvp() {
+    if (!navigator.geolocation) {
+      setRsvpGpsError('Su dispositivo no soporta GPS. Contacte al administrador.')
+      return
+    }
     setRsvpGpsCapturando(true)
     setRsvpGpsError('')
     navigator.geolocation.getCurrentPosition(
@@ -819,7 +823,16 @@ export default function PortalPage() {
         }
         setRsvpGpsCapturando(false)
       },
-      () => { setRsvpGpsError('No se pudo obtener su ubicación. Por favor intente de nuevo o active el GPS.'); setRsvpGpsCapturando(false) }
+      (err) => {
+        const msg = err.code === 1
+          ? 'Permiso de ubicación denegado. Por favor permita el acceso en la configuración del navegador.'
+          : err.code === 3
+            ? 'Se agotó el tiempo. Verifique que el GPS esté activo e intente de nuevo.'
+            : 'No se pudo obtener su ubicación. Intente de nuevo.'
+        setRsvpGpsError(msg)
+        setRsvpGpsCapturando(false)
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     )
   }
 
@@ -2485,8 +2498,8 @@ export default function PortalPage() {
                         <p className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</p>
                       </div>
                       <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
-                        className="text-xs px-2 py-1 rounded-lg" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
-                        Actualizar
+                        className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
+                        {rsvpGpsCapturando ? <><Loader2 size={11} className="animate-spin" />Obteniendo...</> : 'Actualizar'}
                       </button>
                     </div>
                   ) : (
