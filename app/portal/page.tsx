@@ -2227,11 +2227,7 @@ export default function PortalPage() {
                         <div>
                           <div className="text-sm font-medium">Transporte de regreso</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
-                            {modalRsvp.regreso_domicilio
-                              ? 'Al finalizar el evento, el vehículo le llevará de regreso hasta su domicilio.'
-                              : modalRsvp.punto_reunion
-                                ? <>Al finalizar, el vehículo le dejará en <strong>{modalRsvp.punto_reunion}</strong>.</>
-                                : 'El vehículo le llevará de vuelta al punto de reunión al finalizar el evento.'}
+                            Al finalizar el evento, el vehículo le llevará de regreso hasta su domicilio o el lugar que usted indique.
                           </div>
                         </div>
                       </label>
