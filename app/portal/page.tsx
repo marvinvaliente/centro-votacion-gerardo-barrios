@@ -2149,9 +2149,10 @@ export default function PortalPage() {
             <div className="p-6 space-y-5">
               {/* ¿Asistirás? */}
               <div>
-                <p className="text-sm font-semibold mb-3" style={{ color: 'var(--texto)' }}>¿Asistirás a este evento?</p>
+                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>¿Podremos contar con usted en este evento?</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Su confirmación nos ayuda a organizar mejor la jornada.</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ val: true, label: 'Sí, asistiré', icon: CheckCircle, color: '#16a34a' }, { val: false, label: 'No asistiré', icon: X, color: '#dc2626' }].map(({ val, label, icon: Icon, color }) => (
+                  {[{ val: true, label: '¡Sí, estaré presente!', icon: CheckCircle, color: '#16a34a' }, { val: false, label: 'No podré asistir', icon: X, color: '#dc2626' }].map(({ val, label, icon: Icon, color }) => (
                     <button key={String(val)} onClick={() => setRsvpConf(p => ({ ...p, confirmado: val }))}
                       className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-sm font-medium"
                       style={{
@@ -2167,17 +2168,18 @@ export default function PortalPage() {
               {/* Transporte — solo si confirma asistencia y el evento ofrece */}
               {rsvpConf.confirmado && (modalRsvp.transporte_recogida || modalRsvp.transporte_regreso) && (
                 <div>
-                  <p className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: 'var(--texto)' }}>
-                    <Bus size={14} style={{ color: '#2563eb' }} /> ¿Necesitas transporte?
+                  <p className="text-sm font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--texto)' }}>
+                    <Bus size={14} style={{ color: '#2563eb' }} /> ¿Necesita apoyo de transporte?
                   </p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Seleccione las opciones que necesite. No tiene costo.</p>
                   <div className="space-y-2">
                     {modalRsvp.transporte_recogida && (
                       <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
                         style={{ background: rsvpConf.necesita_recogida ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_recogida ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">Recogida</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Transporte para ir al evento</div>
+                          <div className="text-sm font-medium">Transporte de ida</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El bus le recoge para trasladarlo al evento</div>
                         </div>
                       </label>
                     )}
@@ -2186,8 +2188,8 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_regreso ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_regreso ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">Regreso</div>
-                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Transporte de vuelta a casa</div>
+                          <div className="text-sm font-medium">Transporte de regreso</div>
+                          <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>El bus le lleva de vuelta a casa al finalizar</div>
                         </div>
                       </label>
                     )}
@@ -2196,11 +2198,11 @@ export default function PortalPage() {
               )}
             </div>
             <div className="px-6 py-4 flex justify-end gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)' }}>
-              <button onClick={() => setModalRsvp(null)} className="btn btn-ghost">Cancelar</button>
+              <button onClick={() => setModalRsvp(null)} className="btn btn-ghost">Ahora no</button>
               <button onClick={guardarRsvp} disabled={!!guardandoConf}
                 className="btn btn-primary"
                 style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
-                {guardandoConf ? '...' : rsvpConf.confirmado ? 'Confirmar asistencia' : 'Confirmar que no asistiré'}
+                {guardandoConf ? '...' : rsvpConf.confirmado ? 'Guardar mi confirmación' : 'Enviar respuesta'}
               </button>
             </div>
           </div>
