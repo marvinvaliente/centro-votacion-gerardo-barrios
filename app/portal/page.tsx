@@ -300,7 +300,7 @@ export default function PortalPage() {
   const [asistencias, setAsistencias]           = useState<Record<string, boolean | null>>({})
   const [guardandoAsist, setGuardandoAsist]     = useState<string | null>(null)
   // Agenda
-  const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales' | 'transporte'>('actividades')
+  const [tabAgenda, setTabAgenda] = useState<'actividades' | 'materiales'>('actividades')
   // Eventos de transporte (para pestaña Transporte en Agenda)
   const [eventosTransporte, setEventosTransporte] = useState<any[]>([])
   const [scoreAgenda, setScoreAgenda] = useState<{ asistidas: number; total: number } | null>(null)
@@ -755,14 +755,32 @@ export default function PortalPage() {
   const catsMat = ['Todas', ...Array.from(new Set(materiales.map(m => m.categoria)))]
   const matsFiltrados = materiales.filter(m => filtroMat === 'Todas' || m.categoria === filtroMat)
 
-  // Agrupar actividades por mes
-  const actsPorMes = actividades.reduce((acc, a) => {
+  // Fusionar actividades + eventos_transporte en una línea de tiempo unificada
+  type ItemAgenda =
+    | (Actividad & { _kind: 'actividad' })
+    | { _kind: 'transporte'; id: string; titulo: string; descripcion: string | null; fecha: string; hora: string | null; hora_fin: string | null; lugar: string | null; activo: boolean; transporte_recogida: boolean; transporte_regreso: boolean }
+
+  const itemsAgenda: ItemAgenda[] = [
+    ...actividades.map(a => ({ ...a, _kind: 'actividad' as const })),
+    ...eventosTransporte.map(e => ({
+      _kind: 'transporte' as const,
+      id: e.id, titulo: e.nombre, descripcion: e.descripcion,
+      fecha: e.fecha, hora: e.hora, hora_fin: e.hora_fin, lugar: e.lugar,
+      activo: e.activo, transporte_recogida: e.transporte_recogida, transporte_regreso: e.transporte_regreso,
+    })),
+  ].sort((a, b) => {
+    const d = a.fecha.localeCompare(b.fecha)
+    if (d !== 0) return d
+    return (a.hora ?? '00:00').localeCompare(b.hora ?? '00:00')
+  })
+
+  const actsPorMes = itemsAgenda.reduce((acc, a) => {
     const mes = a.fecha.slice(0, 7)
     if (!acc[mes]) acc[mes] = []
     acc[mes].push(a); return acc
-  }, {} as Record<string, Actividad[]>)
+  }, {} as Record<string, ItemAgenda[]>)
 
-  const TIPO_COLORES: Record<string, string> = { 'capacitación': 'var(--azul)', 'reunión': 'var(--verde)', 'general': 'var(--navy)' }
+  const TIPO_COLORES: Record<string, string> = { 'capacitación': 'var(--azul)', 'reunión': 'var(--verde)', 'general': 'var(--navy)', 'transporte': '#2563eb' }
 
   /* ── LOGIN / PRE-LOGIN ── */
   if (!usuario) {
@@ -1705,7 +1723,7 @@ export default function PortalPage() {
             <div className="max-w-4xl space-y-4">
               {/* Pestañas */}
               <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--fondo)', border: '1px solid var(--borde)' }}>
-                {([['actividades', Calendar, 'Actividades'], ['materiales', BookOpen, 'Materiales'], ['transporte', Bus, 'Transporte']] as const).map(([tab, Icon, label]) => (
+                {([['actividades', Calendar, 'Actividades'], ['materiales', BookOpen, 'Materiales']] as const).map(([tab, Icon, label]) => (
                   <button key={tab} onClick={() => setTabAgenda(tab)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium flex-1 justify-center transition-all"
                     style={{
@@ -1753,7 +1771,7 @@ export default function PortalPage() {
                       </button>
                     </div>
                   )}
-                  {/* Lista por mes */}
+                  {/* Lista por mes — actividades + eventos de transporte fusionados */}
                   {Object.keys(actsPorMes).length === 0 ? (
                     <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
                       <Calendar size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay actividades programadas
@@ -1763,14 +1781,22 @@ export default function PortalPage() {
                       <div className="px-5 py-3 font-semibold text-sm" style={{ background: 'var(--fondo)', borderBottom: '1px solid var(--borde)' }}>
                         {new Date(mes + '-01').toLocaleDateString('es-SV', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                       </div>
-                      {acts.map((a, i) => (
+                      {acts.map((a, i) => {
+                        const esTransporte = a._kind === 'transporte'
+                        const color = esTransporte ? TIPO_COLORES['transporte'] : TIPO_COLORES[(a as any).tipo] ?? 'var(--navy)'
+                        return (
                         <div key={a.id} className="px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-3 sm:gap-4"
-                          style={{ borderBottom: i < acts.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
+                          style={{ borderBottom: i < acts.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa', opacity: esTransporte && !(a as any).activo ? .55 : 1 }}>
                           <div className="flex gap-3 sm:gap-4 flex-1 min-w-0">
                             <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
-                              style={{ background: TIPO_COLORES[a.tipo] + '18', border: `1px solid ${TIPO_COLORES[a.tipo]}44` }}>
-                              <div className="font-bold text-sm leading-none" style={{ color: TIPO_COLORES[a.tipo] }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
-                              <div className="text-xs" style={{ color: TIPO_COLORES[a.tipo], opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
+                              style={{ background: color + '18', border: `1px solid ${color}44` }}>
+                              {esTransporte
+                                ? <Bus size={18} style={{ color }} />
+                                : <>
+                                    <div className="font-bold text-sm leading-none" style={{ color }}>{new Date(a.fecha + 'T00:00:00').getDate()}</div>
+                                    <div className="text-xs" style={{ color, opacity: .7 }}>{new Date(a.fecha + 'T00:00:00').toLocaleDateString('es-SV', { month: 'short' })}</div>
+                                  </>
+                              }
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold text-sm">{a.titulo}</div>
@@ -1778,62 +1804,86 @@ export default function PortalPage() {
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
                                 {a.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{a.hora.slice(0, 5)}{a.hora_fin ? ` – ${a.hora_fin.slice(0,5)}` : ''}</span>}
                                 {a.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{a.lugar}</span>}
-                                <span className="badge" style={{ background: TIPO_COLORES[a.tipo] + '18', color: TIPO_COLORES[a.tipo], fontSize: 10 }}>{a.tipo}</span>
+                                {esTransporte ? (
+                                  <>
+                                    {(a as any).transporte_recogida && <span className="badge" style={{ background: color + '18', color, fontSize: 10 }}><Bus size={8} className="inline mr-0.5" />Transporte</span>}
+                                    {!(a as any).activo && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>Inactivo</span>}
+                                  </>
+                                ) : (
+                                  <span className="badge" style={{ background: color + '18', color, fontSize: 10 }}>{(a as any).tipo}</span>
+                                )}
                               </div>
                             </div>
                           </div>
                           <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0">
-                            {/* Botón asistencia pública si ventana abierta */}
-                            {(() => {
-                              const hoy = new Date().toISOString().slice(0,10)
-                              const esHoy = a.fecha === hoy
-                              const ahora = new Date()
-                              let ventanaAbierta = false
-                              if (esHoy && a.hora) {
-                                const [hh, mm] = a.hora.split(':').map(Number)
-                                const inicio = new Date(); inicio.setHours(hh, mm, 0, 0)
-                                if (a.hora_fin) {
-                                  const [hf, mf] = a.hora_fin.split(':').map(Number)
-                                  const fin = new Date(); fin.setHours(hf, mf, 59, 999)
-                                  ventanaAbierta = ahora >= inicio && ahora <= fin
-                                } else { ventanaAbierta = ahora >= inicio }
-                              } else if (esHoy && !a.hora) { ventanaAbierta = true }
-                              return ventanaAbierta ? (
-                                <a href={`/asistencia/${a.id}`}
-                                  className="btn btn-sm"
-                                  style={{ background: '#16a34a', color: 'white', border: 'none' }}
-                                  title="Registrar asistencia">
-                                  <ClipboardCheck size={11} /> Asistir
-                                </a>
-                              ) : null
-                            })()}
-                            <button
-                              onClick={() => confirmarAsistencia(a.id)}
-                              disabled={guardandoAsist === a.id}
-                              className="btn btn-sm flex-1 sm:flex-none justify-center"
-                              style={{
-                                background: asistencias[a.id] === true ? 'var(--verde-light)' : 'var(--fondo)',
-                                color:      asistencias[a.id] === true ? 'var(--verde)' : 'var(--texto-muted)',
-                                border:     `1.5px solid ${asistencias[a.id] === true ? '#a7f3d0' : 'var(--borde)'}`,
-                              }}>
-                              {guardandoAsist === a.id ? '...' : asistencias[a.id] === true ? <><CheckCircle size={11} /> Confirmado</> : 'Confirmar asistencia'}
-                            </button>
-                            {esAdmin && (
-                              <a href={`/admin/asistencia/${a.id}`}
-                                className="btn btn-sm"
-                                style={{ background: 'rgba(200,168,75,.12)', color: '#c8a84b', border: '1px solid rgba(200,168,75,.3)' }}
-                                title="Ver asistencia">
-                                <ClipboardCheck size={11} />
-                              </a>
-                            )}
-                            {(esAdmin || a.creado_por === usuario.id) && (
-                              <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
-                                <Trash2 size={11} />
-                              </button>
+                            {esTransporte ? (
+                              /* Botón solicitar transporte — solo si activo y no pasado */
+                              (() => {
+                                const hoy = new Date().toISOString().slice(0,10)
+                                return (a as any).activo && a.fecha >= hoy ? (
+                                  <a href={`/transporte?evento=${a.id}&dui=${usuario?.dui?.replace(/\D/g,'') ?? ''}`}
+                                    className="btn btn-sm"
+                                    style={{ background: color, color: 'white', border: 'none' }}>
+                                    <Bus size={11} /> Solicitar
+                                  </a>
+                                ) : null
+                              })()
+                            ) : (
+                              /* Botones de actividad normal */
+                              <>
+                                {(() => {
+                                  const hoy = new Date().toISOString().slice(0,10)
+                                  const esHoy = a.fecha === hoy
+                                  const ahora = new Date()
+                                  let ventanaAbierta = false
+                                  if (esHoy && a.hora) {
+                                    const [hh, mm] = a.hora.split(':').map(Number)
+                                    const inicio = new Date(); inicio.setHours(hh, mm, 0, 0)
+                                    if (a.hora_fin) {
+                                      const [hf, mf] = a.hora_fin.split(':').map(Number)
+                                      const fin = new Date(); fin.setHours(hf, mf, 59, 999)
+                                      ventanaAbierta = ahora >= inicio && ahora <= fin
+                                    } else { ventanaAbierta = ahora >= inicio }
+                                  } else if (esHoy && !a.hora) { ventanaAbierta = true }
+                                  return ventanaAbierta ? (
+                                    <a href={`/asistencia/${a.id}`}
+                                      className="btn btn-sm"
+                                      style={{ background: '#16a34a', color: 'white', border: 'none' }}
+                                      title="Registrar asistencia">
+                                      <ClipboardCheck size={11} /> Asistir
+                                    </a>
+                                  ) : null
+                                })()}
+                                <button
+                                  onClick={() => confirmarAsistencia(a.id)}
+                                  disabled={guardandoAsist === a.id}
+                                  className="btn btn-sm flex-1 sm:flex-none justify-center"
+                                  style={{
+                                    background: asistencias[a.id] === true ? 'var(--verde-light)' : 'var(--fondo)',
+                                    color:      asistencias[a.id] === true ? 'var(--verde)' : 'var(--texto-muted)',
+                                    border:     `1.5px solid ${asistencias[a.id] === true ? '#a7f3d0' : 'var(--borde)'}`,
+                                  }}>
+                                  {guardandoAsist === a.id ? '...' : asistencias[a.id] === true ? <><CheckCircle size={11} /> Confirmado</> : 'Confirmar asistencia'}
+                                </button>
+                                {esAdmin && (
+                                  <a href={`/admin/asistencia/${a.id}`}
+                                    className="btn btn-sm"
+                                    style={{ background: 'rgba(200,168,75,.12)', color: '#c8a84b', border: '1px solid rgba(200,168,75,.3)' }}
+                                    title="Ver asistencia">
+                                    <ClipboardCheck size={11} />
+                                  </a>
+                                )}
+                                {(esAdmin || (a as any).creado_por === usuario.id) && (
+                                  <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
+                                    <Trash2 size={11} />
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ))}
                 </div>
@@ -1880,66 +1930,6 @@ export default function PortalPage() {
                 </div>
               )}
 
-              {/* Tab: Transporte — eventos con opción de solicitar viaje */}
-              {tabAgenda === 'transporte' && (
-                <div className="space-y-3">
-                  {esAdmin && (
-                    <div className="flex justify-end">
-                      <a href="/admin/transporte" className="btn btn-primary">
-                        <Truck size={14} /> Gestionar transporte
-                      </a>
-                    </div>
-                  )}
-                  {eventosTransporte.length === 0 ? (
-                    <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
-                      <Bus size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />No hay eventos de transporte programados
-                    </div>
-                  ) : eventosTransporte.map(ev => {
-                    const hoy = new Date().toISOString().slice(0, 10)
-                    const esPasado = ev.fecha < hoy
-                    return (
-                      <div key={ev.id} className="card p-4" style={{ opacity: !ev.activo ? .55 : 1 }}>
-                        <div className="flex gap-3">
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: 'rgba(37,99,235,.1)', border: '1px solid rgba(37,99,235,.2)' }}>
-                            <Bus size={18} style={{ color: '#2563eb' }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>{ev.nombre}</div>
-                            {ev.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{ev.descripcion}</p>}
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                              <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
-                                <Calendar size={10} />
-                                {new Date(ev.fecha + 'T12:00:00').toLocaleDateString('es-SV', { weekday: 'short', day: 'numeric', month: 'short' })}
-                              </span>
-                              {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
-                                <Clock size={10} />{ev.hora.slice(0,5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0,5)}` : ''}
-                              </span>}
-                              {ev.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}>
-                                <MapPin size={10} />{ev.lugar}
-                              </span>}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {ev.transporte_recogida && <span className="badge" style={{ background: 'rgba(22,163,74,.1)', color: '#16a34a', fontSize: 10 }}>Recogida</span>}
-                              {ev.transporte_regreso  && <span className="badge" style={{ background: 'rgba(37,99,235,.1)', color: '#2563eb', fontSize: 10 }}>Regreso</span>}
-                              {!ev.activo && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>Inactivo</span>}
-                            </div>
-                          </div>
-                          {ev.activo && !esPasado && (
-                            <div className="flex-shrink-0 self-start">
-                              <a href={`/transporte?evento=${ev.id}&dui=${usuario?.dui?.replace(/\D/g,'') ?? ''}`}
-                                className="btn btn-sm"
-                                style={{ background: '#2563eb', color: 'white', border: 'none' }}>
-                                <Bus size={12} /> Solicitar
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           )}
         </main>
