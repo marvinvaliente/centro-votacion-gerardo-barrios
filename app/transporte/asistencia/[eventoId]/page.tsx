@@ -2,10 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 import { CheckCircle, Loader2, ShieldCheck, Heart } from 'lucide-react'
 
-const supabase = createClient()
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 type Estado = 'idle' | 'buscando' | 'encontrado' | 'ya_registrado' | 'no_encontrado' | 'error'
 

@@ -2,10 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
 import { CheckCircle, Circle, ChevronLeft, Loader2, Users, UserCheck, Search, Truck } from 'lucide-react'
 
-const supabase = createClient()
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 type Pasajero = {
   solicitud_id: string
