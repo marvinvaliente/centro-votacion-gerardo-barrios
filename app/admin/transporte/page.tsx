@@ -895,15 +895,15 @@ export default function AdminTransportePage() {
     if (sols.length === 0) return '#'
 
     const ev = eventos.find((e) => e.id === eventoSeleccionado)
-    // Si el motorista no tiene GPS, parte desde el primer pasajero
-    const origin = motorista?.latitud && motorista?.longitud
-      ? `${motorista.latitud},${motorista.longitud}`
-      : `${sols[0].latitud},${sols[0].longitud}`
-    const dest = ev?.evento_latitud && ev?.evento_longitud
+    // Origen: lugar del evento (si está registrado), si no desde el primer pasajero
+    const origin = ev?.evento_latitud && ev?.evento_longitud
       ? `${ev.evento_latitud},${ev.evento_longitud}`
-      : `${sols[sols.length - 1].latitud},${sols[sols.length - 1].longitud}`
-    const waypoints = sols.map((s) => `${s.latitud},${s.longitud}`).join('|')
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoints}`
+      : `${sols[0].latitud},${sols[0].longitud}`
+    // Destino: último pasajero (ruta de regreso a casas)
+    const dest = `${sols[sols.length - 1].latitud},${sols[sols.length - 1].longitud}`
+    const waypoints = sols.slice(0, -1).map((s) => `${s.latitud},${s.longitud}`).join('|')
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? `&waypoints=${waypoints}` : ''}`
+    return url
   }
 
   if (cargando) return (
