@@ -115,7 +115,7 @@ export default function AsistenciaPublicaPage() {
           <Heart className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-sm text-blue-700 leading-relaxed">
             Confiamos en la <strong>sinceridad</strong> y el <strong>profesionalismo</strong> de cada uno de ustedes.
-            Por favor ingrese su DUI únicamente cuando ya se encuentre presente en el lugar del evento.
+            Por favor ingrese su DUI únicamente para registrar la asistencia antes de retirarse del lugar del evento.
           </p>
         </div>
 
