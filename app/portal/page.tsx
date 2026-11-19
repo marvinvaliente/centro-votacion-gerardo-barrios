@@ -2515,13 +2515,29 @@ export default function PortalPage() {
                       </div>
                     </div>
                   ) : (
-                    <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
-                      className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                      style={{ background: '#2563eb', color: '#fff' }}>
-                      {rsvpGpsCapturando
-                        ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
-                        : <><MapPin size={14} /> Capturar mi ubicación actual</>}
-                    </button>
+                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--borde)' }}>
+                      {/* Mapa de referencia centrado en Santa Ana, El Salvador */}
+                      <div style={{ position: 'relative', height: 140 }}>
+                        <iframe
+                          title="Mapa de referencia"
+                          src="https://www.openstreetmap.org/export/embed.html?bbox=-89.5900,13.9800,-89.5400,14.0100&layer=mapnik"
+                          style={{ width: '100%', height: '100%', border: 'none', display: 'block', opacity: 0.7 }}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>📍 Su ubicación aún no está registrada</span>
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2" style={{ background: 'var(--fondo)' }}>
+                        <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                          className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
+                          style={{ background: '#2563eb', color: '#fff' }}>
+                          {rsvpGpsCapturando
+                            ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
+                            : <><MapPin size={14} /> Capturar mi ubicación actual</>}
+                        </button>
+                      </div>
+                    </div>
                   )}
                   {rsvpGpsError && <p className="text-xs mt-1.5" style={{ color: '#dc2626' }}>{rsvpGpsError}</p>}
                 </div>
