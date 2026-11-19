@@ -792,6 +792,15 @@ export default function PortalPage() {
       const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
       if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
     }
+    // Si ya no necesita transporte (o no asistirá), cancelar solicitud previa si existe
+    const duiFmt = usuario.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario.dui.replace(/\D/g, '').slice(8, 9)
+    const { data: reg } = await supabase.from('registros_dui').select('id').eq('dui', duiFmt).single()
+    if (reg) {
+      await supabase.from('solicitudes_transporte')
+        .delete()
+        .eq('registro_id', reg.id)
+        .eq('evento_id', modalRsvp.id)
+    }
     setGuardandoConf(null)
     setModalRsvp(null)
   }
@@ -840,17 +849,28 @@ export default function PortalPage() {
       const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
       if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
     }
-    // 2. Crear solicitud de transporte
+    // 2. Upsert solicitud de transporte (actualizar si ya existe, insertar si no)
     if (rsvpRegistroId) {
       const tienePuntoReunion = !modalRsvp.recogida_domicilio && !!modalRsvp.punto_reunion
-      await supabase.from('solicitudes_transporte').insert({
+      const solPayload = {
         registro_id: rsvpRegistroId,
         evento_id: modalRsvp.id,
         estado: 'pendiente',
         solicita_recogida: rsvpConf.necesita_recogida,
         solicita_regreso: rsvpConf.necesita_regreso,
         tipo_recogida: tienePuntoReunion ? 'punto_reunion' : 'domicilio',
-      })
+      }
+      const { data: solExistente } = await supabase
+        .from('solicitudes_transporte')
+        .select('id')
+        .eq('registro_id', rsvpRegistroId)
+        .eq('evento_id', modalRsvp.id)
+        .single()
+      if (solExistente) {
+        await supabase.from('solicitudes_transporte').update(solPayload).eq('id', solExistente.id)
+      } else {
+        await supabase.from('solicitudes_transporte').insert(solPayload)
+      }
     }
     setRsvpSolicitando(false)
     setRsvpPaso(1)
@@ -2399,6 +2419,10 @@ export default function PortalPage() {
                             const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
                             if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
                           }
+                          // Borrar solicitud de transporte previa si existe
+                          const duiFmtW = usuario!.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario!.dui.replace(/\D/g, '').slice(8, 9)
+                          const { data: regW } = await supabase.from('registros_dui').select('id').eq('dui', duiFmtW).single()
+                          if (regW) await supabase.from('solicitudes_transporte').delete().eq('registro_id', regW.id).eq('evento_id', modalRsvp.id)
                           setGuardandoConf(null)
                           setModalRsvp(null)
                         }}
