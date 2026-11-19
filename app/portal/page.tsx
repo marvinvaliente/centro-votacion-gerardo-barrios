@@ -2491,16 +2491,28 @@ export default function PortalPage() {
                       : 'Registre su ubicación para que el vehículo pueda llevarle de regreso a casa.'}
                   </p>
                   {rsvpGpsLat && rsvpGpsLng ? (
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                      <MapPin size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</p>
-                        <p className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(5)}, {rsvpGpsLng.toFixed(5)}</p>
+                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #bbf7d0' }}>
+                      {/* Mapa OpenStreetMap embebido */}
+                      <div style={{ position: 'relative', height: 160 }}>
+                        <iframe
+                          title="Ubicación registrada"
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${rsvpGpsLng - 0.004},${rsvpGpsLat - 0.003},${rsvpGpsLng + 0.004},${rsvpGpsLat + 0.003}&layer=mapnik&marker=${rsvpGpsLat},${rsvpGpsLng}`}
+                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                          loading="lazy"
+                        />
                       </div>
-                      <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
-                        className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
-                        {rsvpGpsCapturando ? <><Loader2 size={11} className="animate-spin" />Obteniendo...</> : 'Actualizar'}
-                      </button>
+                      {/* Pie del mapa */}
+                      <div className="flex items-center justify-between px-2.5 py-2" style={{ background: '#f0fdf4' }}>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <MapPin size={12} style={{ color: '#16a34a', flexShrink: 0 }} />
+                          <span className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</span>
+                          <span className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(4)}, {rsvpGpsLng.toFixed(4)}</span>
+                        </div>
+                        <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
+                          className="text-xs px-2 py-1 rounded-lg flex items-center gap-1 flex-shrink-0" style={{ color: '#15803d', background: '#dcfce7', border: '1px solid #bbf7d0' }}>
+                          {rsvpGpsCapturando ? <><Loader2 size={11} className="animate-spin" />Obteniendo...</> : 'Actualizar'}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
