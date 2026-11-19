@@ -5,7 +5,7 @@ import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
-  FileText, Video, File, Music, ShieldAlert, Check, Truck
+  FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import InstallPWA from '@/components/InstallPWA'
@@ -75,7 +75,82 @@ function iconoMime(mime: string) {
 
 const TIPOS_ACTIVIDAD = ['general', 'capacitación', 'reunión']
 
-type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario' | 'transporte'
+type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario' | 'transporte' | 'asistencia'
+
+/* ── Componente de sección Asistencia ── */
+function AsistenciaSection({ dui }: { dui: string }) {
+  const [actividades, setActividades] = useState<any[]>([])
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    const hoy = new Date().toISOString().slice(0, 10)
+    supabase.from('actividades').select('id,titulo,fecha,hora,hora_fin,lugar')
+      .eq('fecha', hoy).order('hora', { ascending: true })
+      .then(({ data }) => { setActividades(data ?? []); setCargando(false) })
+  }, [])
+
+  function ventana(a: any): 'antes' | 'abierta' | 'cerrada' | 'sin_hora' {
+    if (!a.hora) return 'sin_hora'
+    const ahora = new Date()
+    const [hh, mm] = a.hora.split(':').map(Number)
+    const inicio = new Date(); inicio.setHours(hh, mm, 0, 0)
+    if (a.hora_fin) {
+      const [hf, mf] = a.hora_fin.split(':').map(Number)
+      const fin = new Date(); fin.setHours(hf, mf, 59, 999)
+      if (ahora < inicio) return 'antes'
+      if (ahora > fin) return 'cerrada'
+      return 'abierta'
+    }
+    return ahora >= inicio ? 'abierta' : 'antes'
+  }
+
+  if (cargando) return <div className="flex justify-center py-16"><div style={{ width: 32, height: 32, border: '3px solid rgba(200,168,75,.3)', borderTopColor: '#c8a84b', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <h2 className="text-base font-semibold" style={{ color: 'var(--texto)' }}>Asistencia</h2>
+      {actividades.length === 0 ? (
+        <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
+          <ClipboardCheck size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />
+          No hay actividades programadas para hoy.
+        </div>
+      ) : actividades.map(a => {
+        const v = ventana(a)
+        const url = `/asistencia/${a.id}${dui ? `?dui=${dui.replace(/\D/g,'')}` : ''}`
+        return (
+          <div key={a.id} className="card p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm truncate" style={{ color: 'var(--texto)' }}>{a.titulo}</p>
+              {a.lugar && <p className="text-xs truncate" style={{ color: 'var(--texto-muted)' }}>{a.lugar}</p>}
+              <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                {a.hora ? `${a.hora.slice(0,5)}${a.hora_fin ? ` – ${a.hora_fin.slice(0,5)}` : ''}` : 'Sin hora'}
+              </p>
+            </div>
+            <div className="shrink-0">
+              {v === 'abierta' || v === 'sin_hora' ? (
+                <a href={url}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  style={{ background: '#16a34a' }}>
+                  <ClipboardCheck size={14} /> Registrar
+                </a>
+              ) : v === 'antes' ? (
+                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ background: 'rgba(245,158,11,.12)', color: '#d97706' }}>
+                  <Clock size={13} /> Pronto
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)' }}>
+                  Cerrado
+                </span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function PortalPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
@@ -176,7 +251,7 @@ export default function PortalPage() {
   // Calendario
   const [actividades, setActividades] = useState<Actividad[]>([])
   const [modalActividad, setModalActividad] = useState(false)
-  const [formAct, setFormAct]         = useState({ titulo: '', descripcion: '', fecha: '', hora: '', lugar: '', tipo: 'general' })
+  const [formAct, setFormAct]         = useState({ titulo: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', tipo: 'general' })
   const [guardandoAct, setGuardandoAct] = useState(false)
   const [eliminandoAct, setEliminandoAct] = useState<string | null>(null)
 
@@ -589,9 +664,9 @@ export default function PortalPage() {
   async function crearActividad() {
     if (!formAct.titulo.trim() || !formAct.fecha) { return }
     setGuardandoAct(true)
-    const { data } = await supabase.from('actividades').insert({ ...formAct, titulo: formAct.titulo.trim(), descripcion: formAct.descripcion || null, hora: formAct.hora || null, lugar: formAct.lugar || null, creado_por: usuario!.id }).select().single()
+    const { data } = await supabase.from('actividades').insert({ ...formAct, titulo: formAct.titulo.trim(), descripcion: formAct.descripcion || null, hora: formAct.hora || null, hora_fin: formAct.hora_fin || null, lugar: formAct.lugar || null, creado_por: usuario!.id }).select().single()
     if (data) setActividades(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha)))
-    setGuardandoAct(false); setModalActividad(false); setFormAct({ titulo: '', descripcion: '', fecha: '', hora: '', lugar: '', tipo: 'general' })
+    setGuardandoAct(false); setModalActividad(false); setFormAct({ titulo: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', tipo: 'general' })
   }
 
   async function confirmarAsistencia(actividadId: string) {
@@ -1211,11 +1286,12 @@ export default function PortalPage() {
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,       href: null },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,      href: null },
-    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen,   href: null },
-    { key: 'calendario',  label: 'Calendario',        icon: Calendar,   href: null },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,        href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,         href: null },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,        href: null },
+    { key: 'materiales',  label: 'Capacitaciones',    icon: BookOpen,     href: null },
+    { key: 'asistencia',  label: 'Asistencia',        icon: ClipboardCheck, href: null },
+    { key: 'calendario',  label: 'Calendario',        icon: Calendar,     href: null },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,          href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}` }] : []),
     ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin' }] : []),
   ]
@@ -1609,6 +1685,11 @@ export default function PortalPage() {
             </div>
           )}
 
+          {/* ── ASISTENCIA ── */}
+          {seccion === 'asistencia' && (
+            <AsistenciaSection dui={usuario?.dui ?? ''} />
+          )}
+
           {/* ── CALENDARIO ── */}
           {seccion === 'calendario' && (
             <div className="max-w-2xl space-y-5">
@@ -1657,6 +1738,14 @@ export default function PortalPage() {
                           }}>
                           {guardandoAsist === a.id ? '...' : asistencias[a.id] === true ? <><CheckCircle size={11} /> Confirmado</> : 'Confirmar asistencia'}
                         </button>
+                        {esAdmin && (
+                          <a href={`/admin/asistencia/${a.id}`}
+                            className="btn btn-sm"
+                            style={{ background: 'rgba(200,168,75,.12)', color: '#c8a84b', border: '1px solid rgba(200,168,75,.3)' }}
+                            title="Ver asistencia">
+                            <ClipboardCheck size={11} />
+                          </a>
+                        )}
                         {a.creado_por === usuario.id && (
                           <button onClick={() => eliminarActividad(a.id)} disabled={eliminandoAct === a.id} className="btn btn-danger btn-sm">
                             <Trash2 size={11} />
@@ -1686,7 +1775,11 @@ export default function PortalPage() {
               <div><label className="field-label">Título *</label><input type="text" value={formAct.titulo} onChange={e => setFormAct(p => ({ ...p, titulo: e.target.value }))} className="input" placeholder="Nombre de la actividad" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="field-label">Fecha *</label><input type="date" value={formAct.fecha} onChange={e => setFormAct(p => ({ ...p, fecha: e.target.value }))} className="input" /></div>
-                <div><label className="field-label">Hora</label><input type="time" value={formAct.hora} onChange={e => setFormAct(p => ({ ...p, hora: e.target.value }))} className="input" /></div>
+                <div><label className="field-label">Hora inicio</label><input type="time" value={formAct.hora} onChange={e => setFormAct(p => ({ ...p, hora: e.target.value }))} className="input" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="field-label">Hora fin <span style={{color:'var(--texto-muted)',fontWeight:400}}>(para asistencia)</span></label><input type="time" value={formAct.hora_fin} onChange={e => setFormAct(p => ({ ...p, hora_fin: e.target.value }))} className="input" /></div>
+                <div />
               </div>
               <div><label className="field-label">Lugar</label><input type="text" value={formAct.lugar} onChange={e => setFormAct(p => ({ ...p, lugar: e.target.value }))} className="input" placeholder="Ubicación" /></div>
               <div><label className="field-label">Tipo</label>
