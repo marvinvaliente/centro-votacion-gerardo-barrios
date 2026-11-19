@@ -78,16 +78,30 @@ const TIPOS_ACTIVIDAD = ['general', 'capacitación', 'reunión']
 type Seccion = 'perfil' | 'jrv' | 'materiales' | 'calendario' | 'transporte' | 'asistencia'
 
 /* ── Componente de sección Asistencia ── */
-function AsistenciaSection({ dui }: { dui: string }) {
+function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) {
   const [actividades, setActividades] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
+  const [score, setScore] = useState<{ asistidas: number; total: number } | null>(null)
 
   useEffect(() => {
     const hoy = new Date().toISOString().slice(0, 10)
-    supabase.from('actividades').select('id,titulo,fecha,hora,hora_fin,lugar')
-      .eq('fecha', hoy).order('hora', { ascending: true })
-      .then(({ data }) => { setActividades(data ?? []); setCargando(false) })
-  }, [])
+    Promise.all([
+      supabase.from('actividades').select('id,titulo,fecha,hora,hora_fin,lugar')
+        .eq('fecha', hoy).order('hora', { ascending: true }),
+      // Total actividades pasadas (hasta hoy inclusive)
+      supabase.from('actividades').select('id', { count: 'exact', head: true })
+        .lte('fecha', hoy),
+      // Actividades asistidas por este usuario
+      registroId
+        ? supabase.from('asistencias_actividad').select('id', { count: 'exact', head: true })
+            .eq('registro_id', registroId)
+        : Promise.resolve({ count: 0 }),
+    ]).then(([{ data }, { count: total }, { count: asistidas }]) => {
+      setActividades(data ?? [])
+      setScore({ asistidas: asistidas ?? 0, total: total ?? 0 })
+      setCargando(false)
+    })
+  }, [registroId])
 
   function ventana(a: any): 'antes' | 'abierta' | 'cerrada' | 'sin_hora' {
     if (!a.hora) return 'sin_hora'
@@ -106,9 +120,36 @@ function AsistenciaSection({ dui }: { dui: string }) {
 
   if (cargando) return <div className="flex justify-center py-16"><div style={{ width: 32, height: 32, border: '3px solid rgba(200,168,75,.3)', borderTopColor: '#c8a84b', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>
 
+  const pct = score && score.total > 0 ? Math.round((score.asistidas / score.total) * 100) : null
+
   return (
     <div className="max-w-2xl space-y-4">
       <h2 className="text-base font-semibold" style={{ color: 'var(--texto)' }}>Asistencia</h2>
+
+      {/* Score */}
+      {score && score.total > 0 && (
+        <div className="card p-4 flex items-center gap-4">
+          <div className="relative w-14 h-14 shrink-0">
+            <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(200,168,75,.15)" strokeWidth="3" />
+              <circle cx="18" cy="18" r="15.9" fill="none" stroke="#c8a84b" strokeWidth="3"
+                strokeDasharray={`${pct} ${100 - (pct ?? 0)}`} strokeLinecap="round" />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ color: '#c8a84b' }}>
+              {pct}%
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--texto)' }}>
+              {score.asistidas} de {score.total} {score.total === 1 ? 'actividad' : 'actividades'}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+              {pct === 100 ? '¡Asistencia perfecta! 🌟' : pct! >= 80 ? 'Excelente participación' : pct! >= 50 ? 'Buena participación' : 'Recuerde marcar su asistencia'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {actividades.length === 0 ? (
         <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
           <ClipboardCheck size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />
@@ -1687,7 +1728,7 @@ export default function PortalPage() {
 
           {/* ── ASISTENCIA ── */}
           {seccion === 'asistencia' && (
-            <AsistenciaSection dui={usuario?.dui ?? ''} />
+            <AsistenciaSection dui={usuario?.dui ?? ''} registroId={usuario?.id ?? null} />
           )}
 
           {/* ── CALENDARIO ── */}
