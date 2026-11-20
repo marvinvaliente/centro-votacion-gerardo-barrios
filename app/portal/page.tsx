@@ -5,7 +5,8 @@ import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
-  FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2
+  FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
+  MessageCircle
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import InstallPWA from '@/components/InstallPWA'
@@ -195,6 +196,7 @@ export default function PortalPage() {
   const [cargandoLogin, setCargandoLogin] = useState(false)
   const [seccion, setSeccion] = useState<Seccion>('perfil')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null)
   const [lightboxNombre, setLightboxNombre] = useState<string>('')
   const inputFotoRef = useRef<HTMLInputElement>(null)
@@ -653,6 +655,15 @@ export default function PortalPage() {
       const checkins = confs.filter((c: any) => c.check_in_at != null).length
       setScoreAgenda({ total: totalPasados, confirmados, checkins })
     }
+    // Mensajes no leídos
+    const { count: nlGrupo } = await supabase
+      .from('mensajes_jrv').select('*', { count: 'exact', head: true })
+      .eq('jrv', u.jrv).neq('autor_id', u.id)
+      .gt('created_at', localStorage.getItem('lastReadGrupo') ?? new Date(0).toISOString())
+    const { count: nlDm } = await supabase
+      .from('mensajes_directos').select('*', { count: 'exact', head: true })
+      .eq('destinatario_id', u.id).eq('leido', false)
+    setMensajesNoLeidos((nlGrupo ?? 0) + (nlDm ?? 0))
   }
 
   function cerrarSesion() {
@@ -1584,12 +1595,13 @@ export default function PortalPage() {
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,         href: null },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,        href: null },
-    { key: 'agenda',      label: 'Agenda',            icon: Calendar,     href: null },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,          href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}` },
-    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}` }] : []),
-    ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin' }] : []),
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,         href: null,    badge: 0 },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,        href: null,    badge: 0 },
+    { key: 'agenda',      label: 'Agenda',            icon: Calendar,     href: null,    badge: 0 },
+    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: '/portal/mensajes', badge: mensajesNoLeidos },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,          href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0 },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0 }] : []),
+    ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin', badge: 0 }] : []),
   ]
 
   return (
@@ -1615,7 +1627,7 @@ export default function PortalPage() {
           </div>
         </div>
         <nav className="flex-1 py-3 space-y-1 px-2">
-          {NAV.map(({ key, label, icon: Icon, href }) => (
+          {NAV.map(({ key, label, icon: Icon, href, badge }) => (
             <button key={key}
               onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left"
@@ -1625,7 +1637,13 @@ export default function PortalPage() {
                 borderLeft: !href && seccion === key ? '3px solid #c8a84b' : '3px solid transparent',
               }}>
               <Icon size={15} className="flex-shrink-0" />
-              <span className="truncate">{label}</span>
+              <span className="truncate flex-1">{label}</span>
+              {badge > 0 && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0"
+                  style={{ background: '#c8a84b', color: '#1e3a5f', fontSize: 10 }}>
+                  {badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -1645,7 +1663,7 @@ export default function PortalPage() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {NAV.map(({ key, label, icon: Icon, href }) => {
+          {NAV.map(({ key, label, icon: Icon, href, badge }) => {
             const activo = !href && seccion === key
             return (
               <button key={key}
@@ -1656,7 +1674,15 @@ export default function PortalPage() {
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
                     style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
                 )}
-                <Icon size={20} />
+                <span className="relative">
+                  <Icon size={20} />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 text-[9px] font-bold px-1 rounded-full"
+                      style={{ background: '#c8a84b', color: '#1e3a5f', lineHeight: '14px', minWidth: 14 }}>
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
                 <span style={{ fontSize: 9.5, fontWeight: activo ? 600 : 400, letterSpacing: '-.01em', lineHeight: 1.2, textAlign: 'center', maxWidth: 60 }}>
                   {label}
                 </span>
