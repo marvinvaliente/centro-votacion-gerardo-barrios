@@ -2287,6 +2287,7 @@ export default function PortalPage() {
                     onClick={() => {
                       navigator.clipboard.writeText(linkEvento.url).catch(() => {})
                       setLinkCopiado(true)
+                      setTimeout(() => { setLinkEvento(null); setLinkCopiado(false) }, 1800)
                     }}
                     className="btn btn-sm flex-shrink-0"
                     style={{
