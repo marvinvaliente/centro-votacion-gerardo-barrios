@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Link2, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus } from 'lucide-react'
+import { LayoutGrid, Link2, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus, MessageCircle } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import { supabase } from '@/lib/supabase'
 
@@ -21,6 +21,7 @@ const NAV = [
   { href: '/admin/mi-jrv',      label: 'Mi JRV',                  icon: Users },
   { href: '/portal',             label: 'Agenda',                   icon: Calendar },
   { href: '/admin',              label: 'Panel General',           icon: LayoutGrid },
+  { href: '/admin/mensajes',     label: 'Mensajes',                icon: MessageCircle },
   { href: '/admin/asignacion',   label: 'Asignación de Cargos',    icon: Link2 },
   { href: '/admin/transporte',   label: 'Transporte',              icon: Bus },
   { href: '/admin/usuarios',     label: 'Usuarios',                icon: Users },
@@ -45,6 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [logoUrl,           setLogoUrl]           = useState<string | null>(null)
   const [subiendoLogo,      setSubiendoLogo]      = useState(false)
   const [mobileMenuOpen,    setMobileMenuOpen]    = useState(false)
+  const [nlMensajes,        setNlMensajes]        = useState(0)
 
   useEffect(() => {
     const url = supabase.storage.from(LOGO_BUCKET).getPublicUrl(LOGO_PATH).data.publicUrl
@@ -67,6 +69,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // No leídos mensajes admin
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const lastGeneral = localStorage.getItem('adminLastReadGeneral') ?? new Date(0).toISOString()
+    const lastJrvMap: Record<string, string> = JSON.parse(localStorage.getItem('adminLastReadJrv') ?? '{}')
+    Promise.all([
+      supabase.from('mensajes_general').select('*', { count: 'exact', head: true })
+        .neq('autor_id', 'admin').gt('created_at', lastGeneral),
+      supabase.from('mensajes_jrv').select('*', { count: 'exact', head: true })
+        .neq('autor_id', 'admin')
+        // No podemos filtrar por lastRead por JRV individualmente aquí — usamos fecha mínima global
+        .gt('created_at', Object.values(lastJrvMap).length > 0
+          ? Object.values(lastJrvMap).reduce((a, b) => a < b ? a : b)
+          : new Date(0).toISOString()),
+    ]).then(([{ count: cg }, { count: cj }]) => {
+      setNlMensajes((cg ?? 0) + (cj ?? 0))
+    })
+
+    // Realtime: escuchar nuevos mensajes entrantes para actualizar badge
+    const ch = supabase.channel('admin-layout-nl')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_general' },
+        (p) => { if (p.new.autor_id !== 'admin') setNlMensajes(n => n + 1) })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_jrv' },
+        (p) => { if (p.new.autor_id !== 'admin') setNlMensajes(n => n + 1) })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
   }, [])
 
   useEffect(() => {
@@ -220,6 +250,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
           {NAV.map(({ href, label, icon: Icon }) => {
             const activo = pathname === href
+            const esMensajes = href === '/admin/mensajes'
+            const badge = esMensajes ? nlMensajes : 0
             return (
               <a key={href} href={href}
                 title={collapsed ? label : undefined}
@@ -229,8 +261,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   color: activo ? '#c8a84b' : 'rgba(255,255,255,.6)',
                   borderLeft: activo ? '3px solid #c8a84b' : '3px solid transparent',
                 }}>
-                <Icon size={16} className="flex-shrink-0" />
-                {!collapsed && <span className="truncate">{label}</span>}
+                <span className="relative flex-shrink-0">
+                  <Icon size={16} />
+                  {badge > 0 && collapsed && (
+                    <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full"
+                      style={{ background: '#c8a84b' }} />
+                  )}
+                </span>
+                {!collapsed && <span className="truncate flex-1">{label}</span>}
+                {!collapsed && badge > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                    style={{ background: '#c8a84b', color: '#1e3a5f', minWidth: 18, textAlign: 'center' }}>
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
               </a>
             )
           })}
@@ -335,6 +379,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <nav className="flex-1 py-3 space-y-1 px-2">
               {NAV.map(({ href, label, icon: Icon }) => {
                 const activo = pathname === href
+                const esMensajes = href === '/admin/mensajes'
+                const badge = esMensajes ? nlMensajes : 0
                 return (
                   <a key={href} href={href} onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-sm font-medium"
@@ -344,7 +390,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       borderLeft: activo ? '3px solid #c8a84b' : '3px solid transparent',
                     }}>
                     <Icon size={18} className="flex-shrink-0" />
-                    <span>{label}</span>
+                    <span className="flex-1">{label}</span>
+                    {badge > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: '#c8a84b', color: '#1e3a5f', minWidth: 18, textAlign: 'center' }}>
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
                   </a>
                 )
               })}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   ArrowLeft, Send, Users, MessageCircle, ChevronRight,
-  Loader2, RefreshCw
+  Loader2, RefreshCw, Globe, ShieldAlert
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -23,11 +23,21 @@ interface MiembroJrv {
   dui: string
 }
 
+interface MensajeGeneral {
+  id: string
+  autor_id: string
+  autor_nombre: string
+  autor_rol: string
+  contenido: string
+  created_at: string
+}
+
 interface MensajeJrv {
   id: string
   jrv: string
   autor_id: string
   autor_nombre: string
+  autor_rol?: string
   contenido: string
   created_at: string
 }
@@ -43,6 +53,7 @@ interface MensajeDirecto {
 }
 
 type Conversacion =
+  | { tipo: 'general' }
   | { tipo: 'grupo'; jrv: string }
   | { tipo: 'dm'; miembro: MiembroJrv }
 
@@ -66,12 +77,20 @@ export default function MensajesPage() {
   const [conversacion, setConversacion] = useState<Conversacion | null>(null)
 
   // Mensajes
+  const [mensajesGeneral, setMensajesGeneral] = useState<MensajeGeneral[]>([])
   const [mensajesGrupo, setMensajesGrupo] = useState<MensajeJrv[]>([])
   const [mensajesDm, setMensajesDm] = useState<MensajeDirecto[]>([])
 
-  // No leídos por miembro (clave: miembro.id)
+  // No leídos
+  const [noLeidosGeneral, setNoLeidosGeneral] = useState(0)
   const [noLeidos, setNoLeidos] = useState<Record<string, number>>({})
   const [noLeidosGrupo, setNoLeidosGrupo] = useState(0)
+
+  const lastReadGeneralRef = useRef<string>(
+    typeof window !== 'undefined'
+      ? localStorage.getItem('lastReadGeneral') ?? new Date(0).toISOString()
+      : new Date(0).toISOString()
+  )
 
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -107,6 +126,14 @@ export default function MensajesPage() {
 
   // ── Calcular no leídos iniciales ──────────────────────────
   const calcularNoLeidos = useCallback(async (usr: Usuario) => {
+    // General no leídos
+    const { count: cg } = await supabase
+      .from('mensajes_general')
+      .select('*', { count: 'exact', head: true })
+      .neq('autor_id', usr.id)
+      .gt('created_at', lastReadGeneralRef.current)
+    setNoLeidosGeneral(cg ?? 0)
+
     // DMs no leídos por remitente
     const { data } = await supabase
       .from('mensajes_directos')
@@ -128,7 +155,7 @@ export default function MensajesPage() {
       .neq('autor_id', usr.id)
       .gt('created_at', lastReadGrupoRef.current)
     setNoLeidosGrupo(count ?? 0)
-  }, [])
+  }, []) // eslint-disable-line
 
   useEffect(() => {
     if (usuario) calcularNoLeidos(usuario)
@@ -144,7 +171,21 @@ export default function MensajesPage() {
     if (!conversacion || !usuario) return
     setCargando(true)
 
-    if (conversacion.tipo === 'grupo') {
+    if (conversacion.tipo === 'general') {
+      supabase
+        .from('mensajes_general')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(150)
+        .then(({ data }) => {
+          setMensajesGeneral((data ?? []) as MensajeGeneral[])
+          setCargando(false)
+          const ahora = new Date().toISOString()
+          lastReadGeneralRef.current = ahora
+          localStorage.setItem('lastReadGeneral', ahora)
+          setNoLeidosGeneral(0)
+        })
+    } else if (conversacion.tipo === 'grupo') {
       supabase
         .from('mensajes_jrv')
         .select('*')
@@ -190,6 +231,24 @@ export default function MensajesPage() {
   useEffect(() => {
     if (!usuario) return
 
+    // General
+    const chanGeneral = supabase
+      .channel(`general-mensajes-${usuario.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'mensajes_general',
+      }, (payload) => {
+        const msg = payload.new as MensajeGeneral
+        if (conversacion?.tipo === 'general') {
+          setMensajesGeneral(prev => [...prev, msg])
+          const ahora = new Date().toISOString()
+          lastReadGeneralRef.current = ahora
+          localStorage.setItem('lastReadGeneral', ahora)
+        } else if (msg.autor_id !== usuario.id) {
+          setNoLeidosGeneral(prev => prev + 1)
+        }
+      })
+      .subscribe()
+
     // Grupo
     const chanGrupo = supabase
       .channel(`jrv-mensajes-${usuario.jrv}`)
@@ -228,6 +287,7 @@ export default function MensajesPage() {
       .subscribe()
 
     return () => {
+      supabase.removeChannel(chanGeneral)
       supabase.removeChannel(chanGrupo)
       supabase.removeChannel(chanDm)
     }
@@ -240,11 +300,20 @@ export default function MensajesPage() {
     setTexto('')
     setEnviando(true)
 
-    if (conversacion.tipo === 'grupo') {
+    if (conversacion.tipo === 'general') {
+      const { data } = await supabase.from('mensajes_general').insert({
+        autor_id: usuario.id,
+        autor_nombre: usuario.nombre,
+        autor_rol: 'colaborador',
+        contenido,
+      }).select().single()
+      if (data) setMensajesGeneral(prev => [...prev, data as MensajeGeneral])
+    } else if (conversacion.tipo === 'grupo') {
       const { data } = await supabase.from('mensajes_jrv').insert({
         jrv: usuario.jrv,
         autor_id: usuario.id,
         autor_nombre: usuario.nombre,
+        autor_rol: 'colaborador',
         contenido,
       }).select().single()
       if (data) setMensajesGrupo(prev => [...prev, data as MensajeJrv])
@@ -274,29 +343,37 @@ export default function MensajesPage() {
     )
   }
 
-  const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo
+  const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral
 
   // ── Vista chat activo ─────────────────────────────────────
   if (conversacion) {
-    const titulo = conversacion.tipo === 'grupo'
-      ? `JRV ${usuario.jrv} · Chat grupal`
-      : conversacion.miembro.nombre
-    const subtitulo = conversacion.tipo === 'grupo'
-      ? `${miembros.length + 1} integrantes`
-      : conversacion.miembro.cargo
+    const titulo = conversacion.tipo === 'general'
+      ? 'Canal General'
+      : conversacion.tipo === 'grupo'
+        ? `JRV ${usuario.jrv} · Chat grupal`
+        : conversacion.miembro.nombre
+    const subtitulo = conversacion.tipo === 'general'
+      ? 'Comunicación con la administración'
+      : conversacion.tipo === 'grupo'
+        ? `${miembros.length + 1} integrantes`
+        : conversacion.miembro.cargo
 
-    const msgs = conversacion.tipo === 'grupo' ? mensajesGrupo : mensajesDm
+    const msgs: (MensajeGeneral | MensajeJrv | MensajeDirecto)[] =
+      conversacion.tipo === 'general' ? mensajesGeneral
+        : conversacion.tipo === 'grupo' ? mensajesGrupo
+        : mensajesDm
 
-    // Renderizar burbuja
-    function esMio(msg: MensajeJrv | MensajeDirecto) {
-      return conversacion!.tipo === 'grupo'
-        ? (msg as MensajeJrv).autor_id === usuario!.id
-        : (msg as MensajeDirecto).remitente_id === usuario!.id
+    function esMio(msg: MensajeGeneral | MensajeJrv | MensajeDirecto) {
+      if (conversacion!.tipo === 'dm') return (msg as MensajeDirecto).remitente_id === usuario!.id
+      return (msg as MensajeGeneral | MensajeJrv).autor_id === usuario!.id
     }
-    function nombreMsg(msg: MensajeJrv | MensajeDirecto) {
-      return conversacion!.tipo === 'grupo'
-        ? (msg as MensajeJrv).autor_nombre
-        : (msg as MensajeDirecto).remitente_nombre
+    function nombreMsg(msg: MensajeGeneral | MensajeJrv | MensajeDirecto) {
+      if (conversacion!.tipo === 'dm') return (msg as MensajeDirecto).remitente_nombre
+      return (msg as MensajeGeneral | MensajeJrv).autor_nombre
+    }
+    function esAdminMsg(msg: MensajeGeneral | MensajeJrv | MensajeDirecto) {
+      const m = msg as any
+      return m.autor_rol === 'admin' || m.autor_id === 'admin'
     }
 
     return (
@@ -310,13 +387,18 @@ export default function MensajesPage() {
           </button>
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs"
             style={{
-              background: conversacion.tipo === 'grupo' ? 'rgba(200,168,75,.3)' : 'rgba(255,255,255,.15)',
-              border: conversacion.tipo === 'grupo' ? '1px solid rgba(200,168,75,.5)' : '1px solid rgba(255,255,255,.2)',
-              color: conversacion.tipo === 'grupo' ? '#c8a84b' : 'white',
+              background: conversacion.tipo === 'general' ? 'rgba(99,102,241,.3)'
+                : conversacion.tipo === 'grupo' ? 'rgba(200,168,75,.3)' : 'rgba(255,255,255,.15)',
+              border: conversacion.tipo === 'general' ? '1px solid rgba(99,102,241,.5)'
+                : conversacion.tipo === 'grupo' ? '1px solid rgba(200,168,75,.5)' : '1px solid rgba(255,255,255,.2)',
+              color: conversacion.tipo === 'general' ? '#c7d2fe'
+                : conversacion.tipo === 'grupo' ? '#c8a84b' : 'white',
             }}>
-            {conversacion.tipo === 'grupo'
-              ? <Users className="w-4 h-4" />
-              : iniciales(conversacion.miembro.nombre)}
+            {conversacion.tipo === 'general'
+              ? <Globe className="w-4 h-4" />
+              : conversacion.tipo === 'grupo'
+                ? <Users className="w-4 h-4" />
+                : iniciales(conversacion.miembro.nombre)}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm leading-tight truncate">{titulo}</p>
@@ -350,26 +432,35 @@ export default function MensajesPage() {
           {msgs.map((msg, i) => {
             const mio = esMio(msg)
             const nombre = nombreMsg(msg)
+            const admin = esAdminMsg(msg)
             const anterior = msgs[i - 1]
             const mismoAutor = anterior && nombreMsg(anterior) === nombre && esMio(anterior) === mio
+            const mostrarNombre = !mio && !mismoAutor && (conversacion.tipo === 'grupo' || conversacion.tipo === 'general')
             return (
               <div key={msg.id} className={`flex ${mio ? 'justify-end' : 'justify-start'} ${mismoAutor ? 'mt-0.5' : 'mt-3'}`}>
                 {!mio && !mismoAutor && (
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mr-2 mt-0.5"
-                    style={{ background: '#dbeafe', color: '#1e40af' }}>
-                    {iniciales(nombre)}
+                    style={admin
+                      ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }
+                      : { background: '#dbeafe', color: '#1e40af' }}>
+                    {admin ? <ShieldAlert className="w-3.5 h-3.5" /> : iniciales(nombre)}
                   </div>
                 )}
                 {!mio && mismoAutor && <div className="w-7 mr-2 flex-shrink-0" />}
                 <div className={`max-w-[75%] ${mio ? 'items-end' : 'items-start'} flex flex-col`}>
-                  {!mio && !mismoAutor && conversacion.tipo === 'grupo' && (
-                    <span className="text-xs font-medium mb-0.5 ml-1" style={{ color: '#1e40af' }}>{nombre}</span>
+                  {mostrarNombre && (
+                    <span className="text-xs font-semibold mb-0.5 ml-1 flex items-center gap-1"
+                      style={{ color: admin ? '#1d4ed8' : '#1e40af' }}>
+                      {nombre}
+                      {admin && <span className="text-[9px] px-1 py-0.5 rounded font-medium"
+                        style={{ background: '#eff6ff', color: '#3b82f6' }}>Admin</span>}
+                    </span>
                   )}
                   <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${mio
                     ? 'rounded-br-sm text-white'
                     : 'rounded-bl-sm text-gray-800'}`}
                     style={{
-                      background: mio ? '#1e3a5f' : 'white',
+                      background: mio ? '#1e3a5f' : admin ? '#eff6ff' : 'white',
                       boxShadow: '0 1px 2px rgba(0,0,0,.08)',
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
@@ -397,7 +488,11 @@ export default function MensajesPage() {
             value={texto}
             onChange={e => setTexto(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Escribí tu mensaje…"
+            placeholder={
+              conversacion.tipo === 'general' ? 'Escribe un mensaje al canal general…'
+                : conversacion.tipo === 'grupo' ? `Escribe a tu JRV ${usuario.jrv}…`
+                : `Escribe a ${conversacion.miembro.nombre.split(' ')[0]}…`
+            }
             rows={1}
             className="flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm outline-none"
             style={{
@@ -453,10 +548,41 @@ export default function MensajesPage() {
       </div>
 
       <div className="max-w-lg mx-auto">
-        {/* Chat grupal */}
+        {/* Canal General */}
         <div className="mx-4 mt-4">
           <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
-            Grupal
+            Canal general
+          </p>
+          <button
+            onClick={() => setConversacion({ tipo: 'general' })}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+            style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: '#eff0ff', border: '1.5px solid #c7d2fe' }}>
+              <Globe className="w-6 h-6" style={{ color: '#6366f1' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>Canal General</p>
+              <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>
+                Comunicados de la administración
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {noLeidosGeneral > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
+                  style={{ background: '#6366f1', color: 'white' }}>
+                  {noLeidosGeneral > 9 ? '9+' : noLeidosGeneral}
+                </span>
+              )}
+              <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
+            </div>
+          </button>
+        </div>
+
+        {/* Chat grupal JRV */}
+        <div className="mx-4 mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
+            Tu JRV
           </p>
           <button
             onClick={() => setConversacion({ tipo: 'grupo', jrv: usuario.jrv })}
