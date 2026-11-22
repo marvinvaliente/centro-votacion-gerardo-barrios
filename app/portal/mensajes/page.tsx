@@ -561,9 +561,11 @@ export default function MensajesPage() {
               </div>
               <p className="text-sm text-gray-500 font-medium">Ningún mensaje aún</p>
               <p className="text-xs text-gray-400">
-                {conversacion.tipo === 'grupo'
-                  ? '¡Sé el primero en escribir al grupo!'
-                  : `Iniciá la conversación con ${conversacion.miembro.nombre.split(' ')[0]}.`}
+                {conversacion.tipo === 'general'
+                  ? '¡Sé el primero en enviar un mensaje al canal general!'
+                  : conversacion.tipo === 'grupo'
+                    ? '¡Sé el primero en escribir al grupo!'
+                    : `Iniciá la conversación con ${conversacion.miembro.nombre.split(' ')[0]}.`}
               </p>
             </div>
           )}
