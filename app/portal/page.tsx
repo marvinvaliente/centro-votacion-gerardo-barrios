@@ -229,11 +229,97 @@ export default function PortalPage() {
       .catch(() => {})
   }, [])
 
+  // Detectar soporte de huella al montar
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const reg = localStorage.getItem('admin_webauthn_id')
+      if (reg) setHuellaRegistrada(true)
+    } catch {}
+    if (window.PublicKeyCredential) {
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(ok => setHuellaDisponible(ok))
+        .catch(() => {})
+    }
+  }, [])
+
+  // ── WebAuthn helpers ──
+  function b64url(buf: ArrayBuffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buf)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  }
+  function str2ab(s: string) {
+    return new TextEncoder().encode(s).buffer
+  }
+
+  async function registrarHuella() {
+    setHuellaError('')
+    try {
+      const cred = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'Portal GB Admin', id: location.hostname },
+          user: { id: new TextEncoder().encode(ADMIN_DUI), name: ADMIN_DUI, displayName: 'Administrador' },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+          timeout: 60000,
+        },
+      }) as PublicKeyCredential
+      const id = b64url((cred.rawId as ArrayBuffer))
+      localStorage.setItem('admin_webauthn_id', id)
+      setHuellaRegistrada(true)
+      setOfrecerHuella(false)
+    } catch (e: any) {
+      if (e?.name !== 'NotAllowedError') setHuellaError('No se pudo registrar la huella')
+    }
+  }
+
+  async function autenticarHuella() {
+    setHuellaError('')
+    const idStr = localStorage.getItem('admin_webauthn_id')
+    if (!idStr) return
+    // Decodificar el id guardado
+    const bin = atob(idStr.replace(/-/g, '+').replace(/_/g, '/'))
+    const idBuf = new Uint8Array(bin.length).map((_, i) => bin.charCodeAt(i)).buffer
+    try {
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ type: 'public-key', id: idBuf, transports: ['internal'] }],
+          userVerification: 'required',
+          timeout: 60000,
+        },
+      })
+      // Autenticación exitosa — mismo flujo que contraseña correcta
+      sessionStorage.setItem(ADMIN_SESSION, '1')
+      sessionStorage.setItem('admin_dui', ADMIN_DUI)
+      const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', ADMIN_DUI).single()
+      if (usrAdmin) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
+        setUsuario(usrAdmin); cargarDatos(usrAdmin)
+      } else {
+        const adminFallback: Usuario = {
+          id: 'admin', nombre: 'Administrador', dui: ADMIN_DUI,
+          email: null, telefono: null, rol: 'administrador',
+          activo: true, autorizado: true, registro_dui_id: null, foto_perfil_url: null,
+        }
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(adminFallback))
+        setUsuario(adminFallback)
+      }
+    } catch (e: any) {
+      if (e?.name !== 'NotAllowedError') setHuellaError('Huella no reconocida')
+    }
+  }
+
   // Estados pre-login extendidos
   type VistaLogin = 'dui' | 'pendiente' | 'registrar' | 'ver' | 'admin'
   const [vistaLogin, setVistaLogin]     = useState<VistaLogin>('dui')
   const [passwordAdmin, setPasswordAdmin] = useState('')
   const [errorAdmin, setErrorAdmin]       = useState('')
+  const [huellaDisponible, setHuellaDisponible] = useState(false)
+  const [huellaRegistrada, setHuellaRegistrada] = useState(false)
+  const [ofrecerHuella, setOfrecerHuella]       = useState(false)
+  const [huellaError, setHuellaError]           = useState('')
   const [regExistente, setRegExistente] = useState<RegistroDUI | null>(null)
   // Formulario de registro
   const [formReg, setFormReg]           = useState({ nombre: '', telefono: '', correo: '', direccion: '' })
@@ -373,6 +459,8 @@ export default function PortalPage() {
     }
 
     if (!acceso) { setErrorAdmin('Contraseña incorrecta'); setPasswordAdmin(''); return }
+    // Ofrecer huella si el dispositivo la soporta y no está registrada aún
+    if (huellaDisponible && !huellaRegistrada) setOfrecerHuella(true)
     sessionStorage.setItem(ADMIN_SESSION, '1')
     sessionStorage.setItem('admin_dui', duiFmt)
 
@@ -1019,6 +1107,7 @@ export default function PortalPage() {
   /* ── LOGIN / PRE-LOGIN ── */
   if (!usuario) {
     return (
+      <>
       <main className="min-h-screen flex flex-col lg:flex-row"
         style={{ background: 'linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%)' }}>
 
@@ -1579,8 +1668,28 @@ export default function PortalPage() {
                 Ingresar al panel →
               </button>
 
+              {/* Botón huella — solo si está registrada */}
+              {huellaRegistrada && huellaDisponible && (
+                <button
+                  onClick={autenticarHuella}
+                  className="w-full py-3.5 rounded-xl font-semibold text-sm mt-3 flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.3)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                    <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                    <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                    <path d="M2 12a10 10 0 0 1 18-6"/>
+                    <path d="M2 17a5 5 0 0 1 4.84-5"/>
+                    <path d="M6 12a6 6 0 0 1 10.52-4"/>
+                    <path d="M8.56 2.75c4.37 6 6 9.42 8 17.72"/>
+                  </svg>
+                  Usar huella digital
+                </button>
+              )}
+              {huellaError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaError}</p>}
+
               <button
-                onClick={() => { setVistaLogin('dui'); setPasswordAdmin(''); setErrorAdmin('') }}
+                onClick={() => { setVistaLogin('dui'); setPasswordAdmin(''); setErrorAdmin(''); setHuellaError('') }}
                 className="w-full text-xs mt-4 text-center"
                 style={{ color: 'rgba(255,255,255,.3)' }}>
                 ← Volver
@@ -1591,6 +1700,40 @@ export default function PortalPage() {
 
         </div>{/* fin panel derecho */}
       </main>
+      {/* Modal: ofrecer registrar huella */}
+      {ofrecerHuella && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-7 text-center" style={{ background: 'var(--navy-dark)', border: '1px solid rgba(200,168,75,.2)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c8a84b" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                <path d="M2 12a10 10 0 0 1 18-6"/>
+                <path d="M2 17a5 5 0 0 1 4.84-5"/>
+                <path d="M6 12a6 6 0 0 1 10.52-4"/>
+                <path d="M8.56 2.75c4.37 6 6 9.42 8 17.72"/>
+              </svg>
+            </div>
+            <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
+              La próxima vez podrá ingresar con su huella sin necesidad de contraseña.
+            </p>
+            <button onClick={registrarHuella}
+              className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
+              style={{ background: 'var(--gold)', color: 'var(--navy-dark)' }}>
+              Registrar huella
+            </button>
+            <button onClick={() => setOfrecerHuella(false)}
+              className="w-full text-xs py-2"
+              style={{ color: 'rgba(255,255,255,.3)' }}>
+              Ahora no
+            </button>
+          </div>
+        </div>
+      )}
+      </>
     )
   }
 
