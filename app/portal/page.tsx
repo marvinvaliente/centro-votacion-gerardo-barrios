@@ -229,18 +229,22 @@ export default function PortalPage() {
       .catch(() => {})
   }, [])
 
-  // Detectar soporte de huella al montar
+  // Detectar soporte de huella + cargar config biometría
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
-      const reg = localStorage.getItem('admin_webauthn_id')
-      if (reg) setHuellaRegistrada(true)
+      if (localStorage.getItem('admin_webauthn_id')) setHuellaRegistrada(true)
+      if (localStorage.getItem('usuario_webauthn_id')) setHuellaUsuarioRegistrada(true)
     } catch {}
     if (window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
         .then(ok => setHuellaDisponible(ok))
         .catch(() => {})
     }
+    // Cargar config biometría desde Supabase
+    supabase.from('app_config').select('valor').eq('clave', 'biometria_habilitada').single()
+      .then(({ data }) => { if (data) setBiometriaHabilitada(data.valor === 'true') })
+      .catch(() => {})
   }, [])
 
   // ── WebAuthn helpers ──
@@ -311,6 +315,69 @@ export default function PortalPage() {
     }
   }
 
+  // ── WebAuthn para usuario regular ──
+  async function registrarHuellaUsuario(duiUsuario: string) {
+    setHuellaUsuarioError('')
+    try {
+      const cred = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'Portal GB', id: location.hostname },
+          user: { id: new TextEncoder().encode(duiUsuario), name: duiUsuario, displayName: duiUsuario },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+          timeout: 60000,
+        },
+      }) as PublicKeyCredential
+      const id = b64url((cred.rawId as ArrayBuffer))
+      localStorage.setItem('usuario_webauthn_id', id)
+      localStorage.setItem('usuario_webauthn_dui', duiUsuario)
+      setHuellaUsuarioRegistrada(true)
+      setOfrecerHuellaUsuario(false)
+    } catch (e: any) {
+      if (e?.name !== 'NotAllowedError') setHuellaUsuarioError('No se pudo registrar la huella')
+    }
+  }
+
+  async function autenticarHuellaUsuario() {
+    setHuellaUsuarioError('')
+    const idStr = localStorage.getItem('usuario_webauthn_id')
+    const duiGuardado = localStorage.getItem('usuario_webauthn_dui')
+    if (!idStr || !duiGuardado) return
+    const bin = atob(idStr.replace(/-/g, '+').replace(/_/g, '/'))
+    const idBuf = new Uint8Array(bin.length).map((_, i) => bin.charCodeAt(i)).buffer
+    try {
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: [{ type: 'public-key', id: idBuf, transports: ['internal'] }],
+          userVerification: 'required',
+          timeout: 60000,
+        },
+      })
+      // Autenticación exitosa — cargar usuario por DUI guardado
+      setCargandoLogin(true)
+      const duiFmt = duiGuardado.replace(/\D/g, '').slice(0, 8) + '-' + duiGuardado.replace(/\D/g, '').slice(8, 9)
+      const { data: usr } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
+      setCargandoLogin(false)
+      if (usr && usr.autorizado && usr.activo) {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
+        setUsuario(usr); cargarDatos(usr)
+      } else {
+        setHuellaUsuarioError('Usuario no autorizado')
+      }
+    } catch (e: any) {
+      if (e?.name !== 'NotAllowedError') setHuellaUsuarioError('Huella no reconocida')
+    }
+  }
+
+  async function toggleBiometria(val: boolean) {
+    setGuardandoBiometria(true)
+    await supabase.from('app_config').update({ valor: val ? 'true' : 'false', updated_at: new Date().toISOString() }).eq('clave', 'biometria_habilitada')
+    setBiometriaHabilitada(val)
+    setGuardandoBiometria(false)
+  }
+
   // Estados pre-login extendidos
   type VistaLogin = 'dui' | 'pendiente' | 'registrar' | 'ver' | 'admin'
   const [vistaLogin, setVistaLogin]     = useState<VistaLogin>('dui')
@@ -320,6 +387,13 @@ export default function PortalPage() {
   const [huellaRegistrada, setHuellaRegistrada] = useState(false)
   const [ofrecerHuella, setOfrecerHuella]       = useState(false)
   const [huellaError, setHuellaError]           = useState('')
+  // Config global de biometría
+  const [biometriaHabilitada, setBiometriaHabilitada] = useState(false)
+  const [guardandoBiometria, setGuardandoBiometria]   = useState(false)
+  // Huella para usuario regular (no admin)
+  const [huellaUsuarioRegistrada, setHuellaUsuarioRegistrada] = useState(false)
+  const [ofrecerHuellaUsuario, setOfrecerHuellaUsuario]       = useState(false)
+  const [huellaUsuarioError, setHuellaUsuarioError]           = useState('')
   const [regExistente, setRegExistente] = useState<RegistroDUI | null>(null)
   // Formulario de registro
   const [formReg, setFormReg]           = useState({ nombre: '', telefono: '', correo: '', direccion: '' })
@@ -502,7 +576,12 @@ export default function PortalPage() {
     // Usuario autorizado y activo → ingresar al portal
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-      setUsuario(usr); cargarDatos(usr); return
+      setUsuario(usr); cargarDatos(usr)
+      // Ofrecer huella si biometría habilitada y no registrada aún en este dispositivo
+      if (biometriaHabilitada && huellaDisponible && !localStorage.getItem('usuario_webauthn_id')) {
+        setOfrecerHuellaUsuario(true)
+      }
+      return
     }
 
     // Usuario deshabilitado
@@ -1312,6 +1391,19 @@ export default function PortalPage() {
                 }
               </button>
 
+              {/* Botón huella para usuario regular */}
+              {biometriaHabilitada && huellaDisponible && huellaUsuarioRegistrada && (
+                <button
+                  onClick={autenticarHuellaUsuario}
+                  disabled={cargandoLogin}
+                  className="w-full mt-3 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(255,255,255,.08)', color: 'white', border: '1px solid rgba(255,255,255,.15)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                  Ingresar con huella
+                </button>
+              )}
+              {huellaUsuarioError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaUsuarioError}</p>}
+
               <div className="mt-6 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
                 <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,.25)' }}>
                   Solo colaboradores registrados y autorizados pueden acceder a este sistema.
@@ -1700,6 +1792,34 @@ export default function PortalPage() {
 
         </div>{/* fin panel derecho */}
       </main>
+      {/* Modal: ofrecer registrar huella a usuario regular */}
+      {ofrecerHuellaUsuario && usuario && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-7 text-center" style={{ background: 'var(--navy-dark)', border: '1px solid rgba(200,168,75,.2)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c8a84b" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+              </svg>
+            </div>
+            <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
+            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
+              La próxima vez podrás ingresar con tu huella sin necesidad de escribir tu DUI.
+            </p>
+            <button onClick={() => registrarHuellaUsuario(usuario.dui)}
+              className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
+              style={{ background: 'var(--gold)', color: 'var(--navy-dark)' }}>
+              Registrar huella
+            </button>
+            <button onClick={() => setOfrecerHuellaUsuario(false)}
+              className="w-full text-xs py-2"
+              style={{ color: 'rgba(255,255,255,.3)' }}>
+              Ahora no
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal: ofrecer registrar huella */}
       {ofrecerHuella && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)' }}>
@@ -2003,6 +2123,51 @@ export default function PortalPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── CONFIGURACIÓN ADMIN (solo visible para admin, en sección perfil) ── */}
+          {seccion === 'perfil' && esAdmin && (
+            <div className="card p-5" style={{ borderLeft: '4px solid var(--gold)' }}>
+              <div className="flex items-center gap-2 mb-4">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <h3 className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>Configuración del sistema</h3>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3 px-1" style={{ borderBottom: '1px solid var(--borde)' }}>
+                <div className="flex-1">
+                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>Huella digital para todos los usuarios</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                    {biometriaHabilitada
+                      ? 'Activa — Los usuarios pueden iniciar sesión con huella en este dispositivo'
+                      : 'Inactiva — Solo se permite acceso con DUI'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => toggleBiometria(!biometriaHabilitada)}
+                  disabled={guardandoBiometria}
+                  className="relative flex-shrink-0 rounded-full transition-all"
+                  style={{
+                    width: 44, height: 24,
+                    background: biometriaHabilitada ? 'var(--gold)' : 'var(--borde)',
+                    border: 'none', cursor: guardandoBiometria ? 'not-allowed' : 'pointer',
+                    opacity: guardandoBiometria ? 0.6 : 1,
+                  }}>
+                  <span
+                    className="absolute top-0.5 rounded-full transition-all"
+                    style={{
+                      width: 20, height: 20,
+                      background: 'white',
+                      left: biometriaHabilitada ? 22 : 2,
+                      boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+                    }}
+                  />
+                </button>
+              </div>
+              {biometriaHabilitada && (
+                <p className="text-xs mt-3 px-1" style={{ color: 'var(--texto-muted)' }}>
+                  Cada usuario debe registrar su huella una vez por dispositivo al ingresar. Pueden hacerlo desde cualquier celular compatible.
+                </p>
+              )}
             </div>
           )}
 
