@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Centro Gerardo Barrios',
   webDir: 'out',
   server: {
-    androidScheme: 'https',
+    // Carga desde Vercel — actualizaciones automáticas sin nuevo APK
+    url: 'https://centro-votacion-gerardo-barrios.vercel.app',
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
