@@ -14,6 +14,7 @@ interface Usuario {
   dui: string
   jrv: string
   cargo?: string
+  rol?: string
 }
 
 interface MiembroJrv {
@@ -58,6 +59,16 @@ type Conversacion =
   | { tipo: 'dm'; miembro: MiembroJrv }
 
 // ── Helpers ──────────────────────────────────────────────────
+function getLastReadGrupo(jrv: string): string {
+  if (typeof window === 'undefined') return new Date(0).toISOString()
+  return localStorage.getItem(`lastReadGrupo_${jrv}`)
+    ?? localStorage.getItem('lastReadGrupo')
+    ?? new Date(0).toISOString()
+}
+function setLastReadGrupoLS(jrv: string, ts: string) {
+  if (typeof window !== 'undefined') localStorage.setItem(`lastReadGrupo_${jrv}`, ts)
+}
+
 function fmtHora(iso: string) {
   const d = new Date(iso)
   const ahora = new Date()
@@ -85,6 +96,8 @@ export default function MensajesPage() {
   const [noLeidosGeneral, setNoLeidosGeneral] = useState(0)
   const [noLeidos, setNoLeidos] = useState<Record<string, number>>({})
   const [noLeidosGrupo, setNoLeidosGrupo] = useState(0)
+  const [noLeidosJrvs, setNoLeidosJrvs] = useState<Record<string, number>>({})
+  const [todasJrvs, setTodasJrvs] = useState<string[]>([])
 
   const lastReadGeneralRef = useRef<string>(
     typeof window !== 'undefined'
@@ -98,11 +111,7 @@ export default function MensajesPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const lastReadGrupoRef = useRef<string>(
-    typeof window !== 'undefined'
-      ? localStorage.getItem('lastReadGrupo') ?? new Date(0).toISOString()
-      : new Date(0).toISOString()
-  )
+  const lastReadGrupoRef = useRef<string>(new Date(0).toISOString())
 
   // ── Cargar usuario desde sessionStorage ──────────────────
   useEffect(() => {
@@ -122,6 +131,19 @@ export default function MensajesPage() {
       .neq('id', usuario.id)
       .order('nombre')
       .then(({ data }) => setMiembros((data ?? []) as MiembroJrv[]))
+
+    // Si es jefe de centro → cargar todas las JRVs distintas
+    const esJefe = usuario.cargo?.toLowerCase().includes('jefe') || usuario.rol === 'jefe_centro'
+    if (esJefe) {
+      supabase
+        .from('usuarios')
+        .select('jrv')
+        .neq('jrv', usuario.jrv)
+        .then(({ data }) => {
+          const jrvs = [...new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean))]
+          setTodasJrvs(jrvs as string[])
+        })
+    }
   }, [usuario])
 
   // ── Calcular no leídos iniciales ──────────────────────────
@@ -147,15 +169,35 @@ export default function MensajesPage() {
     }
     setNoLeidos(counts)
 
-    // Grupo no leídos
+    // Grupo no leídos (JRV propia)
     const { count } = await supabase
       .from('mensajes_jrv')
       .select('*', { count: 'exact', head: true })
       .eq('jrv', usr.jrv)
       .neq('autor_id', usr.id)
-      .gt('created_at', lastReadGrupoRef.current)
+      .gt('created_at', getLastReadGrupo(usr.jrv))
     setNoLeidosGrupo(count ?? 0)
   }, []) // eslint-disable-line
+
+  // ── No leídos para otras JRVs (jefe de centro) ───────────
+  useEffect(() => {
+    if (!usuario || todasJrvs.length === 0) return
+    Promise.all(
+      todasJrvs.map(async jrv => {
+        const { count } = await supabase
+          .from('mensajes_jrv')
+          .select('*', { count: 'exact', head: true })
+          .eq('jrv', jrv)
+          .neq('autor_id', usuario.id)
+          .gt('created_at', getLastReadGrupo(jrv))
+        return [jrv, count ?? 0] as [string, number]
+      })
+    ).then(results => {
+      const counts: Record<string, number> = {}
+      for (const [jrv, c] of results) counts[jrv] = c
+      setNoLeidosJrvs(counts)
+    })
+  }, [usuario, todasJrvs])
 
   useEffect(() => {
     if (usuario) calcularNoLeidos(usuario)
@@ -189,7 +231,7 @@ export default function MensajesPage() {
       supabase
         .from('mensajes_jrv')
         .select('*')
-        .eq('jrv', usuario.jrv)
+        .eq('jrv', conversacion.jrv)
         .order('created_at', { ascending: true })
         .limit(100)
         .then(({ data }) => {
@@ -198,8 +240,12 @@ export default function MensajesPage() {
           // Marcar como leído
           const ahora = new Date().toISOString()
           lastReadGrupoRef.current = ahora
-          localStorage.setItem('lastReadGrupo', ahora)
-          setNoLeidosGrupo(0)
+          setLastReadGrupoLS(conversacion.jrv, ahora)
+          if (conversacion.jrv === usuario.jrv) {
+            setNoLeidosGrupo(0)
+          } else {
+            setNoLeidosJrvs(prev => ({ ...prev, [conversacion.jrv]: 0 }))
+          }
         })
     } else {
       const otherId = conversacion.miembro.id
@@ -249,7 +295,7 @@ export default function MensajesPage() {
       })
       .subscribe()
 
-    // Grupo
+    // Grupo (JRV propia)
     const chanGrupo = supabase
       .channel(`jrv-mensajes-${usuario.jrv}`)
       .on('postgres_changes', {
@@ -257,11 +303,11 @@ export default function MensajesPage() {
         filter: `jrv=eq.${usuario.jrv}`,
       }, (payload) => {
         const msg = payload.new as MensajeJrv
-        if (conversacion?.tipo === 'grupo') {
+        if (conversacion?.tipo === 'grupo' && conversacion.jrv === usuario.jrv) {
           setMensajesGrupo(prev => [...prev, msg])
           const ahora = new Date().toISOString()
           lastReadGrupoRef.current = ahora
-          localStorage.setItem('lastReadGrupo', ahora)
+          setLastReadGrupoLS(usuario.jrv, ahora)
         } else if (msg.autor_id !== usuario.id) {
           setNoLeidosGrupo(prev => prev + 1)
         }
@@ -293,6 +339,31 @@ export default function MensajesPage() {
     }
   }, [usuario, conversacion])
 
+  // ── Realtime para otras JRVs (jefe de centro) ────────────
+  useEffect(() => {
+    if (!usuario || todasJrvs.length === 0) return
+    const channels = todasJrvs.map(jrv =>
+      supabase
+        .channel(`jrv-jefe-${jrv}-${usuario.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'mensajes_jrv',
+          filter: `jrv=eq.${jrv}`,
+        }, (payload) => {
+          const msg = payload.new as MensajeJrv
+          if (conversacion?.tipo === 'grupo' && conversacion.jrv === jrv) {
+            setMensajesGrupo(prev => [...prev, msg])
+            const ahora = new Date().toISOString()
+            setLastReadGrupoLS(jrv, ahora)
+            setNoLeidosJrvs(prev => ({ ...prev, [jrv]: 0 }))
+          } else if (msg.autor_id !== usuario.id) {
+            setNoLeidosJrvs(prev => ({ ...prev, [jrv]: (prev[jrv] ?? 0) + 1 }))
+          }
+        })
+        .subscribe()
+    )
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
+  }, [usuario, todasJrvs])
+
   // ── Enviar mensaje ────────────────────────────────────────
   async function enviar() {
     if (!texto.trim() || !usuario || !conversacion || enviando) return
@@ -310,7 +381,7 @@ export default function MensajesPage() {
       if (data) setMensajesGeneral(prev => [...prev, data as MensajeGeneral])
     } else if (conversacion.tipo === 'grupo') {
       const { data } = await supabase.from('mensajes_jrv').insert({
-        jrv: usuario.jrv,
+        jrv: conversacion.jrv,
         autor_id: usuario.id,
         autor_nombre: usuario.nombre,
         autor_rol: 'colaborador',
@@ -343,19 +414,22 @@ export default function MensajesPage() {
     )
   }
 
-  const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral
+  const esJefeCentro = !!(usuario.cargo?.toLowerCase().includes('jefe') || usuario.rol === 'jefe_centro')
+  const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral + Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0)
 
   // ── Vista chat activo ─────────────────────────────────────
   if (conversacion) {
     const titulo = conversacion.tipo === 'general'
       ? 'Canal General'
       : conversacion.tipo === 'grupo'
-        ? `JRV ${usuario.jrv} · Chat grupal`
+        ? `JRV ${conversacion.jrv} · Chat grupal`
         : conversacion.miembro.nombre
     const subtitulo = conversacion.tipo === 'general'
       ? 'Comunicación con la administración'
       : conversacion.tipo === 'grupo'
-        ? `${miembros.length + 1} integrantes`
+        ? conversacion.jrv === usuario.jrv
+          ? `${miembros.length + 1} integrantes`
+          : `Chat grupal JRV ${conversacion.jrv}`
         : conversacion.miembro.cargo
 
     const msgs: (MensajeGeneral | MensajeJrv | MensajeDirecto)[] =
@@ -490,7 +564,7 @@ export default function MensajesPage() {
             onKeyDown={onKeyDown}
             placeholder={
               conversacion.tipo === 'general' ? 'Escribe un mensaje al canal general…'
-                : conversacion.tipo === 'grupo' ? `Escribe a tu JRV ${usuario.jrv}…`
+                : conversacion.tipo === 'grupo' ? `Escribe al grupo JRV ${conversacion.jrv}…`
                 : `Escribe a ${conversacion.miembro.nombre.split(' ')[0]}…`
             }
             rows={1}
@@ -537,7 +611,7 @@ export default function MensajesPage() {
         </a>
         <div className="flex-1">
           <h1 className="font-bold text-base leading-tight">Mensajes</h1>
-          <p className="text-xs opacity-60">JRV {usuario.jrv}</p>
+          <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : `JRV ${usuario.jrv}`}</p>
         </div>
         {totalNoLeidos > 0 && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -610,6 +684,45 @@ export default function MensajesPage() {
           </button>
         </div>
 
+        {/* Otras JRVs (solo jefe de centro) */}
+        {esJefeCentro && todasJrvs.length > 0 && (
+          <div className="mx-4 mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
+              Otras JRVs
+            </p>
+            <div className="space-y-2">
+              {todasJrvs.sort().map(jrv => {
+                const nl = noLeidosJrvs[jrv] ?? 0
+                return (
+                  <button
+                    key={jrv}
+                    onClick={() => setConversacion({ tipo: 'grupo', jrv })}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+                    style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(200,168,75,.5)' : 'none' }}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(200,168,75,.1)', border: '1.5px solid rgba(200,168,75,.3)' }}>
+                      <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {jrv} — Todos</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>Chat grupal</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {nl > 0 && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
+                          style={{ background: '#c8a84b', color: '#1e3a5f' }}>
+                          {nl > 9 ? '9+' : nl}
+                        </span>
+                      )}
+                      <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Mensajes directos */}
         <div className="mx-4 mt-5">
           <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
@@ -656,7 +769,9 @@ export default function MensajesPage() {
         </div>
 
         <p className="text-center text-xs mt-8 mb-6" style={{ color: '#94a3b8' }}>
-          Solo se muestran integrantes de tu JRV {usuario.jrv}
+          {esJefeCentro
+            ? `Acceso a todas las JRVs del centro`
+            : `Solo se muestran integrantes de tu JRV ${usuario.jrv}`}
         </p>
       </div>
     </div>
