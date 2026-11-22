@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { RefreshCw, Search, CheckCircle, AlertTriangle, Save, Pencil, Users, X, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notificarAsignacionCargo } from '@/lib/notificaciones'
 import type { RegistroDUI, Padron } from '@/types'
 
 const JRV_ESTANDAR = new Set([
@@ -209,6 +210,8 @@ export default function AsignacionPage() {
 
   async function guardarAsignacion(padronId: string) {
     const registroId = seleccion[padronId]
+    // ¿Hay alguien ya asignado antes? Para no re-notificar si es el mismo
+    const anteriorId = registros.find(r => r.padron_id === padronId)?.id ?? null
     setGuardando(padronId)
     await supabase.from('registros_dui').update({ padron_id: null, updated_at: new Date().toISOString() }).eq('padron_id', padronId)
     if (registroId) await supabase.from('registros_dui').update({ padron_id: padronId, updated_at: new Date().toISOString() }).eq('id', registroId)
@@ -218,6 +221,10 @@ export default function AsignacionPage() {
       return r
     }))
     setGuardando(null)
+    // Notificar solo si se asignó a alguien nuevo (no es "Sin asignar" ni el mismo de antes)
+    if (registroId && registroId !== anteriorId) {
+      notificarAsignacionCargo(registroId, padronId)
+    }
   }
 
   function personaAsignada(padronId: string) { return registros.find(r => r.padron_id === padronId) }
@@ -250,6 +257,7 @@ export default function AsignacionPage() {
     if (nuevaPersonaId && nuevoPuesto) {
       await supabase.from('registros_dui').update({ padron_id: nuevoPuesto.id, updated_at: new Date().toISOString() }).eq('id', nuevaPersonaId)
       setRegistros(prev => prev.map(r => r.id === nuevaPersonaId ? { ...r, padron_id: nuevoPuesto.id } : r))
+      notificarAsignacionCargo(nuevaPersonaId, nuevoPuesto.id)
     }
 
     if (nuevoPuesto) {

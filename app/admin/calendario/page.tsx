@@ -6,6 +6,7 @@ import {
   Pencil, Users, CheckCircle, XCircle, Download, Search
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notificarNuevoEvento } from '@/lib/notificaciones'
 
 interface Actividad {
   id: string
@@ -206,7 +207,11 @@ export default function CalendarioAdminPage() {
     if (modal === 'nuevo') {
       const { data, error: err } = await supabase.from('actividades').insert({ ...payload, creado_por: null }).select().single()
       if (err) { setError('Error: ' + err.message); setGuardando(false); return }
-      if (data) setActividades(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? '').localeCompare(b.hora ?? '')))
+      if (data) {
+        setActividades(prev => [...prev, data].sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? '').localeCompare(b.hora ?? '')))
+        // Notificar al Canal General
+        notificarNuevoEvento(payload.titulo, payload.fecha, payload.hora, payload.lugar, payload.tipo)
+      }
     } else if (actual) {
       const { error: err } = await supabase.from('actividades').update(payload).eq('id', actual.id)
       if (err) { setError('Error: ' + err.message); setGuardando(false); return }

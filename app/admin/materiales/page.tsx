@@ -6,6 +6,7 @@ import {
   Video, File, Music, Eye, X, Plus, Tag, FolderOpen
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { notificarNuevoMaterial } from '@/lib/notificaciones'
 
 interface Material {
   id: string
@@ -168,6 +169,9 @@ export default function MaterialesPage() {
         tipo_mime: file.type || 'application/octet-stream',
         tamanio: file.size,
       })
+
+      // Notificar al Canal General (solo primer archivo o cuando hay nombre manual)
+      if (i === 0) notificarNuevoMaterial(nombre, formCategoria)
 
       setProgresoSubida(Math.round(((i + 1) / archivos.length) * 100))
     }
