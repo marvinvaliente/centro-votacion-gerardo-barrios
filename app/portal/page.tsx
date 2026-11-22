@@ -1669,7 +1669,7 @@ export default function PortalPage() {
               <button key={key}
                 onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
                 className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0 transition-colors relative"
-                style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 58, minWidth: 64, padding: '8px 4px' }}>
+                style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 62, minWidth: 68, padding: '10px 6px' }}>
                 {activo && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
                     style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
@@ -2069,7 +2069,16 @@ export default function PortalPage() {
                               {ev.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{ev.descripcion}</p>}
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
                                 {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{ev.hora.slice(0, 5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0,5)}` : ''}</span>}
-                                {ev.lugar && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{ev.lugar}</span>}
+                                {ev.lugar && (
+                                  ev.lugar.startsWith('http')
+                                    ? <a href={ev.lugar} target="_blank" rel="noopener noreferrer"
+                                        className="text-xs flex items-center gap-1 font-medium"
+                                        style={{ color: '#3b82f6', textDecoration: 'none' }}
+                                        onClick={e => e.stopPropagation()}>
+                                        <MapPin size={10} />Ver ubicación
+                                      </a>
+                                    : <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{ev.lugar}</span>
+                                )}
                                 {ev.transporte_recogida && <span className="badge" style={{ background: color + '18', color, fontSize: 10 }}><Bus size={8} className="inline mr-0.5" />Transporte disponible</span>}
                               </div>
                               {/* Info transporte confirmado */}

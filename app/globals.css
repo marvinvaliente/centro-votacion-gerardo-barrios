@@ -105,6 +105,18 @@ body {
   gap: 4px;
 }
 
+/* En móvil los btn-sm que solo tienen icono deben tener área táctil mínima de 44px */
+@media (max-width: 768px) {
+  .btn-sm:has(svg:only-child) {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* Inputs */
 .input {
   width: 100%;
