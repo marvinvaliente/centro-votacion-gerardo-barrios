@@ -457,9 +457,16 @@ function TransporteInner() {
   const [solicitando, setSolicitando] = useState<string | null>(null)
   const [mostrarMapa, setMostrarMapa] = useState(false)
 
-  // Auto-login si viene ?dui= desde el portal
+  // Auto-login: primero URL, luego sessionStorage del portal
   useEffect(() => {
-    const duiParam = searchParams.get('dui')
+    const duiParam = searchParams.get('dui') || (() => {
+      try {
+        const sess = sessionStorage.getItem('portal_usuario')
+        if (sess) return JSON.parse(sess).dui ?? null
+        const adminDui = sessionStorage.getItem('admin_dui')
+        return adminDui ?? null
+      } catch { return null }
+    })()
     if (duiParam) {
       setDuiInput(duiParam)
       buscarPorDuiDirecto(duiParam)

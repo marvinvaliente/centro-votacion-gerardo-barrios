@@ -422,7 +422,13 @@ function MotoristaInner() {
   const [eventoAbierto, setEventoAbierto] = useState<string | null>(null)
 
   useEffect(() => {
-    const duiParam = searchParams.get('dui')
+    const duiParam = searchParams.get('dui') || (() => {
+      try {
+        const sess = sessionStorage.getItem('portal_usuario')
+        if (sess) return JSON.parse(sess).dui ?? null
+        return sessionStorage.getItem('admin_dui') ?? null
+      } catch { return null }
+    })()
     if (duiParam) {
       setDuiInput(duiParam)
       buscarMotorista(duiParam)
