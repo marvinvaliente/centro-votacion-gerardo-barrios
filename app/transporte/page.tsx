@@ -126,6 +126,16 @@ function MapaModal({
   const markerRef = useRef<any>(null)
   const [selLat, setSelLat] = useState<number | null>(latInicial)
   const [selLng, setSelLng] = useState<number | null>(lngInicial)
+  // Ref para leer siempre el valor más reciente en callbacks de Leaflet y botón confirmar
+  const selLatRef = useRef<number | null>(latInicial)
+  const selLngRef = useRef<number | null>(lngInicial)
+
+  function actualizarCoordenadas(lat: number, lng: number) {
+    selLatRef.current = lat
+    selLngRef.current = lng
+    setSelLat(lat)
+    setSelLng(lng)
+  }
   const [cargandoMapa, setCargandoMapa] = useState(true)
   const [buscandoPos, setBuscandoPos] = useState(false)
 
@@ -168,24 +178,21 @@ function MapaModal({
         markerRef.current = L.marker([latInicial, lngInicial], { icon, draggable: true }).addTo(map)
         markerRef.current.on('dragend', (e: any) => {
           const pos = e.target.getLatLng()
-          setSelLat(pos.lat)
-          setSelLng(pos.lng)
+          actualizarCoordenadas(pos.lat, pos.lng)
         })
       }
 
       // Click en mapa pone/mueve marcador
       map.on('click', (e: any) => {
         const { lat, lng } = e.latlng
-        setSelLat(lat)
-        setSelLng(lng)
+        actualizarCoordenadas(lat, lng)
         if (markerRef.current) {
           markerRef.current.setLatLng([lat, lng])
         } else {
           markerRef.current = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
           markerRef.current.on('dragend', (ev: any) => {
             const pos = ev.target.getLatLng()
-            setSelLat(pos.lat)
-            setSelLng(pos.lng)
+            actualizarCoordenadas(pos.lat, pos.lng)
           })
         }
       })
@@ -220,8 +227,7 @@ function MapaModal({
       (pos) => {
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
-        setSelLat(lat)
-        setSelLng(lng)
+        actualizarCoordenadas(lat, lng)
         setBuscandoPos(false)
 
         const L = (window as any).L
@@ -241,8 +247,7 @@ function MapaModal({
           markerRef.current = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
           markerRef.current.on('dragend', (e: any) => {
             const p = e.target.getLatLng()
-            setSelLat(p.lat)
-            setSelLng(p.lng)
+            actualizarCoordenadas(p.lat, p.lng)
           })
         }
       },
@@ -305,7 +310,7 @@ function MapaModal({
             </p>
           )}
           <button
-            onClick={() => selLat && selLng && onConfirmar(selLat, selLng)}
+            onClick={() => selLatRef.current && selLngRef.current && onConfirmar(selLatRef.current, selLngRef.current)}
             disabled={!selLat || !selLng}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
