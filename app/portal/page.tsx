@@ -577,8 +577,8 @@ export default function PortalPage() {
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
       setUsuario(usr); cargarDatos(usr)
-      // Ofrecer huella si biometría habilitada y no registrada aún en este dispositivo
-      if (biometriaHabilitada && huellaDisponible && !localStorage.getItem('usuario_webauthn_id')) {
+      // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aún
+      if (huellaDisponible && !localStorage.getItem('usuario_webauthn_id')) {
         setOfrecerHuellaUsuario(true)
       }
       return
@@ -1391,8 +1391,8 @@ export default function PortalPage() {
                 }
               </button>
 
-              {/* Botón huella — opcional, solo si está habilitada y registrada en este dispositivo */}
-              {biometriaHabilitada && huellaDisponible && huellaUsuarioRegistrada && (
+              {/* Botón huella — opcional, si el dispositivo lo soporta y el usuario la registró */}
+              {huellaDisponible && huellaUsuarioRegistrada && (
                 <button
                   onClick={autenticarHuellaUsuario}
                   disabled={cargandoLogin}
@@ -2126,8 +2126,8 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── HUELLA DIGITAL (visible para todos los usuarios en su perfil) ── */}
-          {seccion === 'perfil' && biometriaHabilitada && huellaDisponible && (
+          {/* ── HUELLA DIGITAL (visible para todos los usuarios con dispositivo compatible) ── */}
+          {seccion === 'perfil' && huellaDisponible && (
             <div className="card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--azul)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2203,41 +2203,9 @@ export default function PortalPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 <h3 className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>Configuración del sistema</h3>
               </div>
-              <div className="flex items-center justify-between gap-4 py-3 px-1" style={{ borderBottom: '1px solid var(--borde)' }}>
-                <div className="flex-1">
-                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>Huella digital para todos los usuarios</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                    {biometriaHabilitada
-                      ? 'Activa — Los usuarios pueden ingresar con huella o con DUI'
-                      : 'Inactiva — Solo se permite acceso con DUI'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => toggleBiometria(!biometriaHabilitada)}
-                  disabled={guardandoBiometria}
-                  className="relative flex-shrink-0 rounded-full transition-all"
-                  style={{
-                    width: 44, height: 24,
-                    background: biometriaHabilitada ? 'var(--gold)' : 'var(--borde)',
-                    border: 'none', cursor: guardandoBiometria ? 'not-allowed' : 'pointer',
-                    opacity: guardandoBiometria ? 0.6 : 1,
-                  }}>
-                  <span
-                    className="absolute top-0.5 rounded-full transition-all"
-                    style={{
-                      width: 20, height: 20,
-                      background: 'white',
-                      left: biometriaHabilitada ? 22 : 2,
-                      boxShadow: '0 1px 3px rgba(0,0,0,.2)',
-                    }}
-                  />
-                </button>
-              </div>
-              {biometriaHabilitada && (
-                <p className="text-xs mt-3 px-1" style={{ color: 'var(--texto-muted)' }}>
-                  Cada usuario puede registrar su huella una vez por dispositivo al ingresar con DUI. Quienes no tengan celular compatible siempre pueden usar su DUI.
-                </p>
-              )}
+              <p className="text-xs px-1" style={{ color: 'var(--texto-muted)' }}>
+                Cada usuario gestiona su huella desde su propio perfil. Los dispositivos compatibles muestran la opción automáticamente.
+              </p>
             </div>
           )}
 
