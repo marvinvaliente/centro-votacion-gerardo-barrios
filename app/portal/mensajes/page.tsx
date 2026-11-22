@@ -12,9 +12,9 @@ interface Usuario {
   id: string
   nombre: string
   dui: string
-  jrv: string
-  cargo?: string
+  registro_dui_id?: string | null
   rol?: string
+  // jrv y cargo NO existen en la tabla usuarios — se cargan desde registros_dui
 }
 
 interface MiembroJrv {
@@ -84,6 +84,8 @@ function iniciales(nombre: string) {
 // ── Componente principal ─────────────────────────────────────
 export default function MensajesPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
+  // jrvData: null = aún no cargado; { jrv: null } = cargado pero sin JRV
+  const [jrvData, setJrvData] = useState<{ jrv: string | null; cargo: string | null } | null>(null)
   const [miembros, setMiembros] = useState<MiembroJrv[]>([])
   const [conversacion, setConversacion] = useState<Conversacion | null>(null)
 
@@ -121,33 +123,85 @@ export default function MensajesPage() {
     try { setUsuario(JSON.parse(raw)) } catch { window.location.href = '/portal' }
   }, [])
 
-  // ── Cargar miembros de la JRV ─────────────────────────────
+  // ── Cargar jrv/cargo desde registros_dui ─────────────────
+  // usuarios no tiene jrv ni cargo — están en registros_dui
   useEffect(() => {
     if (!usuario) return
-    supabase
-      .from('usuarios')
-      .select('id, nombre, cargo, dui')
-      .eq('jrv', usuario.jrv)
-      .neq('id', usuario.id)
-      .order('nombre')
-      .then(({ data }) => setMiembros((data ?? []) as MiembroJrv[]))
-
-    // Si es jefe de centro → cargar todas las JRVs distintas
-    const esJefe = usuario.cargo?.toLowerCase().includes('jefe') || usuario.rol === 'jefe_centro'
-    if (esJefe) {
-      // Si el jefe no tiene JRV propia (null), cargamos TODAS las JRVs
-      // Si tiene JRV propia, excluimos la suya (ya aparece en "Tu JRV")
-      let query = supabase.from('usuarios').select('jrv').not('jrv', 'is', null)
-      if (usuario.jrv) query = query.neq('jrv', usuario.jrv)
-      query.then(({ data }) => {
-        const jrvs = Array.from(new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean) as string[]))
-        setTodasJrvs(jrvs)
-      })
+    if (!usuario.registro_dui_id) {
+      setJrvData({ jrv: null, cargo: null })
+      return
     }
+    supabase
+      .from('registros_dui')
+      .select('jrv, cargo')
+      .eq('id', usuario.registro_dui_id)
+      .single()
+      .then(({ data }) => {
+        setJrvData({
+          jrv: data?.jrv && data.jrv !== '—' ? data.jrv : null,
+          cargo: data?.cargo && data.cargo !== 'No registrado' ? data.cargo : null,
+        })
+      })
   }, [usuario])
 
+  // ── Cargar miembros y otras JRVs (espera jrvData) ────────
+  useEffect(() => {
+    if (!usuario || jrvData === null) return
+
+    const userJrv = jrvData.jrv
+    // esJefeCentro: administradores ven todas las JRVs
+    const esJefe = usuario.rol === 'administrador' || usuario.rol === 'jefe_centro'
+
+    // Miembros de la JRV propia
+    if (userJrv) {
+      // 1. Obtener todos los registros_dui de esta JRV que tienen cargo real
+      supabase
+        .from('registros_dui')
+        .select('id, nombre, cargo, dui')
+        .eq('jrv', userJrv)
+        .then(async ({ data: rdData }) => {
+          const rdIds = (rdData ?? []).map((r: { id: string }) => r.id)
+          if (rdIds.length === 0) { setMiembros([]); return }
+          // 2. Obtener los usuarios con esos registro_dui_id (excluyendo al actual)
+          const { data: usrData } = await supabase
+            .from('usuarios')
+            .select('id, registro_dui_id')
+            .in('registro_dui_id', rdIds)
+            .neq('id', usuario.id)
+          // 3. Combinar
+          const result: MiembroJrv[] = (usrData ?? []).map((u: { id: string; registro_dui_id: string }) => {
+            const rd = (rdData ?? []).find((r: { id: string; nombre: string; cargo: string; dui: string }) => r.id === u.registro_dui_id)
+            return {
+              id: u.id,
+              nombre: rd?.nombre ?? '',
+              cargo: rd?.cargo ?? '',
+              dui: rd?.dui ?? '',
+            }
+          }).filter((m: MiembroJrv) => m.nombre)
+          setMiembros(result)
+        })
+    }
+
+    // Si es jefe de centro → cargar todas las JRVs distintas desde registros_dui
+    if (esJefe) {
+      supabase
+        .from('registros_dui')
+        .select('jrv')
+        .neq('jrv', '—')
+        .not('jrv', 'is', null)
+        .then(({ data }) => {
+          let jrvs = Array.from(
+            new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean) as string[])
+          )
+          // Excluir la JRV propia (ya aparece en "Tu JRV")
+          if (userJrv) jrvs = jrvs.filter(j => j !== userJrv)
+          setTodasJrvs(jrvs)
+        })
+    }
+  }, [usuario, jrvData])
+
   // ── Calcular no leídos iniciales ──────────────────────────
-  const calcularNoLeidos = useCallback(async (usr: Usuario) => {
+  const calcularNoLeidos = useCallback(async (usr: Usuario, userJrv: string | null) => {
     // General no leídos
     const { count: cg } = await supabase
       .from('mensajes_general')
@@ -169,14 +223,16 @@ export default function MensajesPage() {
     }
     setNoLeidos(counts)
 
-    // Grupo no leídos (JRV propia)
-    const { count } = await supabase
-      .from('mensajes_jrv')
-      .select('*', { count: 'exact', head: true })
-      .eq('jrv', usr.jrv)
-      .neq('autor_id', usr.id)
-      .gt('created_at', getLastReadGrupo(usr.jrv))
-    setNoLeidosGrupo(count ?? 0)
+    // Grupo no leídos (JRV propia) — solo si tiene JRV
+    if (userJrv) {
+      const { count } = await supabase
+        .from('mensajes_jrv')
+        .select('*', { count: 'exact', head: true })
+        .eq('jrv', userJrv)
+        .neq('autor_id', usr.id)
+        .gt('created_at', getLastReadGrupo(userJrv))
+      setNoLeidosGrupo(count ?? 0)
+    }
   }, []) // eslint-disable-line
 
   // ── No leídos para otras JRVs (jefe de centro) ───────────
@@ -200,8 +256,8 @@ export default function MensajesPage() {
   }, [usuario, todasJrvs])
 
   useEffect(() => {
-    if (usuario) calcularNoLeidos(usuario)
-  }, [usuario, calcularNoLeidos])
+    if (usuario && jrvData !== null) calcularNoLeidos(usuario, jrvData.jrv)
+  }, [usuario, jrvData, calcularNoLeidos])
 
   // ── Scroll al fondo ───────────────────────────────────────
   useEffect(() => {
@@ -241,7 +297,8 @@ export default function MensajesPage() {
           const ahora = new Date().toISOString()
           lastReadGrupoRef.current = ahora
           setLastReadGrupoLS(conversacion.jrv, ahora)
-          if (conversacion.jrv === usuario.jrv) {
+          const userJrv = jrvData?.jrv ?? null
+          if (conversacion.jrv === userJrv) {
             setNoLeidosGrupo(0)
           } else {
             setNoLeidosJrvs(prev => ({ ...prev, [conversacion.jrv]: 0 }))
@@ -271,11 +328,13 @@ export default function MensajesPage() {
           setNoLeidos(prev => ({ ...prev, [otherId]: 0 }))
         })
     }
-  }, [conversacion, usuario])
+  }, [conversacion, usuario]) // eslint-disable-line
 
   // ── Suscripción realtime ──────────────────────────────────
   useEffect(() => {
-    if (!usuario) return
+    if (!usuario || jrvData === null) return
+
+    const userJrv = jrvData.jrv
 
     // General
     const chanGeneral = supabase
@@ -295,25 +354,6 @@ export default function MensajesPage() {
       })
       .subscribe()
 
-    // Grupo (JRV propia)
-    const chanGrupo = supabase
-      .channel(`jrv-mensajes-${usuario.jrv}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'mensajes_jrv',
-        filter: `jrv=eq.${usuario.jrv}`,
-      }, (payload) => {
-        const msg = payload.new as MensajeJrv
-        if (conversacion?.tipo === 'grupo' && conversacion.jrv === usuario.jrv) {
-          setMensajesGrupo(prev => [...prev, msg])
-          const ahora = new Date().toISOString()
-          lastReadGrupoRef.current = ahora
-          setLastReadGrupoLS(usuario.jrv, ahora)
-        } else if (msg.autor_id !== usuario.id) {
-          setNoLeidosGrupo(prev => prev + 1)
-        }
-      })
-      .subscribe()
-
     // DMs entrantes
     const chanDm = supabase
       .channel(`dm-para-${usuario.id}`)
@@ -324,7 +364,6 @@ export default function MensajesPage() {
         const msg = payload.new as MensajeDirecto
         if (conversacion?.tipo === 'dm' && conversacion.miembro.id === msg.remitente_id) {
           setMensajesDm(prev => [...prev, msg])
-          // Marcar leído inmediatamente
           supabase.from('mensajes_directos').update({ leido: true }).eq('id', msg.id)
         } else {
           setNoLeidos(prev => ({ ...prev, [msg.remitente_id]: (prev[msg.remitente_id] ?? 0) + 1 }))
@@ -332,12 +371,32 @@ export default function MensajesPage() {
       })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(chanGeneral)
-      supabase.removeChannel(chanGrupo)
-      supabase.removeChannel(chanDm)
+    const channels = [chanGeneral, chanDm]
+
+    // Grupo (JRV propia) — solo si el usuario tiene JRV asignada
+    if (userJrv) {
+      const chanGrupo = supabase
+        .channel(`jrv-mensajes-${userJrv}-${usuario.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'mensajes_jrv',
+          filter: `jrv=eq.${userJrv}`,
+        }, (payload) => {
+          const msg = payload.new as MensajeJrv
+          if (conversacion?.tipo === 'grupo' && conversacion.jrv === userJrv) {
+            setMensajesGrupo(prev => [...prev, msg])
+            const ahora = new Date().toISOString()
+            lastReadGrupoRef.current = ahora
+            setLastReadGrupoLS(userJrv, ahora)
+          } else if (msg.autor_id !== usuario.id) {
+            setNoLeidosGrupo(prev => prev + 1)
+          }
+        })
+        .subscribe()
+      channels.push(chanGrupo)
     }
-  }, [usuario, conversacion])
+
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
+  }, [usuario, conversacion, jrvData])
 
   // ── Realtime para otras JRVs (jefe de centro) ────────────
   useEffect(() => {
@@ -414,8 +473,14 @@ export default function MensajesPage() {
     )
   }
 
-  const esJefeCentro = !!(usuario.cargo?.toLowerCase().includes('jefe') || usuario.rol === 'jefe_centro')
-  const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral + Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0)
+  // Variables derivadas (calculadas en render)
+  const userJrv = jrvData?.jrv ?? null
+  const esJefeCentro = usuario.rol === 'administrador' || usuario.rol === 'jefe_centro'
+  const totalNoLeidos =
+    Object.values(noLeidos).reduce((a, b) => a + b, 0) +
+    noLeidosGrupo +
+    noLeidosGeneral +
+    Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0)
 
   // ── Vista chat activo ─────────────────────────────────────
   if (conversacion) {
@@ -427,7 +492,7 @@ export default function MensajesPage() {
     const subtitulo = conversacion.tipo === 'general'
       ? 'Comunicación con la administración'
       : conversacion.tipo === 'grupo'
-        ? conversacion.jrv === usuario.jrv
+        ? conversacion.jrv === userJrv
           ? `${miembros.length + 1} integrantes`
           : `Chat grupal JRV ${conversacion.jrv}`
         : conversacion.miembro.cargo
@@ -446,7 +511,7 @@ export default function MensajesPage() {
       return (msg as MensajeGeneral | MensajeJrv).autor_nombre
     }
     function esAdminMsg(msg: MensajeGeneral | MensajeJrv | MensajeDirecto) {
-      const m = msg as any
+      const m = msg as { autor_rol?: string; autor_id?: string }
       return m.autor_rol === 'admin' || m.autor_id === 'admin'
     }
 
@@ -611,7 +676,9 @@ export default function MensajesPage() {
         </a>
         <div className="flex-1">
           <h1 className="font-bold text-base leading-tight">Mensajes</h1>
-          <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : usuario.jrv ? `JRV ${usuario.jrv}` : 'Portal'}</p>
+          <p className="text-xs opacity-60">
+            {esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : userJrv ? `JRV ${userJrv}` : 'Portal'}
+          </p>
         </div>
         {totalNoLeidos > 0 && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -654,13 +721,13 @@ export default function MensajesPage() {
         </div>
 
         {/* Chat grupal JRV propia (solo si el usuario tiene JRV asignada) */}
-        {usuario.jrv && (
+        {userJrv && (
           <div className="mx-4 mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
               Tu JRV
             </p>
             <button
-              onClick={() => setConversacion({ tipo: 'grupo', jrv: usuario.jrv })}
+              onClick={() => setConversacion({ tipo: 'grupo', jrv: userJrv })}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
               style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
               <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
@@ -668,7 +735,7 @@ export default function MensajesPage() {
                 <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {usuario.jrv} — Todos</p>
+                <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {userJrv} — Todos</p>
                 <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>
                   {miembros.length + 1} integrante{miembros.length !== 0 ? 's' : ''}
                 </p>
@@ -690,7 +757,7 @@ export default function MensajesPage() {
         {esJefeCentro && todasJrvs.length > 0 && (
           <div className="mx-4 mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
-              {usuario.jrv ? 'Otras JRVs' : 'JRVs del Centro'}
+              {userJrv ? 'Otras JRVs' : 'JRVs del Centro'}
             </p>
             <div className="space-y-2">
               {todasJrvs.sort().map(jrv => {
@@ -726,54 +793,58 @@ export default function MensajesPage() {
         )}
 
         {/* Mensajes directos (solo si el usuario tiene JRV asignada) */}
-        {usuario.jrv && <div className="mx-4 mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
-            Integrantes de tu JRV
-          </p>
+        {userJrv && (
+          <div className="mx-4 mt-5">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
+              Integrantes de tu JRV
+            </p>
 
-          {miembros.length === 0 ? (
-            <div className="flex flex-col items-center py-10 gap-2">
-              <RefreshCw className="w-6 h-6 text-gray-300" />
-              <p className="text-sm text-gray-400">No hay más integrantes registrados en la JRV {usuario.jrv}.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {miembros.map(m => {
-                const nl = noLeidos[m.id] ?? 0
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setConversacion({ tipo: 'dm', miembro: m })}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
-                    style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
-                      style={{ background: '#dbeafe', color: '#1e40af' }}>
-                      {iniciales(m.nombre)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{m.nombre}</p>
-                      <p className="text-xs mt-0.5 truncate" style={{ color: '#64748b' }}>{m.cargo}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {nl > 0 && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
-                          style={{ background: '#1e3a5f', color: 'white' }}>
-                          {nl}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>}
+            {miembros.length === 0 ? (
+              <div className="flex flex-col items-center py-10 gap-2">
+                <RefreshCw className="w-6 h-6 text-gray-300" />
+                <p className="text-sm text-gray-400">No hay más integrantes registrados en la JRV {userJrv}.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {miembros.map(m => {
+                  const nl = noLeidos[m.id] ?? 0
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => setConversacion({ tipo: 'dm', miembro: m })}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+                      style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                        style={{ background: '#dbeafe', color: '#1e40af' }}>
+                        {iniciales(m.nombre)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{m.nombre}</p>
+                        <p className="text-xs mt-0.5 truncate" style={{ color: '#64748b' }}>{m.cargo}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {nl > 0 && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
+                            style={{ background: '#1e3a5f', color: 'white' }}>
+                            {nl}
+                          </span>
+                        )}
+                        <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="text-center text-xs mt-8 mb-6" style={{ color: '#94a3b8' }}>
           {esJefeCentro
             ? `Acceso a todas las JRVs del centro`
-            : `Solo se muestran integrantes de tu JRV ${usuario.jrv}`}
+            : userJrv
+              ? `Solo se muestran integrantes de tu JRV ${userJrv}`
+              : `Portal de mensajes`}
         </p>
       </div>
     </div>
