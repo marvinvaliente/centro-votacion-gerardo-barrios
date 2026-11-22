@@ -1,27 +1,28 @@
 /**
- * Biometric abstraction:
- *  - Capacitor (Android/iOS APK): uses capacitor-native-biometric (Keystore)
- *  - Browser (web): uses WebAuthn
+ * Biometric abstraction — Capacitor (Android/iOS) + Web fallback
+ *
+ * On native (Capacitor): uses capacitor-native-biometric (Android Keystore)
+ * On web (browser): uses WebAuthn platform authenticator
  */
+
+import { Capacitor } from '@capacitor/core'
 
 const SERVER_KEY = 'gb.portal.biometric'
 
 /** True when running inside a Capacitor native shell */
 function isNative(): boolean {
-  if (typeof window === 'undefined') return false
-  return !!(window as any).Capacitor?.isNativePlatform?.()
+  try {
+    return Capacitor.isNativePlatform()
+  } catch {
+    return false
+  }
 }
 
-// ─── NATIVE (Capacitor) ───────────────────────────────────────────────────────
-
-async function getNativeBiometric() {
-  const { NativeBiometric } = await import('capacitor-native-biometric')
-  return NativeBiometric
-}
+// ─── NATIVE (Capacitor → Android Keystore) ───────────────────────────────────
 
 async function nativeIsAvailable(): Promise<boolean> {
   try {
-    const NativeBiometric = await getNativeBiometric()
+    const { NativeBiometric } = await import('capacitor-native-biometric')
     const result = await NativeBiometric.isAvailable()
     return result.isAvailable
   } catch {
@@ -30,14 +31,13 @@ async function nativeIsAvailable(): Promise<boolean> {
 }
 
 async function nativeRegister(dui: string): Promise<void> {
-  const NativeBiometric = await getNativeBiometric()
-  // Store DUI as credential first, then verify identity to confirm
+  const { NativeBiometric } = await import('capacitor-native-biometric')
+  // Store credential first, then verify with biometric
   await NativeBiometric.setCredentials({
     username: dui,
     password: 'gb_bio_ok',
     server: SERVER_KEY,
   })
-  // Prompt biometric to confirm registration
   await NativeBiometric.verifyIdentity({
     reason: 'Confirma tu huella para activar el acceso biométrico',
     title: 'Registrar huella',
@@ -47,7 +47,7 @@ async function nativeRegister(dui: string): Promise<void> {
 }
 
 async function nativeAuthenticate(dui: string): Promise<boolean> {
-  const NativeBiometric = await getNativeBiometric()
+  const { NativeBiometric } = await import('capacitor-native-biometric')
   await NativeBiometric.verifyIdentity({
     reason: 'Verifica tu identidad para ingresar',
     title: 'Acceso con huella',
@@ -60,7 +60,7 @@ async function nativeAuthenticate(dui: string): Promise<boolean> {
 
 async function nativeDelete(): Promise<void> {
   try {
-    const NativeBiometric = await getNativeBiometric()
+    const { NativeBiometric } = await import('capacitor-native-biometric')
     await NativeBiometric.deleteCredentials({ server: SERVER_KEY })
   } catch {
     // ignore if not registered
@@ -118,10 +118,6 @@ function webDelete() {
   localStorage.removeItem('usuario_webauthn_dui')
 }
 
-function webIsRegistered(dui: string): boolean {
-  return localStorage.getItem('usuario_webauthn_dui') === dui
-}
-
 // ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
 export async function bioIsAvailable(): Promise<boolean> {
@@ -131,13 +127,15 @@ export async function bioIsAvailable(): Promise<boolean> {
 
 export function bioIsRegistered(dui: string): boolean {
   if (isNative()) {
-    // Native: we can't check synchronously; assume registered if flag set
     return localStorage.getItem('bio_native_registered') === dui
   }
-  return webIsRegistered(dui)
+  return localStorage.getItem('usuario_webauthn_dui') === dui
 }
 
-/** Register biometrics for the given DUI. Throws on failure or user cancel. */
+/**
+ * Register biometrics for the given DUI.
+ * Throws on failure; caller handles error display.
+ */
 export async function bioRegister(dui: string): Promise<void> {
   if (isNative()) {
     await nativeRegister(dui)
@@ -147,7 +145,7 @@ export async function bioRegister(dui: string): Promise<void> {
   }
 }
 
-/** Authenticate. Returns true on success. Throws on failure. */
+/** Authenticate. Returns true on success. Throws on failure or cancel. */
 export async function bioAuthenticate(dui: string): Promise<boolean> {
   if (isNative()) return nativeAuthenticate(dui)
   return webAuthenticate(dui)
@@ -161,4 +159,9 @@ export async function bioDelete(dui: string): Promise<void> {
   } else {
     webDelete()
   }
+}
+
+/** Debug: returns current platform info */
+export function bioDebugInfo(): string {
+  return `native=${isNative()} platform=${Capacitor.getPlatform()}`
 }
