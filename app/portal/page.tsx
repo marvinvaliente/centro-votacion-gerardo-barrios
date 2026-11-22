@@ -9,6 +9,7 @@ import {
   MessageCircle
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
+import LogoGB from '@/components/LogoGB'
 import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
 import type { RegistroDUI, Padron } from '@/types'
@@ -1030,7 +1031,7 @@ export default function PortalPage() {
             <div className="flex items-center gap-4 mb-10">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                 style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
-                {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={30} />}
+                {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoGB size={30} />}
               </div>
               <div>
                 <div className="font-bold text-white text-base leading-tight">SIRCEV</div>
@@ -1148,9 +1149,9 @@ export default function PortalPage() {
 
           {/* Logo móvil */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden"
               style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
-              {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={22} />}
+              {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoGB size={48} />}
             </div>
             <div>
               <div className="font-bold text-white text-sm">Portal del Colaborador</div>
@@ -1369,7 +1370,7 @@ export default function PortalPage() {
                   <div className="px-5 md:px-7 py-4 md:py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)', background: 'rgba(200,168,75,.08)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                       style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.3)' }}>
-                      {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoUrna size={20} />}
+                      {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoGB size={32} />}
                     </div>
                     <div>
                       <h2 className="font-bold text-white text-base leading-tight">Nuevo registro</h2>
