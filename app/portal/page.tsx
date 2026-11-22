@@ -6,7 +6,7 @@ import {
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
   FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
-  MessageCircle
+  MessageCircle, Link2, FolderOpen
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import LogoGB from '@/components/LogoGB'
@@ -381,7 +381,8 @@ export default function PortalPage() {
   // Estados pre-login extendidos
   type VistaLogin = 'dui' | 'pendiente' | 'registrar' | 'ver' | 'admin'
   const [vistaLogin, setVistaLogin]     = useState<VistaLogin>('dui')
-  const [passwordAdmin, setPasswordAdmin] = useState('')
+  const [passwordAdmin, setPasswordAdmin]       = useState('')
+  const [mostrarPassAdmin, setMostrarPassAdmin] = useState(false)
   const [errorAdmin, setErrorAdmin]       = useState('')
   const [huellaDisponible, setHuellaDisponible] = useState(false)
   const [huellaRegistrada, setHuellaRegistrada] = useState(false)
@@ -568,9 +569,9 @@ export default function PortalPage() {
     ])
     setCargandoLogin(false)
 
-    // Administrador (por rol en BD o por DUI fijo) → pedir contraseña admin
+    // Administrador (por rol en BD o por DUI fijo) → mostrar campo contraseña inline
     if (duiFmt === ADMIN_DUI || (usr?.rol === 'administrador' && usr?.autorizado)) {
-      setVistaLogin('admin'); return
+      setMostrarPassAdmin(true); return
     }
 
     // Usuario autorizado y activo → ingresar al portal
@@ -1355,8 +1356,8 @@ export default function PortalPage() {
               <input
                 type="text"
                 value={dui}
-                onChange={e => setDui(formatDUI(e.target.value))}
-                onKeyDown={e => e.key === 'Enter' && verificarDUI()}
+                onChange={e => { setDui(formatDUI(e.target.value)); setMostrarPassAdmin(false); setErrorAdmin('') }}
+                onKeyDown={e => e.key === 'Enter' && !mostrarPassAdmin && verificarDUI()}
                 placeholder="00000000-0"
                 maxLength={10}
                 className="w-full rounded-xl text-center font-mono text-2xl font-bold mb-2 outline-none transition-all"
@@ -1376,8 +1377,37 @@ export default function PortalPage() {
                 : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;·&nbsp; El guión es opcional</p>
               }
 
+              {/* Campo contraseña admin — aparece solo cuando el DUI es de administrador */}
+              {mostrarPassAdmin && (
+                <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <ShieldAlert size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--gold)' }}>Acceso de administrador — ingrese su contraseña</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={passwordAdmin}
+                    onChange={e => { setPasswordAdmin(e.target.value); setErrorAdmin('') }}
+                    onKeyDown={e => e.key === 'Enter' && ingresarAdmin()}
+                    placeholder="Contraseña"
+                    autoFocus
+                    className="w-full rounded-xl text-center font-mono text-xl font-bold mb-2 outline-none transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,.08)',
+                      border: errorAdmin ? '2px solid rgba(220,38,38,.6)' : '2px solid rgba(200,168,75,.3)',
+                      color: 'white',
+                      padding: '12px 16px',
+                      letterSpacing: '.2em',
+                    }}
+                    onFocus={e => { if (!errorAdmin) e.currentTarget.style.borderColor = 'rgba(200,168,75,.6)' }}
+                    onBlur={e => { if (!errorAdmin) e.currentTarget.style.borderColor = 'rgba(200,168,75,.3)' }}
+                  />
+                  {errorAdmin && <p className="text-xs mb-1 text-center" style={{ color: '#f87171' }}>{errorAdmin}</p>}
+                </div>
+              )}
+
               <button
-                onClick={verificarDUI}
+                onClick={mostrarPassAdmin ? ingresarAdmin : verificarDUI}
                 disabled={cargandoLogin}
                 className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
                 style={{
@@ -1387,12 +1417,12 @@ export default function PortalPage() {
                 }}>
                 {cargandoLogin
                   ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
-                  : 'Continuar →'
+                  : mostrarPassAdmin ? 'Ingresar →' : 'Continuar →'
                 }
               </button>
 
               {/* Botón huella — opcional, si el dispositivo lo soporta y el usuario la registró */}
-              {huellaDisponible && huellaUsuarioRegistrada && (
+              {!mostrarPassAdmin && huellaDisponible && huellaUsuarioRegistrada && (
                 <button
                   onClick={autenticarHuellaUsuario}
                   disabled={cargandoLogin}
@@ -1402,6 +1432,17 @@ export default function PortalPage() {
                   Ingresar con huella
                 </button>
               )}
+              {/* Huella admin */}
+              {mostrarPassAdmin && huellaRegistrada && huellaDisponible && (
+                <button
+                  onClick={autenticarHuella}
+                  className="w-full mt-3 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.3)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                  Usar huella digital
+                </button>
+              )}
+              {huellaError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaError}</p>}
               {huellaUsuarioError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaUsuarioError}</p>}
 
               <div className="mt-6 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
@@ -1717,78 +1758,6 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* ── ACCESO ADMINISTRADOR ── */}
-        {vistaLogin === 'admin' && (
-          <div className="w-full max-w-sm">
-            <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                style={{ background: 'rgba(200,168,75,.15)', border: '1px solid rgba(200,168,75,.3)' }}>
-                <ShieldAlert size={26} style={{ color: 'var(--gold)' }} />
-              </div>
-              <h2 className="font-bold text-white text-xl text-center mb-1">Panel Administrador</h2>
-              <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.4)' }}>
-                Ingrese su contraseña para continuar
-              </p>
-
-              <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={passwordAdmin}
-                onChange={e => { setPasswordAdmin(e.target.value); setErrorAdmin('') }}
-                onKeyDown={e => e.key === 'Enter' && ingresarAdmin()}
-                placeholder="••••••••"
-                autoFocus
-                className="w-full rounded-xl text-center font-mono text-xl font-bold mb-2 outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,.08)',
-                  border: errorAdmin ? '2px solid rgba(220,38,38,.6)' : '2px solid rgba(255,255,255,.15)',
-                  color: 'white',
-                  padding: '14px 16px',
-                  letterSpacing: '.2em',
-                }}
-                onFocus={e => { if (!errorAdmin) e.currentTarget.style.borderColor = 'rgba(200,168,75,.6)' }}
-                onBlur={e => { if (!errorAdmin) e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
-              />
-              {errorAdmin && <p className="text-xs mb-3 text-center" style={{ color: '#f87171' }}>{errorAdmin}</p>}
-
-              <button
-                onClick={ingresarAdmin}
-                className="w-full py-3.5 rounded-xl font-semibold text-sm mt-2"
-                style={{ background: 'var(--gold)', color: 'var(--navy-dark)' }}>
-                Ingresar al panel →
-              </button>
-
-              {/* Botón huella — solo si está registrada */}
-              {huellaRegistrada && huellaDisponible && (
-                <button
-                  onClick={autenticarHuella}
-                  className="w-full py-3.5 rounded-xl font-semibold text-sm mt-3 flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.3)' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
-                    <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
-                    <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
-                    <path d="M2 12a10 10 0 0 1 18-6"/>
-                    <path d="M2 17a5 5 0 0 1 4.84-5"/>
-                    <path d="M6 12a6 6 0 0 1 10.52-4"/>
-                    <path d="M8.56 2.75c4.37 6 6 9.42 8 17.72"/>
-                  </svg>
-                  Usar huella digital
-                </button>
-              )}
-              {huellaError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaError}</p>}
-
-              <button
-                onClick={() => { setVistaLogin('dui'); setPasswordAdmin(''); setErrorAdmin(''); setHuellaError('') }}
-                className="w-full text-xs mt-4 text-center"
-                style={{ color: 'rgba(255,255,255,.3)' }}>
-                ← Volver
-              </button>
-            </div>
-          </div>
-        )}
 
         </div>{/* fin panel derecho */}
       </main>
@@ -1861,13 +1830,20 @@ export default function PortalPage() {
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,         href: null,    badge: 0 },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,        href: null,    badge: 0 },
-    { key: 'agenda',      label: 'Agenda',            icon: Calendar,     href: null,    badge: 0 },
-    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: '/portal/mensajes', badge: mensajesNoLeidos },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,          href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0 },
-    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0 }] : []),
-    ...(esAdmin ? [{ key: 'admin', label: 'Panel Admin', icon: ShieldAlert, href: '/admin', badge: 0 }] : []),
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0, adminOnly: false },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0, adminOnly: false },
+    { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0, adminOnly: false },
+    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: '/portal/mensajes', badge: mensajesNoLeidos, adminOnly: false },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0, adminOnly: false },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0, adminOnly: false }] : []),
+    // Módulos exclusivos del administrador
+    ...(esAdmin ? [
+      { key: 'admin-panel',     label: 'Panel',         icon: ShieldAlert,  href: '/admin',                  badge: 0, adminOnly: true },
+      { key: 'admin-usuarios',  label: 'Usuarios',      icon: Users,        href: '/admin/usuarios',         badge: 0, adminOnly: true },
+      { key: 'admin-asignacion',label: 'Asignación',    icon: Link2,        href: '/admin/asignacion',       badge: 0, adminOnly: true },
+      { key: 'admin-transporte',label: 'T. Admin',      icon: Truck,        href: '/admin/transporte',       badge: 0, adminOnly: true },
+      { key: 'admin-catalogo',  label: 'Catálogo',      icon: FolderOpen,   href: '/admin/catalogo/parametros-generales', badge: 0, adminOnly: true },
+    ] : []),
   ]
 
   return (
@@ -1892,26 +1868,45 @@ export default function PortalPage() {
             <div className="text-xs truncate" style={{ color: 'rgba(255,255,255,.45)', fontFamily: 'monospace' }}>{usuario.dui}</div>
           </div>
         </div>
-        <nav className="flex-1 py-3 space-y-1 px-2">
-          {NAV.map(({ key, label, icon: Icon, href, badge }) => (
-            <button key={key}
-              onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left"
-              style={{
-                background: !href && seccion === key ? 'rgba(200,168,75,.18)' : 'transparent',
-                color: !href && seccion === key ? '#c8a84b' : 'rgba(255,255,255,.6)',
-                borderLeft: !href && seccion === key ? '3px solid #c8a84b' : '3px solid transparent',
-              }}>
-              <Icon size={15} className="flex-shrink-0" />
-              <span className="truncate flex-1">{label}</span>
-              {badge > 0 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0"
-                  style={{ background: '#c8a84b', color: '#1e3a5f', fontSize: 10 }}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          ))}
+        <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
+          {NAV.map(({ key, label, icon: Icon, href, badge, adminOnly }, i) => {
+            const prevAdminOnly = i > 0 && !NAV[i-1].adminOnly && adminOnly
+            const navClick = () => {
+              if (href) {
+                if (adminOnly) sessionStorage.setItem('admin_embedded', '1')
+                window.location.href = href
+              } else {
+                setSeccion(key as Seccion)
+              }
+            }
+            return (
+              <div key={key}>
+                {prevAdminOnly && (
+                  <div className="mx-3 my-2 flex items-center gap-2">
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,.08)' }} />
+                    <span className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: 'rgba(200,168,75,.5)' }}>Admin</span>
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,.08)' }} />
+                  </div>
+                )}
+                <button onClick={navClick}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left"
+                  style={{
+                    background: !href && seccion === key ? 'rgba(200,168,75,.18)' : 'transparent',
+                    color: !href && seccion === key ? '#c8a84b' : adminOnly ? 'rgba(200,168,75,.7)' : 'rgba(255,255,255,.6)',
+                    borderLeft: !href && seccion === key ? '3px solid #c8a84b' : '3px solid transparent',
+                  }}>
+                  <Icon size={15} className="flex-shrink-0" />
+                  <span className="truncate flex-1">{label}</span>
+                  {badge > 0 && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0"
+                      style={{ background: '#c8a84b', color: '#1e3a5f', fontSize: 10 }}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )
+          })}
         </nav>
         <div className="px-2 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 12 }}>
           <InstallPWA variant="sidebar" />
@@ -1929,13 +1924,21 @@ export default function PortalPage() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {NAV.map(({ key, label, icon: Icon, href, badge }) => {
+          {NAV.map(({ key, label, icon: Icon, href, badge, adminOnly }) => {
             const activo = !href && seccion === key
+            const navClick = () => {
+              if (href) {
+                if (adminOnly) sessionStorage.setItem('admin_embedded', '1')
+                window.location.href = href
+              } else {
+                setSeccion(key as Seccion)
+              }
+            }
             return (
               <button key={key}
-                onClick={() => href ? (window.location.href = href) : setSeccion(key as Seccion)}
+                onClick={navClick}
                 className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0 transition-colors relative"
-                style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 62, minWidth: 68, padding: '10px 6px' }}>
+                style={{ color: activo ? 'var(--gold)' : adminOnly ? 'rgba(200,168,75,.55)' : 'rgba(255,255,255,.4)', minHeight: 62, minWidth: 68, padding: '10px 6px' }}>
                 {activo && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
                     style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />

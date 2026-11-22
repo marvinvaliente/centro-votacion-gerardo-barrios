@@ -47,6 +47,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [subiendoLogo,      setSubiendoLogo]      = useState(false)
   const [mobileMenuOpen,    setMobileMenuOpen]    = useState(false)
   const [nlMensajes,        setNlMensajes]        = useState(0)
+  // Modo embebido: accedido desde el portal (sin sidebar propio)
+  const [embedded,          setEmbedded]          = useState(false)
 
   useEffect(() => {
     const url = supabase.storage.from(LOGO_BUCKET).getPublicUrl(LOGO_PATH).data.publicUrl
@@ -100,6 +102,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [])
 
   useEffect(() => {
+    // Verificar si viene del portal (modo embebido)
+    if (sessionStorage.getItem('admin_embedded') === '1') {
+      sessionStorage.removeItem('admin_embedded') // consumir el flag
+      // Solo dejar pasar si ya está autenticado como admin en el portal
+      if (sessionStorage.getItem(SESSION_KEY) === '1') {
+        setEmbedded(true)
+        setAutenticado(true)
+        return
+      }
+    }
     if (sessionStorage.getItem(SESSION_KEY) === '1') { setAutenticado(true); return }
     const hasta = localStorage.getItem(BLOQUEO_KEY)
     if (hasta) {
@@ -196,6 +208,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
           <a href="/portal" className="block mt-4 text-sm" style={{ color: 'var(--texto-muted)' }}>← Volver al portal</a>
         </div>
+      </div>
+    )
+  }
+
+  /* ── Modo embebido: sin sidebar, solo el contenido con botón volver ── */
+  if (embedded) {
+    return (
+      <div className="flex flex-col min-h-screen" style={{ background: 'var(--fondo)' }}>
+        <header className="flex items-center px-4 flex-shrink-0"
+          style={{ background: 'var(--superficie)', borderBottom: '1px solid var(--borde)', height: 48 }}>
+          <a href="/portal"
+            className="flex items-center gap-2 text-sm font-medium mr-4"
+            style={{ color: 'var(--texto-muted)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--texto)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--texto-muted)')}>
+            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+            Portal
+          </a>
+          <span style={{ color: 'var(--borde-dark)', marginRight: 8 }}>·</span>
+          <span className="font-semibold text-sm truncate" style={{ color: 'var(--texto)' }}>
+            {NAV.find(n => n.href === pathname)?.label
+              ?? CATALOGO_ITEMS.find(n => n.href === pathname)?.label
+              ?? (pathname.startsWith('/admin/transporte') ? 'Transporte' : 'Admin')}
+          </span>
+        </header>
+        <main className="flex-1 overflow-auto min-w-0">
+          {children}
+        </main>
       </div>
     )
   }
