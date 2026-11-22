@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
+const isAndroid = process.env.BUILD_TARGET === 'android'
+
 const nextConfig = {
+  // Exportación estática solo para la app Android
+  ...(isAndroid ? { output: 'export', images: { unoptimized: true } } : {}),
   eslint: {
     ignoreDuringBuilds: true,
   },

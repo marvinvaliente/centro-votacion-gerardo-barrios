@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Centro Gerardo Barrios</string>
+    <string name="title_activity_main">Centro Gerardo Barrios</string>
+    <string name="package_name">com.alcaldia.centrovotacion.gerardobarrios</string>
+    <string name="custom_url_scheme">com.alcaldia.centrovotacion.gerardobarrios</string>
+</resources>
