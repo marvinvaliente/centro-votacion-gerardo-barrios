@@ -135,14 +135,14 @@ export default function MensajesPage() {
     // Si es jefe de centro → cargar todas las JRVs distintas
     const esJefe = usuario.cargo?.toLowerCase().includes('jefe') || usuario.rol === 'jefe_centro'
     if (esJefe) {
-      supabase
-        .from('usuarios')
-        .select('jrv')
-        .neq('jrv', usuario.jrv)
-        .then(({ data }) => {
-          const jrvs = Array.from(new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean) as string[]))
-          setTodasJrvs(jrvs)
-        })
+      // Si el jefe no tiene JRV propia (null), cargamos TODAS las JRVs
+      // Si tiene JRV propia, excluimos la suya (ya aparece en "Tu JRV")
+      let query = supabase.from('usuarios').select('jrv').not('jrv', 'is', null)
+      if (usuario.jrv) query = query.neq('jrv', usuario.jrv)
+      query.then(({ data }) => {
+        const jrvs = Array.from(new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean) as string[]))
+        setTodasJrvs(jrvs)
+      })
     }
   }, [usuario])
 
@@ -611,7 +611,7 @@ export default function MensajesPage() {
         </a>
         <div className="flex-1">
           <h1 className="font-bold text-base leading-tight">Mensajes</h1>
-          <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : `JRV ${usuario.jrv}`}</p>
+          <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : usuario.jrv ? `JRV ${usuario.jrv}` : 'Portal'}</p>
         </div>
         {totalNoLeidos > 0 && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -653,42 +653,44 @@ export default function MensajesPage() {
           </button>
         </div>
 
-        {/* Chat grupal JRV */}
-        <div className="mx-4 mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
-            Tu JRV
-          </p>
-          <button
-            onClick={() => setConversacion({ tipo: 'grupo', jrv: usuario.jrv })}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
-            style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(200,168,75,.15)', border: '1.5px solid rgba(200,168,75,.4)' }}>
-              <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {usuario.jrv} — Todos</p>
-              <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>
-                {miembros.length + 1} integrante{miembros.length !== 0 ? 's' : ''}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {noLeidosGrupo > 0 && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
-                  style={{ background: '#1e3a5f', color: 'white' }}>
-                  {noLeidosGrupo}
-                </span>
-              )}
-              <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-            </div>
-          </button>
-        </div>
+        {/* Chat grupal JRV propia (solo si el usuario tiene JRV asignada) */}
+        {usuario.jrv && (
+          <div className="mx-4 mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
+              Tu JRV
+            </p>
+            <button
+              onClick={() => setConversacion({ tipo: 'grupo', jrv: usuario.jrv })}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+              style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(200,168,75,.15)', border: '1.5px solid rgba(200,168,75,.4)' }}>
+                <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {usuario.jrv} — Todos</p>
+                <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>
+                  {miembros.length + 1} integrante{miembros.length !== 0 ? 's' : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {noLeidosGrupo > 0 && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center"
+                    style={{ background: '#1e3a5f', color: 'white' }}>
+                    {noLeidosGrupo}
+                  </span>
+                )}
+                <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Otras JRVs (solo jefe de centro) */}
         {esJefeCentro && todasJrvs.length > 0 && (
           <div className="mx-4 mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
-              Otras JRVs
+              {usuario.jrv ? 'Otras JRVs' : 'JRVs del Centro'}
             </p>
             <div className="space-y-2">
               {todasJrvs.sort().map(jrv => {
@@ -723,8 +725,8 @@ export default function MensajesPage() {
           </div>
         )}
 
-        {/* Mensajes directos */}
-        <div className="mx-4 mt-5">
+        {/* Mensajes directos (solo si el usuario tiene JRV asignada) */}
+        {usuario.jrv && <div className="mx-4 mt-5">
           <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>
             Integrantes de tu JRV
           </p>
@@ -766,7 +768,7 @@ export default function MensajesPage() {
               })}
             </div>
           )}
-        </div>
+        </div>}
 
         <p className="text-center text-xs mt-8 mb-6" style={{ color: '#94a3b8' }}>
           {esJefeCentro
