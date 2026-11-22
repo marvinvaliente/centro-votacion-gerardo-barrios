@@ -1,25 +1,26 @@
 export default function LogoGB({ size = 32 }: { size?: number }) {
-  const r = size * 0.18          // radio del redondeo
-  const cr = size * 0.36         // radio del círculo decorativo
-  const fs = size * 0.38         // font-size aproximado (SVG text)
-
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Fondo redondeado */}
-      <rect x="0" y="0" width="100" height="100" rx="22" fill="#1e3a5f" />
-      {/* Círculo dorado tenue */}
-      <circle cx="50" cy="50" r="36" fill="rgba(200,168,75,0.15)" />
-      {/* Texto GB */}
-      <text
-        x="50" y="50"
-        dominantBaseline="central"
-        textAnchor="middle"
-        fontFamily="'Arial Black', Arial, sans-serif"
-        fontWeight="900"
-        fontSize="40"
-        fill="#c8a84b"
-        style={{ letterSpacing: '-1px' }}
-      >GB</text>
+      <rect x="0" y="0" width="100" height="100" rx="20" fill="#1a3350" />
+      {/* Letra G — trazo fino */}
+      <path
+        d="M32 38 C26 43 24 55 30 62 C36 69 48 69 54 63 L54 52 L44 52"
+        stroke="#c8a84b" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none"
+      />
+      {/* Letra B */}
+      <path
+        d="M62 32 L62 68"
+        stroke="#c8a84b" strokeWidth="3.2" strokeLinecap="round" fill="none"
+      />
+      <path
+        d="M62 32 C72 32 76 38 72 44 C76 44 80 50 76 56 C72 62 62 62 62 62"
+        stroke="#c8a84b" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none"
+      />
+      <path
+        d="M62 50 L72 50"
+        stroke="#c8a84b" strokeWidth="3.2" strokeLinecap="round" fill="none"
+      />
     </svg>
   )
 }
