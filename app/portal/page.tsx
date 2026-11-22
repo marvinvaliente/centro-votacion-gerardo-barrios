@@ -12,6 +12,7 @@ import LogoUrna from '@/components/LogoUrna'
 import LogoGB from '@/components/LogoGB'
 import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
+import { bioRegister, bioAuthenticate, bioDelete, bioIsRegistered } from '@/lib/biometric'
 import type { RegistroDUI, Padron } from '@/types'
 
 const LOGO_BUCKET = 'fotos-dui'
@@ -234,7 +235,7 @@ export default function PortalPage() {
     if (typeof window === 'undefined') return
     try {
       if (localStorage.getItem('admin_webauthn_id')) setHuellaRegistrada(true)
-      if (localStorage.getItem('usuario_webauthn_id')) setHuellaUsuarioRegistrada(true)
+      if (localStorage.getItem('usuario_webauthn_id') || localStorage.getItem('bio_native_registered')) setHuellaUsuarioRegistrada(true)
     } catch {}
     if (window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
@@ -319,47 +320,22 @@ export default function PortalPage() {
   async function registrarHuellaUsuario(duiUsuario: string) {
     setHuellaUsuarioError('')
     try {
-      const cred = await navigator.credentials.create({
-        publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          rp: { name: 'Portal GB', id: location.hostname },
-          user: { id: new TextEncoder().encode(duiUsuario), name: duiUsuario, displayName: duiUsuario },
-          pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-          timeout: 60000,
-        },
-      }) as PublicKeyCredential
-      const id = b64url((cred.rawId as ArrayBuffer))
-      localStorage.setItem('usuario_webauthn_id', id)
-      localStorage.setItem('usuario_webauthn_dui', duiUsuario)
+      await bioRegister(duiUsuario)
       setHuellaUsuarioRegistrada(true)
       setOfrecerHuellaUsuario(false)
     } catch (e: any) {
-      if (e?.name === 'NotAllowedError') return // usuario canceló
-      if (e?.name === 'NotSupportedError' || e?.name === 'SecurityError') {
-        setHuellaUsuarioError('Este dispositivo o navegador no admite huella digital')
-      } else {
-        setHuellaUsuarioError('No se pudo registrar la huella. Intente desde Chrome con el lector activado.')
-      }
+      if (e?.name === 'NotAllowedError' || e?.message?.includes('cancel')) return
+      setHuellaUsuarioError('No se pudo registrar la huella en este dispositivo.')
     }
   }
 
   async function autenticarHuellaUsuario() {
     setHuellaUsuarioError('')
-    const idStr = localStorage.getItem('usuario_webauthn_id')
-    const duiGuardado = localStorage.getItem('usuario_webauthn_dui')
-    if (!idStr || !duiGuardado) return
-    const bin = atob(idStr.replace(/-/g, '+').replace(/_/g, '/'))
-    const idBuf = new Uint8Array(bin.length).map((_, i) => bin.charCodeAt(i)).buffer
+    const duiGuardado = localStorage.getItem('usuario_webauthn_dui') || localStorage.getItem('bio_native_registered')
+    if (!duiGuardado) return
     try {
-      await navigator.credentials.get({
-        publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          allowCredentials: [{ type: 'public-key', id: idBuf, transports: ['internal'] }],
-          userVerification: 'required',
-          timeout: 60000,
-        },
-      })
+      const ok = await bioAuthenticate(duiGuardado)
+      if (!ok) { setHuellaUsuarioError('Huella no reconocida'); return }
       // Autenticación exitosa — cargar usuario por DUI guardado
       setCargandoLogin(true)
       const duiFmt = duiGuardado.replace(/\D/g, '').slice(0, 8) + '-' + duiGuardado.replace(/\D/g, '').slice(8, 9)
@@ -372,12 +348,8 @@ export default function PortalPage() {
         setHuellaUsuarioError('Usuario no autorizado')
       }
     } catch (e: any) {
-      if (e?.name === 'NotAllowedError') return // usuario canceló
-      if (e?.name === 'NotSupportedError' || e?.name === 'SecurityError') {
-        setHuellaUsuarioError('Este dispositivo no admite huella digital')
-      } else {
-        setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
-      }
+      if (e?.name === 'NotAllowedError' || e?.message?.includes('cancel')) return
+      setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
     }
   }
 
@@ -589,7 +561,7 @@ export default function PortalPage() {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
       setUsuario(usr); cargarDatos(usr)
       // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aún
-      if (huellaDisponible && !localStorage.getItem('usuario_webauthn_id')) {
+      if (!localStorage.getItem('usuario_webauthn_id') && !localStorage.getItem('bio_native_registered')) {
         setOfrecerHuellaUsuario(true)
       }
       return
@@ -2192,7 +2164,8 @@ export default function PortalPage() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      try { await bioDelete(usuario.dui) } catch {}
                       try {
                         localStorage.removeItem('usuario_webauthn_id')
                         localStorage.removeItem('usuario_webauthn_dui')
@@ -2209,18 +2182,6 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── CONFIGURACIÓN ADMIN (solo visible para admin, en sección perfil) ── */}
-          {seccion === 'perfil' && esAdmin && (
-            <div className="card p-5" style={{ borderLeft: '4px solid var(--gold)' }}>
-              <div className="flex items-center gap-2 mb-4">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                <h3 className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>Configuración del sistema</h3>
-              </div>
-              <p className="text-xs px-1" style={{ color: 'var(--texto-muted)' }}>
-                Cada usuario gestiona su huella desde su propio perfil. Los dispositivos compatibles muestran la opción automáticamente.
-              </p>
-            </div>
-          )}
 
           {/* ── MI JRV ── */}
           {seccion === 'jrv' && (
