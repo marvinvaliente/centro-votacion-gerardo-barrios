@@ -335,7 +335,12 @@ export default function PortalPage() {
       setHuellaUsuarioRegistrada(true)
       setOfrecerHuellaUsuario(false)
     } catch (e: any) {
-      if (e?.name !== 'NotAllowedError') setHuellaUsuarioError('No se pudo registrar la huella')
+      if (e?.name === 'NotAllowedError') return // usuario canceló
+      if (e?.name === 'NotSupportedError' || e?.name === 'SecurityError') {
+        setHuellaUsuarioError('Este dispositivo o navegador no admite huella digital')
+      } else {
+        setHuellaUsuarioError('No se pudo registrar la huella. Intente desde Chrome con el lector activado.')
+      }
     }
   }
 
@@ -367,7 +372,12 @@ export default function PortalPage() {
         setHuellaUsuarioError('Usuario no autorizado')
       }
     } catch (e: any) {
-      if (e?.name !== 'NotAllowedError') setHuellaUsuarioError('Huella no reconocida')
+      if (e?.name === 'NotAllowedError') return // usuario canceló
+      if (e?.name === 'NotSupportedError' || e?.name === 'SecurityError') {
+        setHuellaUsuarioError('Este dispositivo no admite huella digital')
+      } else {
+        setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
+      }
     }
   }
 
@@ -1422,7 +1432,7 @@ export default function PortalPage() {
               </button>
 
               {/* Botón huella — opcional, si el dispositivo lo soporta y el usuario la registró */}
-              {!mostrarPassAdmin && huellaDisponible && huellaUsuarioRegistrada && (
+              {!mostrarPassAdmin && huellaUsuarioRegistrada && (
                 <button
                   onClick={autenticarHuellaUsuario}
                   disabled={cargandoLogin}
@@ -2129,8 +2139,8 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── HUELLA DIGITAL (visible para todos los usuarios con dispositivo compatible) ── */}
-          {seccion === 'perfil' && huellaDisponible && (
+          {/* ── HUELLA DIGITAL (siempre visible; error se muestra al intentar registrar) ── */}
+          {seccion === 'perfil' && (
             <div className="card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--azul)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
