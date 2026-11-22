@@ -2126,6 +2126,76 @@ export default function PortalPage() {
             </div>
           )}
 
+          {/* ── HUELLA DIGITAL (visible para todos los usuarios en su perfil) ── */}
+          {seccion === 'perfil' && biometriaHabilitada && huellaDisponible && (
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--azul)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                </svg>
+                <h3 className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>Acceso con huella digital</h3>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>
+                    {huellaUsuarioRegistrada ? 'Huella registrada en este dispositivo' : 'Huella no registrada'}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                    {huellaUsuarioRegistrada
+                      ? 'Puede ingresar con su huella en la pantalla de acceso'
+                      : 'Registre su huella para ingresar más rápido la próxima vez'}
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  {huellaUsuarioRegistrada ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{ background: 'var(--verde-light)', color: 'var(--verde)' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Activa
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{ background: 'var(--fondo)', color: 'var(--texto-muted)', border: '1px solid var(--borde)' }}>
+                      Inactiva
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {huellaUsuarioError && (
+                <p className="text-xs mt-3" style={{ color: 'var(--rojo)' }}>{huellaUsuarioError}</p>
+              )}
+
+              <div className="flex gap-2 mt-4">
+                {!huellaUsuarioRegistrada ? (
+                  <button
+                    onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)}
+                    className="btn btn-primary btn-sm flex items-center gap-1.5">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                    </svg>
+                    Registrar mi huella
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      try {
+                        localStorage.removeItem('usuario_webauthn_id')
+                        localStorage.removeItem('usuario_webauthn_dui')
+                      } catch {}
+                      setHuellaUsuarioRegistrada(false)
+                      setHuellaUsuarioError('')
+                    }}
+                    className="btn btn-ghost btn-sm flex items-center gap-1.5" style={{ color: 'var(--rojo)' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                    Eliminar huella
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── CONFIGURACIÓN ADMIN (solo visible para admin, en sección perfil) ── */}
           {seccion === 'perfil' && esAdmin && (
             <div className="card p-5" style={{ borderLeft: '4px solid var(--gold)' }}>
