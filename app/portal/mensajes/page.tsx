@@ -140,8 +140,8 @@ export default function MensajesPage() {
         .select('jrv')
         .neq('jrv', usuario.jrv)
         .then(({ data }) => {
-          const jrvs = [...new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean))]
-          setTodasJrvs(jrvs as string[])
+          const jrvs = Array.from(new Set((data ?? []).map((r: { jrv: string }) => r.jrv).filter(Boolean) as string[]))
+          setTodasJrvs(jrvs)
         })
     }
   }, [usuario])
