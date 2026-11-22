@@ -1344,65 +1344,103 @@ export default function PortalPage() {
             </div>
 
             <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
-              <h2 className="font-bold text-white text-xl mb-1 text-center">Ingrese su DUI</h2>
-              <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.45)' }}>
-                Su número de DUI es su credencial de acceso al sistema
-              </p>
 
-              <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.5)' }}>
-                Número de DUI
-              </label>
-              <input
-                type="text"
-                value={dui}
-                onChange={e => setDui(formatDUI(e.target.value))}
-                onKeyDown={e => e.key === 'Enter' && verificarDUI()}
-                placeholder="00000000-0"
-                maxLength={10}
-                className="w-full rounded-xl text-center font-mono text-2xl font-bold mb-2 outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,.08)',
-                  border: errorLogin ? '2px solid rgba(220,38,38,.6)' : '2px solid rgba(255,255,255,.15)',
-                  color: 'white',
-                  padding: '14px 16px',
-                  letterSpacing: '.1em',
-                }}
-                onFocus={e => { if (!errorLogin) e.currentTarget.style.borderColor = 'rgba(200,168,75,.6)' }}
-                onBlur={e => { if (!errorLogin) e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
-              />
+              {/* ── MODO HUELLA OBLIGATORIO: ya registrada ── */}
+              {biometriaHabilitada && huellaDisponible && huellaUsuarioRegistrada ? (
+                <>
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                      style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.25)' }}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                      </svg>
+                    </div>
+                    <h2 className="font-bold text-white text-xl mb-1 text-center">Acceso con huella</h2>
+                    <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,.45)' }}>
+                      El acceso biométrico está activado. Use su huella para ingresar.
+                    </p>
+                  </div>
+                  <button
+                    onClick={autenticarHuellaUsuario}
+                    disabled={cargandoLogin}
+                    className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                    style={{
+                      background: cargandoLogin ? 'rgba(200,168,75,.4)' : 'var(--gold)',
+                      color: cargandoLogin ? 'rgba(255,255,255,.6)' : 'var(--navy-dark)',
+                      cursor: cargandoLogin ? 'not-allowed' : 'pointer',
+                    }}>
+                    {cargandoLogin
+                      ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
+                      : <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>Ingresar con huella digital</>
+                    }
+                  </button>
+                  {huellaUsuarioError && <p className="text-xs mt-3 text-center" style={{ color: '#f87171' }}>{huellaUsuarioError}</p>}
+                </>
+              ) : (
+                <>
+                  <h2 className="font-bold text-white text-xl mb-1 text-center">Ingrese su DUI</h2>
+                  <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.45)' }}>
+                    {biometriaHabilitada && huellaDisponible
+                      ? 'Registre su huella digital al ingresar por primera vez'
+                      : 'Su número de DUI es su credencial de acceso al sistema'}
+                  </p>
 
-              {errorLogin
-                ? <p className="text-xs mb-4 text-center" style={{ color: '#f87171' }}>{errorLogin}</p>
-                : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;·&nbsp; El guión es opcional</p>
-              }
+                  {biometriaHabilitada && huellaDisponible && (
+                    <div className="rounded-xl px-3 py-2 mb-5 flex items-center gap-2"
+                      style={{ background: 'rgba(200,168,75,.08)', border: '1px solid rgba(200,168,75,.2)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                      </svg>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,.6)' }}>
+                        Se le pedirá registrar su huella al ingresar. Solo una vez por dispositivo.
+                      </p>
+                    </div>
+                  )}
 
-              <button
-                onClick={verificarDUI}
-                disabled={cargandoLogin}
-                className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                style={{
-                  background: cargandoLogin ? 'rgba(200,168,75,.4)' : 'var(--gold)',
-                  color: cargandoLogin ? 'rgba(255,255,255,.6)' : 'var(--navy-dark)',
-                  cursor: cargandoLogin ? 'not-allowed' : 'pointer',
-                }}>
-                {cargandoLogin
-                  ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
-                  : 'Continuar →'
-                }
-              </button>
+                  <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.5)' }}>
+                    Número de DUI
+                  </label>
+                  <input
+                    type="text"
+                    value={dui}
+                    onChange={e => setDui(formatDUI(e.target.value))}
+                    onKeyDown={e => e.key === 'Enter' && verificarDUI()}
+                    placeholder="00000000-0"
+                    maxLength={10}
+                    className="w-full rounded-xl text-center font-mono text-2xl font-bold mb-2 outline-none transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,.08)',
+                      border: errorLogin ? '2px solid rgba(220,38,38,.6)' : '2px solid rgba(255,255,255,.15)',
+                      color: 'white',
+                      padding: '14px 16px',
+                      letterSpacing: '.1em',
+                    }}
+                    onFocus={e => { if (!errorLogin) e.currentTarget.style.borderColor = 'rgba(200,168,75,.6)' }}
+                    onBlur={e => { if (!errorLogin) e.currentTarget.style.borderColor = 'rgba(255,255,255,.15)' }}
+                  />
 
-              {/* Botón huella para usuario regular */}
-              {biometriaHabilitada && huellaDisponible && huellaUsuarioRegistrada && (
-                <button
-                  onClick={autenticarHuellaUsuario}
-                  disabled={cargandoLogin}
-                  className="w-full mt-3 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(255,255,255,.08)', color: 'white', border: '1px solid rgba(255,255,255,.15)' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
-                  Ingresar con huella
-                </button>
+                  {errorLogin
+                    ? <p className="text-xs mb-4 text-center" style={{ color: '#f87171' }}>{errorLogin}</p>
+                    : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;·&nbsp; El guión es opcional</p>
+                  }
+
+                  <button
+                    onClick={verificarDUI}
+                    disabled={cargandoLogin}
+                    className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                    style={{
+                      background: cargandoLogin ? 'rgba(200,168,75,.4)' : 'var(--gold)',
+                      color: cargandoLogin ? 'rgba(255,255,255,.6)' : 'var(--navy-dark)',
+                      cursor: cargandoLogin ? 'not-allowed' : 'pointer',
+                    }}>
+                    {cargandoLogin
+                      ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
+                      : 'Continuar →'
+                    }
+                  </button>
+                  {huellaUsuarioError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaUsuarioError}</p>}
+                </>
               )}
-              {huellaUsuarioError && <p className="text-xs mt-2 text-center" style={{ color: '#f87171' }}>{huellaUsuarioError}</p>}
 
               <div className="mt-6 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
                 <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,.25)' }}>
@@ -2135,11 +2173,11 @@ export default function PortalPage() {
               </div>
               <div className="flex items-center justify-between gap-4 py-3 px-1" style={{ borderBottom: '1px solid var(--borde)' }}>
                 <div className="flex-1">
-                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>Huella digital para todos los usuarios</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>Huella digital obligatoria</div>
                   <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
                     {biometriaHabilitada
-                      ? 'Activa — Los usuarios pueden iniciar sesión con huella en este dispositivo'
-                      : 'Inactiva — Solo se permite acceso con DUI'}
+                      ? 'Activa — Todos los usuarios deben ingresar con huella'
+                      : 'Inactiva — Acceso solo con DUI'}
                   </div>
                 </div>
                 <button
@@ -2165,7 +2203,7 @@ export default function PortalPage() {
               </div>
               {biometriaHabilitada && (
                 <p className="text-xs mt-3 px-1" style={{ color: 'var(--texto-muted)' }}>
-                  Cada usuario debe registrar su huella una vez por dispositivo al ingresar. Pueden hacerlo desde cualquier celular compatible.
+                  Al activar, el formulario DUI desaparece para usuarios con huella registrada. Los que ingresan por primera vez registran su huella después del DUI inicial.
                 </p>
               )}
             </div>
