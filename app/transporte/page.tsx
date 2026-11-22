@@ -56,7 +56,7 @@ type Solicitud = {
   tipo_recogida: 'domicilio' | 'punto_reunion' | null
 }
 
-type Vista = 'login' | 'perfil'
+type Vista = 'iniciando' | 'login' | 'perfil'
 
 // Centro de El Salvador por defecto (Santa Ana)
 const DEFAULT_LAT = 13.9942
@@ -445,7 +445,7 @@ function TransporteAcciones({
 // ── Componente principal ─────────────────────────────────────
 function TransporteInner() {
   const searchParams = useSearchParams()
-  const [vista, setVista] = useState<Vista>('login')
+  const [vista, setVista] = useState<Vista>('iniciando')
   const [duiInput, setDuiInput] = useState('')
   const [registro, setRegistro] = useState<Registro | null>(null)
   const [eventos, setEventos] = useState<Evento[]>([])
@@ -470,6 +470,8 @@ function TransporteInner() {
     if (duiParam) {
       setDuiInput(duiParam)
       buscarPorDuiDirecto(duiParam)
+    } else {
+      setVista('login')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -803,6 +805,15 @@ function TransporteInner() {
     if (!err) setSolicitudes((prev) => prev.filter((s) => s.id !== solicitudId))
   }
 
+  // ── VISTA INICIANDO ──────────────────────────────────────────
+  if (vista === 'iniciando') {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </main>
+    )
+  }
+
   // ── VISTA LOGIN ──────────────────────────────────────────────
   if (vista === 'login') {
     return (
@@ -884,13 +895,13 @@ function TransporteInner() {
         {/* Header */}
         <header className="bg-blue-600 text-white px-4 py-3 shadow">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
-            <button
-              onClick={() => { setVista('login'); setRegistro(null); setDuiInput('') }}
+            <a
+              href="/portal"
               className="p-2 hover:bg-blue-500 rounded-full transition-colors flex-shrink-0"
-              title="Cerrar sesión de transporte"
+              title="Volver al portal"
             >
               <ChevronLeft className="w-5 h-5" />
-            </button>
+            </a>
             <div className="flex-1 min-w-0">
               <h1 className="font-bold text-base leading-tight truncate">{registro?.nombre}</h1>
               <p className="text-blue-200 text-xs truncate">{registro?.cargo} · JRV {registro?.jrv}</p>

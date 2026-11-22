@@ -412,7 +412,7 @@ function TarjetaEvento({
 // ── Componente principal ──────────────────────────────────────
 function MotoristaInner() {
   const searchParams = useSearchParams()
-  const [vista, setVista] = useState<'login' | 'dashboard'>('login')
+  const [vista, setVista] = useState<'iniciando' | 'login' | 'dashboard'>('iniciando')
   const [duiInput, setDuiInput] = useState('')
   const [motorista, setMotorista] = useState<Motorista | null>(null)
   const [eventos, setEventos] = useState<EventoConPasajeros[]>([])
@@ -432,6 +432,8 @@ function MotoristaInner() {
     if (duiParam) {
       setDuiInput(duiParam)
       buscarMotorista(duiParam)
+    } else {
+      setVista('login')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -575,6 +577,15 @@ function MotoristaInner() {
     }
   }
 
+  // ── Vista iniciando ───────────────────────────────────────
+  if (vista === 'iniciando') {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </main>
+    )
+  }
+
   // ── Vista login ───────────────────────────────────────────
   if (vista === 'login') {
     return (
@@ -646,11 +657,11 @@ function MotoristaInner() {
       {/* Header */}
       <header className="bg-indigo-700 text-white shadow">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => { setVista('login'); setMotorista(null); setDuiInput('') }}
+          <a
+            href="/portal"
             className="p-2 hover:bg-indigo-600 rounded-full transition-colors flex-shrink-0">
             <ChevronLeft className="w-5 h-5" />
-          </button>
+          </a>
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-base leading-tight truncate">{motorista?.nombre}</h1>
             <p className="text-indigo-200 text-xs truncate">{motorista?.cargo} · JRV {motorista?.jrv}</p>
