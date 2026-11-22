@@ -1147,17 +1147,6 @@ export default function PortalPage() {
         {/* ── PANEL DERECHO — formulario ── */}
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
-          {/* Logo móvil */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden"
-              style={{ background: 'rgba(200,168,75,.18)', border: '1px solid rgba(200,168,75,.35)' }}>
-              {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <LogoGB size={48} />}
-            </div>
-            <div>
-              <div className="font-bold text-white text-sm">Portal del Colaborador</div>
-              <div className="text-xs" style={{ color: 'rgba(255,255,255,.45)' }}>SIRCEV · Elecciones 2027</div>
-            </div>
-          </div>
 
 
         {/* ── INGRESO DUI ── */}
