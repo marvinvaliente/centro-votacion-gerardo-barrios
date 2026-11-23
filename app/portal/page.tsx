@@ -504,7 +504,7 @@ export default function PortalPage() {
       cargarDatos(u)
     }
     // Navegar a la sección indicada en la URL (?s=jrv, ?s=agenda, etc.)
-    if (seccionUrl && ['perfil','jrv','agenda'].includes(seccionUrl)) {
+    if (seccionUrl && ['perfil','jrv','agenda','mensajes','transporte','motorista'].includes(seccionUrl)) {
       setSeccion(seccionUrl as Seccion)
     }
   }, [])

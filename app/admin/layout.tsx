@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { LayoutGrid, Link2, Users, LogOut, ShieldCheck, ChevronRight, Calendar, User, Camera, FolderOpen, Settings2, Bus, MessageCircle } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
+import PortalNavBar from '@/components/PortalNavBar'
 import { supabase } from '@/lib/supabase'
 
 const LOGO_PATH   = 'configuracion/logo.jpg'
@@ -212,8 +213,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  /* ── Modo embebido: sin sidebar, solo el contenido con botón volver ── */
+  /* ── Modo embebido: sin sidebar, contenido + barra inferior del portal ── */
   if (embedded) {
+    // Determinar activeKey para la barra según el pathname actual
+    const adminKeyMap: Record<string, string> = {
+      '/admin':                               'admin-panel',
+      '/admin/usuarios':                      'admin-usuarios',
+      '/admin/asignacion':                    'admin-asignacion',
+      '/admin/transporte':                    'admin-transporte',
+      '/admin/catalogo/parametros-generales': 'admin-catalogo',
+    }
+    const embeddedActiveKey = adminKeyMap[pathname] ?? (pathname.startsWith('/admin/transporte') ? 'admin-transporte' : 'admin-panel')
+
     return (
       <div className="flex flex-col min-h-screen" style={{ background: 'var(--fondo)' }}>
         <header className="flex items-center px-4 flex-shrink-0"
@@ -233,9 +244,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ?? (pathname.startsWith('/admin/transporte') ? 'Transporte' : 'Admin')}
           </span>
         </header>
-        <main className="flex-1 overflow-auto min-w-0">
+        {/* Contenido con padding inferior para no quedar detrás de la barra */}
+        <main className="flex-1 overflow-auto min-w-0 pb-16 md:pb-0">
           {children}
         </main>
+        <PortalNavBar activeKey={embeddedActiveKey} />
       </div>
     )
   }

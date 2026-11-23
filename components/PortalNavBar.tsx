@@ -1,8 +1,10 @@
 'use client'
 
 /**
- * Barra de navegación inferior móvil — compartida entre todas las páginas del portal.
- * Se muestra solo en móvil (< md). Resalta la sección activa según `activeKey`.
+ * Barra de navegación inferior móvil — compartida entre portal y módulos admin.
+ * - Secciones del portal (perfil, jrv, agenda, mensajes, transporte, motorista)
+ *   navegan a /portal?s=<key>
+ * - Módulos admin navegan a /admin/* (con flag admin_embedded)
  */
 
 import { User, Users, Calendar, MessageCircle, Bus, Truck, ShieldAlert, Link2, FolderOpen, LogOut } from 'lucide-react'
@@ -15,28 +17,14 @@ interface PortalNavBarProps {
 }
 
 const ADMIN_SESSION = 'admin_autenticado'
-const ADMIN_DUI = '04325191-7'
 
 export default function PortalNavBar({ activeKey }: PortalNavBarProps) {
   const [esAdmin, setEsAdmin] = useState(false)
   const [esMotorista, setEsMotorista] = useState(false)
-  const [dui, setDui] = useState('')
-  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
 
   useEffect(() => {
-    // Leer sesión
-    try {
-      const sesion = sessionStorage.getItem('portal_usuario')
-      if (sesion) {
-        const usr = JSON.parse(sesion)
-        setDui(usr.dui ?? '')
-      }
-    } catch {}
-
     const adminOk = sessionStorage.getItem(ADMIN_SESSION) === '1'
     setEsAdmin(adminOk)
-
-    // Leer es_motorista desde registros_dui cacheado en sessionStorage
     try {
       const reg = sessionStorage.getItem('portal_registro')
       if (reg) {
@@ -47,18 +35,18 @@ export default function PortalNavBar({ activeKey }: PortalNavBarProps) {
   }, [])
 
   const NAV = [
-    { key: 'perfil',      label: 'Mi Perfil',  icon: User,          href: '/portal',              badge: 0,                adminOnly: false },
-    { key: 'jrv',         label: 'Mi JRV',     icon: Users,         href: '/portal?s=jrv',        badge: 0,                adminOnly: false },
-    { key: 'agenda',      label: 'Agenda',     icon: Calendar,      href: '/portal?s=agenda',     badge: 0,                adminOnly: false },
-    { key: 'mensajes',    label: 'Mensajes',   icon: MessageCircle, href: '/portal/mensajes',      badge: mensajesNoLeidos, adminOnly: false },
-    { key: 'transporte',  label: 'Transporte', icon: Bus,           href: `/transporte?dui=${encodeURIComponent(dui)}`, badge: 0, adminOnly: false },
-    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(dui)}`, badge: 0, adminOnly: false }] : []),
+    { key: 'perfil',      label: 'Mi Perfil',  icon: User,          href: '/portal?s=perfil',      adminOnly: false },
+    { key: 'jrv',         label: 'Mi JRV',     icon: Users,         href: '/portal?s=jrv',         adminOnly: false },
+    { key: 'agenda',      label: 'Agenda',     icon: Calendar,      href: '/portal?s=agenda',      adminOnly: false },
+    { key: 'mensajes',    label: 'Mensajes',   icon: MessageCircle, href: '/portal?s=mensajes',    adminOnly: false },
+    { key: 'transporte',  label: 'Transporte', icon: Bus,           href: '/portal?s=transporte',  adminOnly: false },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: '/portal?s=motorista', adminOnly: false }] : []),
     ...(esAdmin ? [
-      { key: 'admin-panel',      label: 'Panel',     icon: ShieldAlert, href: '/admin',                                        badge: 0, adminOnly: true },
-      { key: 'admin-usuarios',   label: 'Usuarios',  icon: Users,       href: '/admin/usuarios',                               badge: 0, adminOnly: true },
-      { key: 'admin-asignacion', label: 'Asignación',icon: Link2,       href: '/admin/asignacion',                             badge: 0, adminOnly: true },
-      { key: 'admin-transporte', label: 'T. Admin',  icon: Truck,       href: '/admin/transporte',                             badge: 0, adminOnly: true },
-      { key: 'admin-catalogo',   label: 'Catálogo',  icon: FolderOpen,  href: '/admin/catalogo/parametros-generales',          badge: 0, adminOnly: true },
+      { key: 'admin-panel',      label: 'Panel',     icon: ShieldAlert, href: '/admin',                               adminOnly: true },
+      { key: 'admin-usuarios',   label: 'Usuarios',  icon: Users,       href: '/admin/usuarios',                      adminOnly: true },
+      { key: 'admin-asignacion', label: 'Asignación',icon: Link2,       href: '/admin/asignacion',                    adminOnly: true },
+      { key: 'admin-transporte', label: 'T. Admin',  icon: Truck,       href: '/admin/transporte',                    adminOnly: true },
+      { key: 'admin-catalogo',   label: 'Catálogo',  icon: FolderOpen,  href: '/admin/catalogo/parametros-generales', adminOnly: true },
     ] : []),
   ]
 
@@ -79,7 +67,7 @@ export default function PortalNavBar({ activeKey }: PortalNavBarProps) {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
       style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {NAV.map(({ key, label, icon: Icon, href, badge, adminOnly }) => {
+        {NAV.map(({ key, label, icon: Icon, href, adminOnly }) => {
           const activo = key === activeKey
           return (
             <button key={key}
@@ -90,15 +78,7 @@ export default function PortalNavBar({ activeKey }: PortalNavBarProps) {
                 <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
                   style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
               )}
-              <span className="relative">
-                <Icon size={20} />
-                {badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 text-[9px] font-bold px-1 rounded-full"
-                    style={{ background: '#ef4444', color: 'white', minWidth: 16, textAlign: 'center' }}>
-                    {badge}
-                  </span>
-                )}
-              </span>
+              <Icon size={20} />
               <span className="text-[9px] leading-tight font-medium text-center" style={{ maxWidth: 60 }}>{label}</span>
             </button>
           )
