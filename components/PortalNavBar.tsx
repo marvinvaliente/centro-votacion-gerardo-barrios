@@ -42,16 +42,15 @@ export default function PortalNavBar({ activeKey }: PortalNavBarProps) {
     { key: 'transporte',  label: 'Transporte', icon: Bus,           href: '/portal?s=transporte',  adminOnly: false },
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: '/portal?s=motorista', adminOnly: false }] : []),
     ...(esAdmin ? [
-      { key: 'admin-panel',      label: 'Panel',     icon: ShieldAlert, href: '/admin',                               adminOnly: true },
-      { key: 'admin-usuarios',   label: 'Usuarios',  icon: Users,       href: '/admin/usuarios',                      adminOnly: true },
-      { key: 'admin-asignacion', label: 'Asignación',icon: Link2,       href: '/admin/asignacion',                    adminOnly: true },
-      { key: 'admin-transporte', label: 'T. Admin',  icon: Truck,       href: '/admin/transporte',                    adminOnly: true },
-      { key: 'admin-catalogo',   label: 'Catálogo',  icon: FolderOpen,  href: '/admin/catalogo/parametros-generales', adminOnly: true },
+      { key: 'admin-panel',      label: 'Panel',     icon: ShieldAlert, href: '/portal?s=admin-panel',      adminOnly: true },
+      { key: 'admin-usuarios',   label: 'Usuarios',  icon: Users,       href: '/portal?s=admin-usuarios',   adminOnly: true },
+      { key: 'admin-asignacion', label: 'Asignación',icon: Link2,       href: '/portal?s=admin-asignacion', adminOnly: true },
+      { key: 'admin-transporte', label: 'T. Admin',  icon: Truck,       href: '/portal?s=admin-transporte', adminOnly: true },
+      { key: 'admin-catalogo',   label: 'Catálogo',  icon: FolderOpen,  href: '/portal?s=admin-catalogo',   adminOnly: true },
     ] : []),
   ]
 
   function navClick(href: string, adminOnly: boolean) {
-    if (adminOnly) sessionStorage.setItem('admin_embedded', '1')
     window.location.href = href
   }
 
