@@ -9,6 +9,9 @@ import {
   MessageCircle, Link2, FolderOpen
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
+import MensajesSection from '@/app/portal/_sections/MensajesSection'
+import TransporteSection from '@/app/portal/_sections/TransporteSection'
+import MotoristaSection from '@/app/portal/_sections/MotoristaSection'
 import LogoGB from '@/components/LogoGB'
 import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
@@ -73,7 +76,7 @@ function iconoMime(mime: string) {
 }
 
 
-type Seccion = 'perfil' | 'jrv' | 'agenda' | 'transporte' | 'materiales' | 'calendario' | 'asistencia'
+type Seccion = 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia'
 
 /* ── Componente de sección Asistencia ── */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
@@ -1846,9 +1849,9 @@ export default function PortalPage() {
     { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0, adminOnly: false },
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0, adminOnly: false },
     { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0, adminOnly: false },
-    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: '/portal/mensajes', badge: mensajesNoLeidos, adminOnly: false },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: `/transporte?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0, adminOnly: false },
-    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: `/motorista?dui=${encodeURIComponent(usuario?.dui ?? '')}`, badge: 0, adminOnly: false }] : []),
+    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: null, badge: mensajesNoLeidos, adminOnly: false },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: null, badge: 0, adminOnly: false },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
     // Módulos exclusivos del administrador
     ...(esAdmin ? [
       { key: 'admin-panel',     label: 'Panel',         icon: ShieldAlert,  href: '/admin',                  badge: 0, adminOnly: true },
@@ -2573,6 +2576,22 @@ export default function PortalPage() {
 
             </div>
           )}
+
+          {/* ── MENSAJES ── */}
+          {seccion === 'mensajes' && (
+            <MensajesSection usuario={usuario} onNoLeidosChange={setMensajesNoLeidos} />
+          )}
+
+          {/* ── TRANSPORTE ── */}
+          {seccion === 'transporte' && (
+            <TransporteSection usuario={usuario} />
+          )}
+
+          {/* ── MOTORISTA ── */}
+          {seccion === 'motorista' && (
+            <MotoristaSection usuario={usuario} />
+          )}
+
         </main>
       </div>
 
