@@ -346,15 +346,29 @@ export default function PortalPage() {
       if (!ok) { setHuellaUsuarioError('Huella no reconocida'); return }
       // Autenticación exitosa — cargar usuario por DUI guardado
       setCargandoLogin(true)
-      const duiFmt = duiGuardado.replace(/\D/g, '').slice(0, 8) + '-' + duiGuardado.replace(/\D/g, '').slice(8, 9)
-      const { data: usr } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
+      // Normalizar DUI: quitar guión y reformatear por si acaso
+      const digits = duiGuardado.replace(/\D/g, '')
+      const duiFmt = digits.length >= 9
+        ? digits.slice(0, 8) + '-' + digits.slice(8, 9)
+        : duiGuardado  // ya formateado
+      const { data: usr, error: dbErr } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
       setCargandoLogin(false)
-      if (usr && usr.autorizado && usr.activo) {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-        setUsuario(usr); cargarDatos(usr)
-      } else {
-        setHuellaUsuarioError('Usuario no autorizado')
+      if (dbErr || !usr) {
+        setHuellaUsuarioError(`DUI ${duiFmt} no encontrado en el sistema`)
+        return
       }
+      if (!usr.autorizado || !usr.activo) {
+        setHuellaUsuarioError('Usuario no autorizado o inactivo')
+        return
+      }
+      // Sesión de usuario
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
+      // Si es admin, también establecer sesión de administrador
+      if (duiFmt === ADMIN_DUI) {
+        sessionStorage.setItem(ADMIN_SESSION, '1')
+        sessionStorage.setItem('admin_dui', duiFmt)
+      }
+      setUsuario(usr); cargarDatos(usr)
     } catch (e: any) {
       if (e?.name === 'NotAllowedError' || e?.message?.includes('cancel')) return
       setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
