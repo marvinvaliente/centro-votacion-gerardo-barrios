@@ -6,7 +6,7 @@ import {
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
   FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
-  MessageCircle, Link2, FolderOpen
+  MessageCircle, Link2, FolderOpen, ClipboardList
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import MensajesSection from '@/app/portal/_sections/MensajesSection'
@@ -2508,7 +2508,7 @@ export default function PortalPage() {
                                   </button>
                                 )
                               })()}
-                              {/* Admin: editar / eliminar */}
+                              {/* Admin: editar / eliminar / asistencia */}
                               {esAdmin && (
                                 <>
                                   <button onClick={() => abrirEditarEvento({ ...ev, titulo: ev.nombre })}
@@ -2522,6 +2522,24 @@ export default function PortalPage() {
                                     className="btn btn-danger btn-sm"
                                     title="Eliminar evento">
                                     <Trash2 size={11} />
+                                  </button>
+                                  <button
+                                    onClick={() => { window.location.href = '/admin/transporte/asistencia/' + ev.id }}
+                                    className="btn btn-sm"
+                                    style={{ background: '#16a34a', color: 'white', border: 'none' }}
+                                    title="Ver asistencia del evento">
+                                    <ClipboardList size={11} /> Asistencia
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const url = `${window.location.origin}/transporte/asistencia/${ev.id}`
+                                      navigator.clipboard.writeText(url).catch(() => {})
+                                      alert('Enlace copiado: ' + url)
+                                    }}
+                                    className="btn btn-sm"
+                                    style={{ background: '#7c3aed', color: 'white', border: 'none' }}
+                                    title="Copiar enlace de asistencia">
+                                    <Link2 size={11} /> Enlace
                                   </button>
                                 </>
                               )}
