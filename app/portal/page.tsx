@@ -493,6 +493,10 @@ export default function PortalPage() {
   const [formEv, setFormEv] = useState(FORM_EV_VACIO)
   const [guardandoEv, setGuardandoEv] = useState(false)
   const [eliminandoEv, setEliminandoEv] = useState<string | null>(null)
+  // Panel de asistencia admin inline por evento
+  const [asistenciaEvId, setAsistenciaEvId]     = useState<string | null>(null)
+  const [asistenciaData, setAsistenciaData]     = useState<Record<string, any[]>>({})
+  const [cargandoAsistencia, setCargandoAsistencia] = useState<string | null>(null)
   // Link compartible del último evento creado
   const [linkEvento, setLinkEvento] = useState<{ nombre: string; url: string } | null>(null)
   const [linkCopiado, setLinkCopiado] = useState(false)
@@ -1106,6 +1110,22 @@ export default function PortalPage() {
       if (data) setConfirmaciones(prev => ({ ...prev, [eventoId]: data }))
     }
     setCheckingIn(null)
+  }
+
+  async function toggleAsistenciaEvento(eventoId: string) {
+    // Si ya está abierto, cerrar
+    if (asistenciaEvId === eventoId) { setAsistenciaEvId(null); return }
+    // Si ya tenemos datos cargados, solo abrir
+    if (asistenciaData[eventoId]) { setAsistenciaEvId(eventoId); return }
+    setCargandoAsistencia(eventoId)
+    const { data } = await supabase
+      .from('confirmaciones_evento')
+      .select('id, confirmado, necesita_recogida, necesita_regreso, check_in_at, justificacion_ausencia, fecha_confirmacion, usuario:usuario_id(id, nombre, dui, foto_perfil_url)')
+      .eq('evento_id', eventoId)
+      .order('fecha_confirmacion', { ascending: true })
+    setAsistenciaData(prev => ({ ...prev, [eventoId]: data ?? [] }))
+    setCargandoAsistencia(null)
+    setAsistenciaEvId(eventoId)
   }
 
   function abrirRsvp(ev: any) {
@@ -2437,8 +2457,9 @@ export default function PortalPage() {
                           }
                         }
                         return (
-                          <div key={ev.id} className="px-4 md:px-5 py-4 flex flex-col sm:flex-row gap-3 sm:gap-4"
+                          <div key={ev.id} className="px-4 md:px-5 py-4 flex flex-col gap-3"
                             style={{ borderBottom: i < evs.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa', opacity: !ev.activo ? .55 : 1 }}>
+                          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                             {/* Fecha chip */}
                             <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
                               style={{ background: color + '18', border: `1px solid ${color}44` }}>
@@ -2535,11 +2556,15 @@ export default function PortalPage() {
                                     <Trash2 size={11} />
                                   </button>
                                   <button
-                                    onClick={() => { window.location.href = '/admin/transporte/asistencia/' + ev.id }}
+                                    onClick={() => toggleAsistenciaEvento(ev.id)}
+                                    disabled={cargandoAsistencia === ev.id}
                                     className="btn btn-sm"
-                                    style={{ background: '#16a34a', color: 'white', border: 'none' }}
+                                    style={{ background: asistenciaEvId === ev.id ? '#15803d' : '#16a34a', color: 'white', border: 'none' }}
                                     title="Ver asistencia del evento">
-                                    <ClipboardList size={11} /> Asistencia
+                                    {cargandoAsistencia === ev.id
+                                      ? <Loader2 size={11} className="animate-spin" />
+                                      : <ClipboardList size={11} />}
+                                    {asistenciaEvId === ev.id ? 'Ocultar' : 'Asistencia'}
                                   </button>
                                   <button
                                     onClick={() => {
@@ -2549,12 +2574,75 @@ export default function PortalPage() {
                                     }}
                                     className="btn btn-sm"
                                     style={{ background: '#7c3aed', color: 'white', border: 'none' }}
-                                    title="Copiar enlace de asistencia">
-                                    <Link2 size={11} /> Enlace
+                                    title="Copiar enlace de check-in">
+                                    <Link2 size={11} /> Enlace check-in
                                   </button>
                                 </>
                               )}
                             </div>
+                          </div>{/* fin flex sm:flex-row */}
+                            {/* Panel de asistencia inline — solo admin */}
+                            {esAdmin && asistenciaEvId === ev.id && (() => {
+                              const lista: any[] = asistenciaData[ev.id] ?? []
+                              const confirmados  = lista.filter(c => c.confirmado)
+                              const declinados   = lista.filter(c => c.confirmado === false)
+                              const conTransporte = lista.filter(c => c.necesita_recogida || c.necesita_regreso)
+                              const presentes    = lista.filter(c => c.check_in_at)
+                              const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? '—'
+                              return (
+                                <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--borde)', background: 'var(--fondo)' }}>
+                                  {/* Cabecera resumen */}
+                                  <div className="px-4 py-3 flex flex-wrap gap-4 text-xs font-medium border-b" style={{ borderColor: 'var(--borde)', background: 'var(--superficie)' }}>
+                                    <span style={{ color: '#16a34a' }}>✓ {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
+                                    <span style={{ color: '#2563eb' }}>🚌 {conTransporte.length} con transporte</span>
+                                    <span style={{ color: '#7c3aed' }}>📋 {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
+                                    {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>✗ {declinados.length} no asistirá</span>}
+                                  </div>
+                                  {lista.length === 0 ? (
+                                    <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--texto-muted)' }}>Sin confirmaciones registradas aún.</div>
+                                  ) : (
+                                    <div className="divide-y" style={{ '--tw-divide-opacity': 1 } as any}>
+                                      {lista.map((c: any) => {
+                                        const u = c.usuario
+                                        const tieneCheckin = !!c.check_in_at
+                                        const conRec = c.necesita_recogida
+                                        const conReg = c.necesita_regreso
+                                        return (
+                                          <div key={c.id} className="px-4 py-2.5 flex items-center gap-3" style={{ borderColor: 'var(--borde)' }}>
+                                            {/* Avatar */}
+                                            <div className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-xs font-bold"
+                                              style={{ background: tieneCheckin ? '#dcfce7' : c.confirmado ? '#eff6ff' : 'rgba(107,114,128,.1)', color: tieneCheckin ? '#16a34a' : c.confirmado ? '#2563eb' : 'var(--texto-muted)' }}>
+                                              {u?.foto_perfil_url
+                                                ? <img src={u.foto_perfil_url} alt="" className="w-full h-full object-cover" />
+                                                : (fmtNombre(u).charAt(0).toUpperCase())}
+                                            </div>
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                              <span className="text-xs font-medium truncate block" style={{ color: 'var(--texto)' }}>{fmtNombre(u)}</span>
+                                              {u?.dui && <span className="text-xs" style={{ color: 'var(--texto-muted)' }}>{u.dui}</span>}
+                                            </div>
+                                            {/* Badges */}
+                                            <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
+                                              {tieneCheckin && (
+                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#dcfce7', color: '#16a34a' }}>Presente</span>
+                                              )}
+                                              {c.confirmado && !tieneCheckin && (
+                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#eff6ff', color: '#2563eb' }}>Confirmó</span>
+                                              )}
+                                              {!c.confirmado && (
+                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)' }}>No asistirá</span>
+                                              )}
+                                              {conRec && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Recogida</span>}
+                                              {conReg && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Regreso</span>}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })()}
                           </div>
                         )
                       })}
