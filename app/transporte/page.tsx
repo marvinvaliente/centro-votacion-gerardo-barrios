@@ -7,6 +7,7 @@ import {
   MapPin, Bus, Calendar, CheckCircle, XCircle, Clock,
   ChevronLeft, Loader2, ExternalLink, Map, X, Navigation, Truck, Phone
 } from 'lucide-react'
+import PortalNavBar from '@/components/PortalNavBar'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1069,6 +1070,9 @@ function TransporteInner() {
 
         </div>
       </main>
+      {/* Barra de navegación inferior */}
+      <div className="md:hidden h-20" />
+      <PortalNavBar activeKey="transporte" />
     </>
   )
 }

@@ -9,6 +9,7 @@ import {
   Map, ExternalLink, User, AlertTriangle, RefreshCw, Info,
   MessageCircle, CreditCard, Check
 } from 'lucide-react'
+import PortalNavBar from '@/components/PortalNavBar'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -766,6 +767,9 @@ function MotoristaInner() {
           </div>
         )}
       </div>
+      {/* Espacio para barra inferior */}
+      <div className="md:hidden h-20" />
+      <PortalNavBar activeKey="motorista" />
     </main>
   )
 }

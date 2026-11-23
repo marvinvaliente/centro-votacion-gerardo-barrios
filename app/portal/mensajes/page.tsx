@@ -6,6 +6,7 @@ import {
   Loader2, RefreshCw, Globe, ShieldAlert
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import PortalNavBar from '@/components/PortalNavBar'
 
 // ── Tipos ────────────────────────────────────────────────────
 interface Usuario {
@@ -849,6 +850,9 @@ export default function MensajesPage() {
               : `Portal de mensajes`}
         </p>
       </div>
+      {/* Espacio para la barra inferior */}
+      <div className="md:hidden h-20" />
+      <PortalNavBar activeKey="mensajes" />
     </div>
   )
 }

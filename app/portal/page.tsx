@@ -489,8 +489,9 @@ export default function PortalPage() {
   // Link compartible del último evento creado
   const [linkEvento, setLinkEvento] = useState<{ nombre: string; url: string } | null>(null)
   const [linkCopiado, setLinkCopiado] = useState(false)
-  // Parámetro ?evento=id en URL para auto-abrir RSVP
+  // Parámetros URL: ?evento=id para auto-abrir RSVP, ?s=seccion para navegación directa
   const eventoIdUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('evento') : null
+  const seccionUrl  = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('s') : null
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
@@ -498,6 +499,10 @@ export default function PortalPage() {
       const u = JSON.parse(stored)
       setUsuario(u)
       cargarDatos(u)
+    }
+    // Navegar a la sección indicada en la URL (?s=jrv, ?s=agenda, etc.)
+    if (seccionUrl && ['perfil','jrv','agenda'].includes(seccionUrl)) {
+      setSeccion(seccionUrl as Seccion)
     }
   }, [])
 
@@ -794,6 +799,8 @@ export default function PortalPage() {
         setRegistro(reg)
         setPadronInfo(reg.padron ?? null)
         setFormPerfil({ nombre: reg.nombre ?? '', telefono: reg.telefono ?? '', correo: reg.correo ?? '', direccion: reg.direccion ?? '' })
+        // Guardar registro en sessionStorage para que PortalNavBar lea es_motorista
+        try { sessionStorage.setItem('portal_registro', JSON.stringify(reg)) } catch {}
         if (reg.padron_id) {
           // Obtener compañeros de la misma JRV
           const { data: mismaJrv } = await supabase.from('padron').select('id').eq('jrv', reg.padron.jrv)
