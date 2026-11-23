@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeft, Send, Users, MessageCircle, ChevronRight, Loader2, Globe, ShieldAlert, Eye, X } from 'lucide-react'
+import { ArrowLeft, Send, Users, MessageCircle, ChevronRight, Loader2, Globe, ShieldAlert, Eye, X, Search, ChevronDown, ChevronUp, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 // ── Tipos ────────────────────────────────────────────────────
@@ -96,6 +96,12 @@ export default function MensajesSection({
     return init
   })
 
+  // Todos los usuarios del sistema (para DMs)
+  const [todosUsuarios, setTodosUsuarios] = useState<{ id: string; nombre: string; cargo: string; jrv: string | null; foto: string | null }[]>([])
+  const [chatsIniciados, setChatsIniciados] = useState<{ id: string; nombre: string; cargo: string; jrv: string | null; foto: string | null; ultimoMsg: string; ultimaHora: string }[]>([])
+  const [busquedaDM, setBusquedaDM] = useState('')
+  const [jrvsExpandidas, setJrvsExpandidas] = useState<Record<string, boolean>>({})
+
   // Propagar total no leídos al portal (para el badge del NAV)
   useEffect(() => {
     const total = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral + Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0)
@@ -176,6 +182,77 @@ export default function MensajesSection({
       setNoLeidosJrvs(counts)
     })
   }, [todasJrvs, usuario.id])
+
+  // Cargar todos los usuarios del sistema
+  useEffect(() => {
+    async function cargar() {
+      const { data: rdData } = await supabase
+        .from('registros_dui')
+        .select('id, nombre, padron:padron_id(cargo, jrv)')
+        .order('nombre')
+      const rdIds = (rdData ?? []).map((r: any) => r.id)
+      if (rdIds.length === 0) return
+      const { data: usrData } = await supabase
+        .from('usuarios').select('id, registro_dui_id, foto_perfil_url')
+        .in('registro_dui_id', rdIds).neq('id', usuario.id)
+      const usrMap: Record<string, any> = {}
+      for (const u of usrData ?? []) usrMap[u.registro_dui_id] = u
+      const result = (rdData ?? [])
+        .filter((r: any) => usrMap[r.id])
+        .map((r: any) => ({
+          id: usrMap[r.id].id,
+          nombre: r.nombre,
+          cargo: r.padron?.cargo ?? '',
+          jrv: r.padron?.jrv && r.padron.jrv !== '—' ? r.padron.jrv : null,
+          foto: usrMap[r.id].foto_perfil_url ?? null,
+        }))
+      setTodosUsuarios(result)
+      // Poblar fotosCache
+      setFotosCache(prev => {
+        const next = { ...prev }
+        for (const u of result) if (!(u.id in next)) next[u.id] = u.foto
+        return next
+      })
+    }
+    cargar()
+  }, [usuario.id])
+
+  // Cargar conversaciones DM iniciadas (para preview)
+  useEffect(() => {
+    async function cargar() {
+      const { data: dms } = await supabase
+        .from('mensajes_directos')
+        .select('remitente_id, destinatario_id, remitente_nombre, contenido, created_at')
+        .or(`remitente_id.eq.${usuario.id},destinatario_id.eq.${usuario.id}`)
+        .order('created_at', { ascending: false })
+        .limit(300)
+      if (!dms || dms.length === 0) return
+      // Agrupar por interlocutor (único), mantener el más reciente
+      const seen = new Set<string>()
+      const convs: { otherId: string; ultimoMsg: string; ultimaHora: string }[] = []
+      for (const m of dms) {
+        const otherId = m.remitente_id === usuario.id ? m.destinatario_id : m.remitente_id
+        if (!seen.has(otherId)) { seen.add(otherId); convs.push({ otherId, ultimoMsg: m.contenido, ultimaHora: m.created_at }) }
+      }
+      if (convs.length === 0) return
+      const { data: usrs } = await supabase.from('usuarios')
+        .select('id, foto_perfil_url, registro:registro_dui_id(nombre, padron:padron_id(cargo, jrv))')
+        .in('id', convs.map(c => c.otherId))
+      const usrMap: Record<string, any> = {}
+      for (const u of usrs ?? []) usrMap[u.id] = u
+      setChatsIniciados(convs.map(c => {
+        const u = usrMap[c.otherId]
+        const reg = u?.registro as any
+        return {
+          id: c.otherId, nombre: reg?.nombre ?? 'Usuario',
+          cargo: reg?.padron?.cargo ?? '', jrv: reg?.padron?.jrv ?? null,
+          foto: u?.foto_perfil_url ?? null,
+          ultimoMsg: c.ultimoMsg, ultimaHora: c.ultimaHora,
+        }
+      }))
+    }
+    cargar()
+  }, [usuario.id])
 
   // Scroll al fondo
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [mensajesGrupo, mensajesDm])
@@ -292,6 +369,14 @@ export default function MensajesSection({
           supabase.from('mensajes_directos').update({ leido: true }).eq('id', msg.id)
           supabase.from('mensajes_lecturas').upsert({ mensaje_id: msg.id, tabla: 'dm', usuario_id: usuario.id, usuario_nombre: usuario.nombre }, { onConflict: 'mensaje_id,tabla,usuario_id', ignoreDuplicates: true })
         } else setNoLeidos(prev => ({ ...prev, [msg.remitente_id]: (prev[msg.remitente_id] ?? 0) + 1 }))
+        // Actualizar preview de chatsIniciados
+        setChatsIniciados(prev => {
+          const otherId = msg.remitente_id === usuario.id ? msg.destinatario_id : msg.remitente_id
+          const existe = prev.find(c => c.id === otherId)
+          if (existe) return prev.map(c => c.id === otherId ? { ...c, ultimoMsg: msg.contenido, ultimaHora: msg.created_at } : c)
+          // nuevo interlocutor: añadir con info básica; todosUsuarios puede tenerlo
+          return prev // se recargará con la próxima visita
+        })
       }).subscribe()
     const channels = [chanGeneral, chanDm]
     if (userJrv) {
@@ -841,45 +926,167 @@ export default function MensajesSection({
           </div>
         )}
 
-        {/* Mensajes directos */}
-        {userJrv && (
+        {/* Conversaciones recientes (DMs iniciados) */}
+        {chatsIniciados.length > 0 && (
           <div className="mx-4 mt-5">
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Integrantes de tu JRV</p>
-            {miembros.length === 0
-              ? <div className="flex flex-col items-center py-10 gap-2"><RefreshCw className="w-6 h-6 text-gray-300" /><p className="text-sm text-gray-400">No hay más integrantes registrados en la JRV {userJrv}.</p></div>
-              : <div className="space-y-2">
-                {miembros.map(m => {
-                  const nl = noLeidos[m.id] ?? 0
-                  return (
-                    <button key={m.id} onClick={() => setConversacion({ tipo: 'dm', miembro: m })}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
-                      style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
-                        style={m.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
-                        {m.foto
-                          ? <img src={m.foto} alt={m.nombre} className="w-full h-full object-cover" />
-                          : iniciales(m.nombre)
-                        }
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Conversaciones recientes</p>
+            <div className="space-y-1">
+              {chatsIniciados.map(c => {
+                const nl = noLeidos[c.id] ?? 0
+                const miembro: MiembroJrv = { id: c.id, nombre: c.nombre, cargo: c.cargo, dui: '', foto: c.foto }
+                return (
+                  <button key={c.id} onClick={() => setConversacion({ tipo: 'dm', miembro })}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[.98]"
+                    style={{ background: nl > 0 ? 'rgba(30,58,95,.04)' : 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(30,58,95,.15)' : 'none' }}>
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
+                      style={c.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
+                      {c.foto ? <img src={c.foto} alt={c.nombre} className="w-full h-full object-cover" /> : iniciales(c.nombre)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-1">
+                        <p className="font-semibold text-sm leading-tight truncate" style={{ color: '#1e293b' }}>{c.nombre}</p>
+                        <span className="text-[10px] flex-shrink-0" style={{ color: '#94a3b8' }}>{fmtHora(c.ultimaHora)}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{m.nombre}</p>
-                        <p className="text-xs mt-0.5 truncate" style={{ color: '#64748b' }}>{m.cargo}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
-                        <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            }
+                      <p className="text-xs mt-0.5 truncate" style={{ color: nl > 0 ? '#1e3a5f' : '#94a3b8', fontWeight: nl > 0 ? 600 : 400 }}>{c.ultimoMsg}</p>
+                    </div>
+                    {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
-        <p className="text-center text-xs mt-8 mb-6" style={{ color: '#94a3b8' }}>
-          {esJefeCentro ? 'Acceso a todas las JRVs del centro' : userJrv ? `Solo se muestran integrantes de tu JRV ${userJrv}` : 'Portal de mensajes'}
-        </p>
+        {/* Todos los miembros — buscador + por JRV */}
+        <div className="mx-4 mt-5 pb-6">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Todos los miembros</p>
+          {/* Buscador */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#94a3b8' }} />
+            <input type="text" value={busquedaDM} onChange={e => setBusquedaDM(e.target.value)}
+              placeholder="Buscar por nombre o cargo…"
+              className="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl outline-none"
+              style={{ background: 'white', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+            {busquedaDM && (
+              <button onClick={() => setBusquedaDM('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {todosUsuarios.length === 0
+            ? <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: '#94a3b8' }} /></div>
+            : (() => {
+              const q = busquedaDM.trim().toLowerCase()
+              const filtrados = q
+                ? todosUsuarios.filter(u => u.nombre.toLowerCase().includes(q) || u.cargo.toLowerCase().includes(q))
+                : todosUsuarios
+
+              if (filtrados.length === 0) return (
+                <p className="text-center text-sm py-8" style={{ color: '#94a3b8' }}>Sin resultados para &ldquo;{busquedaDM}&rdquo;</p>
+              )
+
+              if (q) {
+                // Búsqueda activa: lista plana
+                return (
+                  <div className="space-y-1">
+                    {filtrados.map(u => {
+                      const nl = noLeidos[u.id] ?? 0
+                      const miembro: MiembroJrv = { id: u.id, nombre: u.nombre, cargo: u.cargo, dui: '', foto: u.foto }
+                      return (
+                        <button key={u.id} onClick={() => setConversacion({ tipo: 'dm', miembro })}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[.98]"
+                          style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
+                            style={u.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
+                            {u.foto ? <img src={u.foto} alt={u.nombre} className="w-full h-full object-cover" /> : iniciales(u.nombre)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{u.nombre}</p>
+                            <p className="text-xs mt-0.5 truncate" style={{ color: '#64748b' }}>
+                              {u.cargo}{u.jrv ? ` · JRV ${u.jrv}` : ''}
+                            </p>
+                          </div>
+                          {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
+                          <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              }
+
+              // Sin búsqueda: agrupados por JRV
+              const sinJrv = filtrados.filter(u => !u.jrv)
+              const porJrv: Record<string, typeof filtrados> = {}
+              for (const u of filtrados) if (u.jrv) { if (!porJrv[u.jrv]) porJrv[u.jrv] = []; porJrv[u.jrv].push(u) }
+              const jrvsOrdenadas = Object.keys(porJrv).sort((a, b) => a.localeCompare(b, 'es'))
+
+              function FilaUsuario({ u }: { u: typeof filtrados[0] }) {
+                const nl = noLeidos[u.id] ?? 0
+                const miembro: MiembroJrv = { id: u.id, nombre: u.nombre, cargo: u.cargo, dui: '', foto: u.foto }
+                return (
+                  <button onClick={() => setConversacion({ tipo: 'dm', miembro })}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-all active:scale-[.98]"
+                    style={{ background: nl > 0 ? 'rgba(30,58,95,.04)' : 'white', border: nl > 0 ? '1px solid rgba(30,58,95,.15)' : '1px solid transparent' }}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs overflow-hidden"
+                      style={u.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
+                      {u.foto ? <img src={u.foto} alt={u.nombre} className="w-full h-full object-cover" /> : iniciales(u.nombre)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{u.nombre}</p>
+                      <p className="text-xs truncate" style={{ color: '#64748b' }}>{u.cargo}</p>
+                    </div>
+                    {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
+                    <MessageCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
+                  </button>
+                )
+              }
+
+              return (
+                <div className="space-y-3">
+                  {jrvsOrdenadas.map(jrv => {
+                    const abierta = jrvsExpandidas[jrv] !== false // default open
+                    const nlJrv = porJrv[jrv].reduce((a, u) => a + (noLeidos[u.id] ?? 0), 0)
+                    return (
+                      <div key={jrv} className="rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+                        <button onClick={() => setJrvsExpandidas(prev => ({ ...prev, [jrv]: !abierta }))}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                          style={{ borderBottom: abierta ? '1px solid #f1f5f9' : 'none' }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(200,168,75,.15)', border: '1.5px solid rgba(200,168,75,.4)' }}>
+                            <Users className="w-4 h-4" style={{ color: '#c8a84b' }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {jrv}</p>
+                            <p className="text-xs" style={{ color: '#64748b' }}>{porJrv[jrv].length} integrante{porJrv[jrv].length !== 1 ? 's' : ''}</p>
+                          </div>
+                          {nlJrv > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#c8a84b', color: '#1e3a5f' }}>{nlJrv}</span>}
+                          {abierta ? <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} /> : <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />}
+                        </button>
+                        {abierta && (
+                          <div className="divide-y" style={{ borderColor: '#f8fafc' }}>
+                            {porJrv[jrv].map(u => <FilaUsuario key={u.id} u={u} />)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {sinJrv.length > 0 && (
+                    <div className="rounded-2xl overflow-hidden" style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+                      <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <User className="w-4 h-4" style={{ color: '#94a3b8' }} />
+                        <p className="text-xs font-semibold" style={{ color: '#64748b' }}>Sin JRV asignada</p>
+                      </div>
+                      <div className="divide-y" style={{ borderColor: '#f8fafc' }}>
+                        {sinJrv.map(u => <FilaUsuario key={u.id} u={u} />)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()
+          }
+        </div>
       </div>
     </div>
   )
