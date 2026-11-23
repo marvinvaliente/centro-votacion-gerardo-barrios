@@ -30,7 +30,7 @@ type Pasajero = {
   cargo: string; jrv: string; solicita_recogida: boolean; solicita_regreso: boolean
   latitud: number | null; longitud: number | null; estado: string
   recogido: boolean; recogido_at: string | null; completado: boolean; completado_at: string | null
-  tipo_recogida: 'domicilio' | 'punto_reunion'
+  tipo_recogida: 'domicilio' | 'punto_reunion'; foto_perfil_url?: string | null
 }
 
 type EventoConPasajeros = Evento & { pasajeros: Pasajero[] }
@@ -86,8 +86,15 @@ function TarjetaPasajero({ p, onMarcarRecogido, onMarcarCompletado }: {
     <div className={`bg-white rounded-xl border shadow-sm p-4 transition-all ${p.completado ? 'border-green-200 bg-green-50/50' : p.recogido ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${p.completado ? 'bg-green-100' : p.recogido ? 'bg-blue-100' : 'bg-indigo-100'}`}>
-            <User className={`w-4 h-4 ${p.completado ? 'text-green-600' : p.recogido ? 'text-blue-600' : 'text-indigo-600'}`} />
+          <div className="relative flex-shrink-0">
+            {p.foto_perfil_url ? (
+              <img src={p.foto_perfil_url} alt={p.nombre}
+                className={`w-9 h-9 rounded-full object-cover ring-2 ${p.completado ? 'ring-green-300' : p.recogido ? 'ring-blue-300' : 'ring-indigo-200'}`} />
+            ) : (
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ring-2 ${p.completado ? 'bg-green-100 text-green-700 ring-green-300' : p.recogido ? 'bg-blue-100 text-blue-700 ring-blue-300' : 'bg-indigo-100 text-indigo-700 ring-indigo-200'}`}>
+                {p.nombre.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()}
+              </div>
+            )}
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{p.nombre}</p>
@@ -266,6 +273,14 @@ export default function MotoristaSection({ usuario }: { usuario: UsuarioProp }) 
         .select('id, evento_id, solicita_recogida, solicita_regreso, estado, tipo_recogida, recogido, recogido_at, completado, completado_at, registro:registro_id (id, nombre, dui, telefono, latitud, longitud, padron:padron_id(cargo, jrv))')
         .eq('motorista_id', mot.id).in('evento_id', evs.map(e => e.id))
 
+      // Cargar fotos de perfil
+      const rdIds = [...new Set((sols ?? []).map((s: any) => s.registro?.id).filter(Boolean))]
+      const { data: usrData } = rdIds.length > 0
+        ? await supabase.from('usuarios').select('registro_dui_id, foto_perfil_url').in('registro_dui_id', rdIds)
+        : { data: [] }
+      const fotoMap: Record<string, string | null> = {}
+      for (const u of usrData ?? []) fotoMap[u.registro_dui_id] = u.foto_perfil_url ?? null
+
       const pasajerosPorEvento: Record<string, Pasajero[]> = {}
       for (const s of (sols ?? [])) {
         const reg = (s as any).registro
@@ -279,6 +294,7 @@ export default function MotoristaSection({ usuario }: { usuario: UsuarioProp }) 
           recogido: s.recogido ?? false, recogido_at: s.recogido_at ?? null,
           completado: s.completado ?? false, completado_at: s.completado_at ?? null,
           tipo_recogida: s.tipo_recogida ?? 'domicilio',
+          foto_perfil_url: fotoMap[reg?.id] ?? null,
         })
       }
       const eventosConPasajeros = evs.map(ev => ({ ...ev, pasajeros: pasajerosPorEvento[ev.id] ?? [] })).filter(ev => ev.pasajeros.length > 0)

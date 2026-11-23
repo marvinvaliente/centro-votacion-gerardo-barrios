@@ -2722,7 +2722,7 @@ export default function PortalPage() {
 
           {/* ── ADMIN: TRANSPORTE ── */}
           {seccion === 'admin-transporte' && (
-            <AdminTransporteSection />
+            <AdminTransporteSection usuario={usuario ? { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, foto_perfil_url: usuario.foto_perfil_url } : undefined} />
           )}
 
           {/* ── ADMIN: CATÁLOGO ── */}

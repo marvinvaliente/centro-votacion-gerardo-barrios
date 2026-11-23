@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
   Bus, Calendar, MapPin, Users, Plus, Edit2, Trash2, CheckCircle,
-  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User
+  XCircle, Clock, ExternalLink, Loader2, X, Truck, Shuffle, User,
+  MessageCircle, Send, ArrowLeft
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ type Evento = {
 type Registro = {
   id: string; nombre: string; dui: string; telefono: string | null
   cargo: string; jrv: string; latitud: number | null; longitud: number | null
-  es_motorista: boolean
+  es_motorista: boolean; foto?: string | null; usuario_id?: string | null
 }
 
 type Solicitud = {
@@ -32,6 +33,12 @@ type Solicitud = {
   motorista_id: string | null
   nombre: string; dui: string; telefono: string | null
   cargo: string; jrv: string; latitud: number | null; longitud: number | null
+  foto?: string | null
+}
+
+type MensajeTransporte = {
+  id: string; evento_id: string; autor_id: string; autor_nombre: string
+  autor_foto: string | null; autor_rol: string; contenido: string; created_at: string
 }
 
 type TabActiva = 'motoristas' | 'solicitudes'
@@ -621,7 +628,7 @@ function distribuirMotoristas(
 }
 
 // ── Componente principal ─────────────────────────────────────
-export default function AdminTransporteSection() {
+export default function AdminTransporteSection({ usuario }: { usuario?: { id: string; nombre: string; rol?: string; foto_perfil_url?: string | null } }) {
   const [tab, setTab] = useState<TabActiva>('motoristas')
   const [eventos, setEventos] = useState<Evento[]>([])
   const [registros, setRegistros] = useState<Registro[]>([])
@@ -634,6 +641,14 @@ export default function AdminTransporteSection() {
   const [distribuyendo, setDistribuyendo] = useState(false)
   const [toggleando, setToggleando] = useState<string | null>(null)
   const [busquedaMotorista, setBusquedaMotorista] = useState('')
+  // Chat de transporte
+  const [chatEventoId, setChatEventoId] = useState<string | null>(null)
+  const [mensajesTransporte, setMensajesTransporte] = useState<MensajeTransporte[]>([])
+  const [textoChat, setTextoChat] = useState('')
+  const [enviandoChat, setEnviandoChat] = useState(false)
+  const [cargandoChat, setCargandoChat] = useState(false)
+  const chatBottomRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
 
   const cargarEventos = useCallback(async () => {
     const { data } = await supabase.from('eventos_transporte').select('*').order('fecha', { ascending: true })
@@ -645,12 +660,22 @@ export default function AdminTransporteSection() {
       .from('registros_dui')
       .select('id, nombre, dui, telefono, latitud, longitud, es_motorista, padron:padron_id(cargo,jrv)')
       .order('nombre')
+    const rdRows = data ?? []
+    // Cargar fotos de perfil desde usuarios
+    const rdIds = rdRows.map((r: any) => r.id)
+    const { data: usrData } = rdIds.length > 0
+      ? await supabase.from('usuarios').select('id, registro_dui_id, foto_perfil_url').in('registro_dui_id', rdIds)
+      : { data: [] }
+    const fotoMap: Record<string, { foto: string | null; uid: string }> = {}
+    for (const u of usrData ?? []) fotoMap[u.registro_dui_id] = { foto: u.foto_perfil_url ?? null, uid: u.id }
     setRegistros(
-      (data ?? []).map((r: any) => ({
+      rdRows.map((r: any) => ({
         id: r.id, nombre: r.nombre, dui: r.dui, telefono: r.telefono,
         latitud: r.latitud, longitud: r.longitud,
         cargo: r.padron?.cargo ?? 'Sin asignar', jrv: r.padron?.jrv ?? '-',
         es_motorista: r.es_motorista ?? false,
+        foto: fotoMap[r.id]?.foto ?? null,
+        usuario_id: fotoMap[r.id]?.uid ?? null,
       }))
     )
   }, [])
@@ -661,12 +686,20 @@ export default function AdminTransporteSection() {
       .select(`
         id, registro_id, evento_id, estado,
         solicita_recogida, solicita_regreso, motorista_id,
-        registro:registro_id (nombre, dui, telefono, latitud, longitud,
+        registro:registro_id (id, nombre, dui, telefono, latitud, longitud,
           padron:padron_id(cargo,jrv))
       `)
       .eq('evento_id', eventoId)
+    const rows = data ?? []
+    // Cargar fotos
+    const rdIds = [...new Set(rows.map((s: any) => s.registro_id).filter(Boolean))]
+    const { data: usrData } = rdIds.length > 0
+      ? await supabase.from('usuarios').select('registro_dui_id, foto_perfil_url').in('registro_dui_id', rdIds)
+      : { data: [] }
+    const fotoMap: Record<string, string | null> = {}
+    for (const u of usrData ?? []) fotoMap[u.registro_dui_id] = u.foto_perfil_url ?? null
     setSolicitudes(
-      (data ?? []).map((s: any) => ({
+      rows.map((s: any) => ({
         id: s.id, registro_id: s.registro_id, evento_id: s.evento_id,
         estado: s.estado, solicita_recogida: s.solicita_recogida,
         solicita_regreso: s.solicita_regreso, motorista_id: s.motorista_id,
@@ -674,6 +707,7 @@ export default function AdminTransporteSection() {
         telefono: s.registro?.telefono ?? null,
         cargo: s.registro?.padron?.cargo ?? '-', jrv: s.registro?.padron?.jrv ?? '-',
         latitud: s.registro?.latitud ?? null, longitud: s.registro?.longitud ?? null,
+        foto: fotoMap[s.registro_id] ?? null,
       }))
     )
   }, [])
@@ -813,14 +847,146 @@ export default function AdminTransporteSection() {
     return buildMapsUrl(origen, dest, sols.slice(0, -1).map((s) => `${s.latitud},${s.longitud}`))
   }
 
+  // ── Chat de transporte ───────────────────────────────────────
+  async function abrirChatEvento(eventoId: string) {
+    setChatEventoId(eventoId)
+    setCargandoChat(true)
+    const { data } = await supabase
+      .from('mensajes_transporte')
+      .select('*')
+      .eq('evento_id', eventoId)
+      .order('created_at', { ascending: true })
+    setMensajesTransporte(data ?? [])
+    setCargandoChat(false)
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }
+
+  async function enviarMensajeTransporte() {
+    if (!textoChat.trim() || !chatEventoId || !usuario) return
+    setEnviandoChat(true)
+    const msg = {
+      evento_id: chatEventoId,
+      autor_id: usuario.id,
+      autor_nombre: usuario.nombre,
+      autor_foto: usuario.foto_perfil_url ?? null,
+      autor_rol: usuario.rol ?? 'admin',
+      contenido: textoChat.trim(),
+    }
+    const { data } = await supabase.from('mensajes_transporte').insert(msg).select().single()
+    if (data) setMensajesTransporte(prev => [...prev, data])
+    setTextoChat('')
+    setEnviandoChat(false)
+    setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+  }
+
+  // Realtime para chat abierto
+  useEffect(() => {
+    if (!chatEventoId) return
+    const ch = supabase.channel(`chat_transporte_${chatEventoId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'mensajes_transporte',
+        filter: `evento_id=eq.${chatEventoId}`,
+      }, (payload) => {
+        setMensajesTransporte(prev => {
+          if (prev.some(m => m.id === payload.new.id)) return prev
+          const nuevo = [...prev, payload.new as MensajeTransporte]
+          setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+          return nuevo
+        })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [chatEventoId])
+
   if (cargando) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
     </div>
   )
 
+  // Helper avatar
+  function AvatarCircle({ foto, nombre, size = 8 }: { foto?: string | null; nombre: string; size?: number }) {
+    const initials = nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+    const cls = `w-${size} h-${size} rounded-full object-cover shrink-0`
+    if (foto) return <img src={foto} alt={nombre} className={cls} style={{ width: size * 4, height: size * 4 }} />
+    return (
+      <div className={`${cls} bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0`}
+        style={{ width: size * 4, height: size * 4, fontSize: size * 1.5 }}>
+        {initials}
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-5">
+    <div className="max-w-5xl mx-auto p-4 space-y-5 relative">
+      {/* Panel de chat */}
+      {chatEventoId && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) setChatEventoId(null) }}>
+          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col"
+            style={{ height: '90vh', maxHeight: 640 }}>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+              <button onClick={() => setChatEventoId(null)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-sm truncate">
+                  Chat: {eventos.find(e => e.id === chatEventoId)?.nombre ?? 'Evento'}
+                </p>
+                <p className="text-xs text-gray-400">Grupo de transporte</p>
+              </div>
+              <MessageCircle className="w-5 h-5 text-blue-500" />
+            </div>
+            {/* Mensajes */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {cargandoChat && (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+              )}
+              {!cargandoChat && mensajesTransporte.length === 0 && (
+                <div className="text-center py-10 text-gray-400">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No hay mensajes aún. ¡Sé el primero en escribir!</p>
+                </div>
+              )}
+              {mensajesTransporte.map((m) => {
+                const esMio = usuario && m.autor_id === usuario.id
+                return (
+                  <div key={m.id} className={`flex items-end gap-2 ${esMio ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <AvatarCircle foto={m.autor_foto} nombre={m.autor_nombre} size={7} />
+                    <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${esMio ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-900 rounded-bl-sm'}`}>
+                      {!esMio && <p className="text-xs font-semibold mb-0.5 text-blue-700">{m.autor_nombre}</p>}
+                      <p className="leading-snug">{m.contenido}</p>
+                      <p className={`text-xs mt-1 ${esMio ? 'text-blue-200' : 'text-gray-400'}`}>
+                        {new Date(m.created_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+              <div ref={chatBottomRef} />
+            </div>
+            {/* Input */}
+            {usuario ? (
+              <div className="px-4 py-3 border-t border-gray-100 flex gap-2 items-end">
+                <textarea ref={chatInputRef} rows={1}
+                  value={textoChat} onChange={(e) => setTextoChat(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensajeTransporte() } }}
+                  placeholder="Escribí un mensaje..."
+                  className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  style={{ maxHeight: 100 }} />
+                <button onClick={enviarMensajeTransporte} disabled={!textoChat.trim() || enviandoChat}
+                  className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white rounded-xl transition-colors">
+                  {enviandoChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+            ) : (
+              <p className="text-center text-xs text-gray-400 py-3">Iniciá sesión para escribir</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <Bus className="w-7 h-7 text-blue-600" />
         <div>
@@ -902,6 +1068,8 @@ export default function AdminTransporteSection() {
                           </div>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
+                          <button onClick={() => abrirChatEvento(ev.id)} title="Chat del evento"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><MessageCircle className="w-4 h-4" /></button>
                           <button onClick={async () => { setEditandoEvento(ev); setMostrarFormEvento(false); await cargarMotoristasEvento(ev.id) }}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-4 h-4" /></button>
                           <button onClick={() => eliminarEvento(ev.id)}
@@ -963,7 +1131,14 @@ export default function AdminTransporteSection() {
                     <tr key={r.id} className={`hover:bg-gray-50 ${r.es_motorista ? 'bg-blue-50/40' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {r.es_motorista && <Truck className="w-4 h-4 text-blue-500 shrink-0" />}
+                          <div className="relative shrink-0">
+                            <AvatarCircle foto={r.foto} nombre={r.nombre} size={8} />
+                            {r.es_motorista && (
+                              <span className="absolute -bottom-0.5 -right-0.5 bg-blue-600 rounded-full p-0.5">
+                                <Truck className="w-2.5 h-2.5 text-white" />
+                              </span>
+                            )}
+                          </div>
                           <div>
                             <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
                             <p className="text-xs text-gray-400">{r.cargo} · JRV {r.jrv}</p>
@@ -1045,9 +1220,7 @@ export default function AdminTransporteSection() {
                       return (
                         <div key={m.id} className="bg-white border border-blue-100 rounded-xl p-3 space-y-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="bg-blue-100 text-blue-700 rounded-full p-1.5 shrink-0">
-                              <Truck className="w-4 h-4" />
-                            </div>
+                            <AvatarCircle foto={m.foto} nombre={m.nombre} size={8} />
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900 text-sm truncate">{m.nombre}</p>
                               <p className="text-xs text-gray-500">{m.telefono ?? '—'} · <span className="font-semibold text-blue-700">{asignados.length} pasajero{asignados.length !== 1 ? 's' : ''}</span></p>
@@ -1095,9 +1268,14 @@ export default function AdminTransporteSection() {
                         return (
                           <tr key={s.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3">
-                              <p className="font-medium text-gray-900 leading-tight">{s.nombre}</p>
-                              <p className="text-xs text-gray-400">{s.cargo} · JRV {s.jrv}</p>
-                              <p className="text-xs text-gray-400">{s.telefono ?? '—'}</p>
+                              <div className="flex items-center gap-2">
+                                <AvatarCircle foto={s.foto} nombre={s.nombre} size={7} />
+                                <div>
+                                  <p className="font-medium text-gray-900 leading-tight">{s.nombre}</p>
+                                  <p className="text-xs text-gray-400">{s.cargo} · JRV {s.jrv}</p>
+                                  <p className="text-xs text-gray-400">{s.telefono ?? '—'}</p>
+                                </div>
+                              </div>
                             </td>
                             <td className="px-4 py-3 hidden sm:table-cell">
                               <div className="flex gap-1 flex-wrap">
