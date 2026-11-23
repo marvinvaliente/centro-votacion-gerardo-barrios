@@ -79,6 +79,10 @@ export default function MensajesSection({
   // Lecturas (visto por)
   const [lecturas, setLecturas] = useState<Record<string, { id: string; nombre: string; leido_at: string; usuario_id?: string }[]>>({})
   const [popoverLectura, setPopoverLectura] = useState<string | null>(null)
+  // Escribiendo: { nombre, foto } de quienes están escribiendo en la conversación activa
+  const [escribiendo, setEscribiendo] = useState<{ id: string; nombre: string; foto?: string | null }[]>([])
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
   // Caché de fotos de perfil: userId -> url (null = sin foto)
   const [fotosCache, setFotosCache] = useState<Record<string, string | null>>(() => {
     // Pre-cargar foto del usuario actual
@@ -222,6 +226,40 @@ export default function MensajesSection({
         })
     }
   }, [conversacion, usuario.id, jrvData?.jrv])
+
+  // Canal broadcast para indicador "está escribiendo"
+  useEffect(() => {
+    // Limpiar canal anterior y estado
+    if (typingChannelRef.current) { supabase.removeChannel(typingChannelRef.current); typingChannelRef.current = null }
+    setEscribiendo([])
+    if (!conversacion) return
+    // Nombre de canal único por conversación
+    const chanName = conversacion.tipo === 'general' ? 'typing-general'
+      : conversacion.tipo === 'grupo' ? `typing-jrv-${conversacion.jrv}`
+      : `typing-dm-${[usuario.id, conversacion.miembro.id].sort().join('-')}`
+    const ch = supabase.channel(chanName)
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload.userId === usuario.id) return
+        setEscribiendo(prev => {
+          const yaEsta = prev.some(e => e.id === payload.userId)
+          if (yaEsta) return prev
+          return [...prev, { id: payload.userId, nombre: payload.nombre, foto: payload.foto ?? null }]
+        })
+        // Auto-limpiar tras 4s sin nuevo evento
+        const timerId = setTimeout(() => {
+          setEscribiendo(prev => prev.filter(e => e.id !== payload.userId))
+        }, 4000)
+        // guardar timer por userId en un ref sería ideal pero iife simplificado basta aquí
+        return () => clearTimeout(timerId)
+      })
+      .on('broadcast', { event: 'stop_typing' }, ({ payload }) => {
+        if (payload.userId === usuario.id) return
+        setEscribiendo(prev => prev.filter(e => e.id !== payload.userId))
+      })
+      .subscribe()
+    typingChannelRef.current = ch
+    return () => { supabase.removeChannel(ch); typingChannelRef.current = null }
+  }, [conversacion, usuario.id])
 
   // Realtime
   useEffect(() => {
@@ -369,6 +407,17 @@ export default function MensajesSection({
     })
   }
 
+  // Emitir "está escribiendo" via broadcast
+  function emitirTyping() {
+    if (!typingChannelRef.current) return
+    typingChannelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userId: usuario.id, nombre: usuario.nombre, foto: usuario.foto_perfil_url ?? null } })
+    // Programar auto-stop tras 3s de inactividad
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      typingChannelRef.current?.send({ type: 'broadcast', event: 'stop_typing', payload: { userId: usuario.id } })
+    }, 3000)
+  }
+
   // Enviar mensaje
   async function enviar() {
     if (!texto.trim() || !conversacion || enviando) return
@@ -384,6 +433,9 @@ export default function MensajesSection({
       if (data) setMensajesDm(prev => [...prev, data as MensajeDirecto])
     }
     setEnviando(false); inputRef.current?.focus()
+    // Parar indicador de escritura propio al enviar
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingChannelRef.current?.send({ type: 'broadcast', event: 'stop_typing', payload: { userId: usuario.id } })
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -533,9 +585,37 @@ export default function MensajesSection({
           <div ref={bottomRef} />
         </div>
 
+        {/* Indicador "está escribiendo" */}
+        {escribiendo.length > 0 && (
+          <div className="flex-shrink-0 px-4 py-1.5 flex items-center gap-2" style={{ background: '#f0f4f8' }}>
+            {/* Avatares mini de quienes escriben */}
+            <div className="flex -space-x-1.5">
+              {escribiendo.slice(0, 3).map(e => (
+                <div key={e.id} className="w-5 h-5 rounded-full border-2 overflow-hidden flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+                  style={e.foto ? { borderColor: '#f0f4f8' } : { borderColor: '#f0f4f8', background: '#dbeafe', color: '#1e40af' }}>
+                  {e.foto ? <img src={e.foto} alt={e.nombre} className="w-full h-full object-cover" /> : iniciales(e.nombre)}
+                </div>
+              ))}
+            </div>
+            {/* Texto + animación de puntos */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs" style={{ color: '#64748b' }}>
+                {escribiendo.length === 1 ? escribiendo[0].nombre.split(' ')[0] : escribiendo.length === 2 ? `${escribiendo[0].nombre.split(' ')[0]} y ${escribiendo[1].nombre.split(' ')[0]}` : `${escribiendo[0].nombre.split(' ')[0]} y ${escribiendo.length - 1} más`}
+                {' '}está{escribiendo.length > 1 ? 'n' : ''} escribiendo
+              </span>
+              <span className="flex gap-0.5 items-end pb-0.5">
+                {[0, 1, 2].map(i => (
+                  <span key={i} className="rounded-full" style={{ width: 4, height: 4, background: '#94a3b8', display: 'inline-block', animation: `typingDot 1.2s ${i * 0.2}s infinite ease-in-out` }} />
+                ))}
+              </span>
+            </div>
+          </div>
+        )}
+        <style>{`@keyframes typingDot { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-4px);opacity:1} }`}</style>
+
         {/* Input */}
         <div className="flex-shrink-0 px-3 py-3 flex items-end gap-2 pb-safe" style={{ background: 'white', borderTop: '1px solid #e2e8f0' }}>
-          <textarea ref={inputRef} value={texto} onChange={e => setTexto(e.target.value)} onKeyDown={onKeyDown}
+          <textarea ref={inputRef} value={texto} onChange={e => { setTexto(e.target.value); if (e.target.value.trim()) emitirTyping() }} onKeyDown={onKeyDown}
             placeholder={conversacion.tipo === 'general' ? 'Escribe al canal general…' : conversacion.tipo === 'grupo' ? `Escribe al grupo JRV ${conversacion.jrv}…` : `Escribe a ${conversacion.miembro.nombre.split(' ')[0]}…`}
             rows={1} className="flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm outline-none"
             style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', maxHeight: 120, lineHeight: '1.4', color: '#1e293b' }}
