@@ -101,6 +101,8 @@ export default function MensajesSection({
   const [chatsIniciados, setChatsIniciados] = useState<{ id: string; nombre: string; cargo: string; jrv: string | null; foto: string | null; ultimoMsg: string; ultimaHora: string }[]>([])
   const [busquedaDM, setBusquedaDM] = useState('')
   const [jrvsExpandidas, setJrvsExpandidas] = useState<Record<string, boolean>>({})
+  const [tabActiva, setTabActiva] = useState<'chats' | 'grupos' | 'todos'>('chats')
+  const [busquedaGlobal, setBusquedaGlobal] = useState('')
 
   // Propagar total no leídos al portal (para el badge del NAV)
   useEffect(() => {
@@ -841,153 +843,205 @@ export default function MensajesSection({
   }
 
   // ── Vista lista ─────────────────────────────────────────────
+  const qGlobal = busquedaGlobal.trim().toLowerCase()
+
   return (
     <div style={{ background: '#f0f4f8', minHeight: '100%' }}>
       {/* Header */}
-      <div className="px-4 py-4 shadow-sm flex items-center gap-3" style={{ background: '#1e3a5f', color: 'white' }}>
-        <div className="flex-1">
-          <h1 className="font-bold text-base leading-tight">Mensajes</h1>
-          <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : userJrv ? `JRV ${userJrv}` : 'Portal'}</p>
+      <div className="px-4 pt-4 pb-3 shadow-sm" style={{ background: '#1e3a5f', color: 'white' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1">
+            <h1 className="font-bold text-base leading-tight">Mensajes</h1>
+            <p className="text-xs opacity-60">{esJefeCentro ? 'Jefe de Centro · Todas las JRVs' : userJrv ? `JRV ${userJrv}` : 'Portal'}</p>
+          </div>
+          {totalNoLeidos > 0 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#c8a84b', color: '#1e3a5f' }}>{totalNoLeidos}</span>
+          )}
         </div>
-        {totalNoLeidos > 0 && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#c8a84b', color: '#1e3a5f' }}>{totalNoLeidos}</span>
-        )}
+        {/* Buscador global */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'rgba(255,255,255,.5)' }} />
+          <input type="text" value={busquedaGlobal} onChange={e => { setBusquedaGlobal(e.target.value); if (e.target.value) setTabActiva('todos') }}
+            placeholder="Buscar contacto…"
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-xl outline-none"
+            style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: 'white' }} />
+          {busquedaGlobal && (
+            <button onClick={() => setBusquedaGlobal('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,.6)' }}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {/* Tabs */}
+        <div className="flex gap-1">
+          {(['chats', 'grupos', 'todos'] as const).map(tab => {
+            const labels: Record<typeof tab, string> = { chats: 'Chats', grupos: 'Grupos', todos: 'Miembros' }
+            const active = tabActiva === tab
+            const nlTab = tab === 'chats'
+              ? (chatsIniciados.reduce((a, c) => a + (noLeidos[c.id] ?? 0), 0) + noLeidosGeneral)
+              : tab === 'grupos'
+              ? (noLeidosGrupo + Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0))
+              : Object.values(noLeidos).reduce((a, b) => a + b, 0)
+            return (
+              <button key={tab} onClick={() => { setTabActiva(tab); setBusquedaGlobal('') }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{ background: active ? 'rgba(255,255,255,.18)' : 'transparent', color: active ? 'white' : 'rgba(255,255,255,.55)', border: active ? '1px solid rgba(255,255,255,.25)' : '1px solid transparent' }}>
+                {labels[tab]}
+                {nlTab > 0 && <span className="text-[10px] font-bold px-1.5 py-0 rounded-full" style={{ background: active ? '#c8a84b' : 'rgba(200,168,75,.7)', color: '#1e3a5f' }}>{nlTab > 9 ? '9+' : nlTab}</span>}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="max-w-lg mx-auto pb-4">
-        {/* Canal General */}
-        <div className="mx-4 mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Canal general</p>
-          <button onClick={() => setConversacion({ tipo: 'general' })}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
-            style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#eff0ff', border: '1.5px solid #c7d2fe' }}>
-              <Globe className="w-6 h-6" style={{ color: '#6366f1' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>Canal General</p>
-              <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>Comunicados de la administración</p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {noLeidosGeneral > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center" style={{ background: '#6366f1', color: 'white' }}>{noLeidosGeneral > 9 ? '9+' : noLeidosGeneral}</span>}
-              <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-            </div>
-          </button>
-        </div>
-
-        {/* Chat grupal JRV propia */}
-        {userJrv && (
-          <div className="mx-4 mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Tu JRV</p>
-            <button onClick={() => setConversacion({ tipo: 'grupo', jrv: userJrv })}
+        {/* ── Tab: Chats ─────────────────────────────────────── */}
+        {tabActiva === 'chats' && (
+          <div className="mt-4 pb-6 space-y-2 mx-4">
+            {/* Canal General */}
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Canales</p>
+            <button onClick={() => setConversacion({ tipo: 'general' })}
               className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
               style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(200,168,75,.15)', border: '1.5px solid rgba(200,168,75,.4)' }}>
-                <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
+              <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#eff0ff', border: '1.5px solid #c7d2fe' }}>
+                <Globe className="w-5 h-5" style={{ color: '#6366f1' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {userJrv} — Todos</p>
-                <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>{miembros.length + 1} integrante{miembros.length !== 0 ? 's' : ''}</p>
+                <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>Canal General</p>
+                <p className="text-xs truncate mt-0.5" style={{ color: '#64748b' }}>Comunicados de la administración</p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {noLeidosGrupo > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center" style={{ background: '#1e3a5f', color: 'white' }}>{noLeidosGrupo}</span>}
-                <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-              </div>
+              {noLeidosGeneral > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#6366f1', color: 'white' }}>{noLeidosGeneral > 9 ? '9+' : noLeidosGeneral}</span>}
+              <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
             </button>
-          </div>
-        )}
 
-        {/* Otras JRVs (jefe de centro) */}
-        {esJefeCentro && todasJrvs.length > 0 && (
-          <div className="mx-4 mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>{userJrv ? 'Otras JRVs' : 'JRVs del Centro'}</p>
-            <div className="space-y-2">
-              {todasJrvs.sort().map(jrv => {
-                const nl = noLeidosJrvs[jrv] ?? 0
-                return (
-                  <button key={jrv} onClick={() => setConversacion({ tipo: 'grupo', jrv })}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
-                    style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(200,168,75,.5)' : 'none' }}>
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(200,168,75,.1)', border: '1.5px solid rgba(200,168,75,.3)' }}>
-                      <Users className="w-6 h-6" style={{ color: '#c8a84b' }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {jrv} — Todos</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>Chat grupal</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center" style={{ background: '#c8a84b', color: '#1e3a5f' }}>{nl > 9 ? '9+' : nl}</span>}
-                      <ChevronRight className="w-4 h-4" style={{ color: '#94a3b8' }} />
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
+            {/* DMs con mensajes */}
+            {chatsIniciados.length > 0 && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide mt-4 mb-2 ml-1" style={{ color: '#64748b' }}>Mensajes directos</p>
+                <div className="space-y-1">
+                  {chatsIniciados
+                    .slice()
+                    .sort((a, b) => {
+                      const na = noLeidos[a.id] ?? 0, nb = noLeidos[b.id] ?? 0
+                      if (na !== nb) return nb - na
+                      return new Date(b.ultimaHora).getTime() - new Date(a.ultimaHora).getTime()
+                    })
+                    .map(c => {
+                      const nl = noLeidos[c.id] ?? 0
+                      const miembro: MiembroJrv = { id: c.id, nombre: c.nombre, cargo: c.cargo, dui: '', foto: c.foto }
+                      return (
+                        <button key={c.id} onClick={() => setConversacion({ tipo: 'dm', miembro })}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[.98]"
+                          style={{ background: nl > 0 ? 'rgba(30,58,95,.04)' : 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(30,58,95,.15)' : 'none' }}>
+                          <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
+                            style={c.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
+                            {c.foto ? <img src={c.foto} alt={c.nombre} className="w-full h-full object-cover" /> : iniciales(c.nombre)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-1">
+                              <p className="font-semibold text-sm leading-tight truncate" style={{ color: '#1e293b' }}>{c.nombre}</p>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: '#94a3b8' }}>{fmtHora(c.ultimaHora)}</span>
+                            </div>
+                            <p className="text-xs mt-0.5 truncate" style={{ color: nl > 0 ? '#1e3a5f' : '#94a3b8', fontWeight: nl > 0 ? 600 : 400 }}>{c.ultimoMsg}</p>
+                          </div>
+                          {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
+                        </button>
+                      )
+                    })}
+                </div>
+              </>
+            )}
 
-        {/* Conversaciones recientes (DMs iniciados) */}
-        {chatsIniciados.length > 0 && (
-          <div className="mx-4 mt-5">
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Conversaciones recientes</p>
-            <div className="space-y-1">
-              {chatsIniciados.map(c => {
-                const nl = noLeidos[c.id] ?? 0
-                const miembro: MiembroJrv = { id: c.id, nombre: c.nombre, cargo: c.cargo, dui: '', foto: c.foto }
-                return (
-                  <button key={c.id} onClick={() => setConversacion({ tipo: 'dm', miembro })}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all active:scale-[.98]"
-                    style={{ background: nl > 0 ? 'rgba(30,58,95,.04)' : 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(30,58,95,.15)' : 'none' }}>
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
-                      style={c.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
-                      {c.foto ? <img src={c.foto} alt={c.nombre} className="w-full h-full object-cover" /> : iniciales(c.nombre)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-1">
-                        <p className="font-semibold text-sm leading-tight truncate" style={{ color: '#1e293b' }}>{c.nombre}</p>
-                        <span className="text-[10px] flex-shrink-0" style={{ color: '#94a3b8' }}>{fmtHora(c.ultimaHora)}</span>
-                      </div>
-                      <p className="text-xs mt-0.5 truncate" style={{ color: nl > 0 ? '#1e3a5f' : '#94a3b8', fontWeight: nl > 0 ? 600 : 400 }}>{c.ultimoMsg}</p>
-                    </div>
-                    {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Todos los miembros — buscador + por JRV */}
-        <div className="mx-4 mt-5 pb-6">
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Todos los miembros</p>
-          {/* Buscador */}
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#94a3b8' }} />
-            <input type="text" value={busquedaDM} onChange={e => setBusquedaDM(e.target.value)}
-              placeholder="Buscar por nombre o cargo…"
-              className="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl outline-none"
-              style={{ background: 'white', border: '1px solid #e2e8f0', color: '#1e293b' }} />
-            {busquedaDM && (
-              <button onClick={() => setBusquedaDM('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }}>
-                <X className="w-3.5 h-3.5" />
-              </button>
+            {chatsIniciados.length === 0 && (
+              <div className="flex flex-col items-center py-12 gap-3 mt-2">
+                <MessageCircle className="w-10 h-10" style={{ color: '#cbd5e1' }} />
+                <p className="text-sm font-medium" style={{ color: '#94a3b8' }}>Aún no tienes mensajes directos</p>
+                <p className="text-xs text-center px-6" style={{ color: '#94a3b8' }}>Ve a la pestaña <strong>Miembros</strong> para escribirle a alguien</p>
+              </div>
             )}
           </div>
+        )}
+
+        {/* ── Tab: Grupos ─────────────────────────────────────── */}
+        {tabActiva === 'grupos' && (
+          <div className="mt-4 pb-6 mx-4 space-y-2">
+            {userJrv && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2 ml-1" style={{ color: '#64748b' }}>Tu JRV</p>
+                <button onClick={() => setConversacion({ tipo: 'grupo', jrv: userJrv })}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+                  style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(200,168,75,.15)', border: '1.5px solid rgba(200,168,75,.4)' }}>
+                    <Users className="w-5 h-5" style={{ color: '#c8a84b' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {userJrv}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{miembros.length + 1} integrante{miembros.length !== 0 ? 's' : ''}</p>
+                  </div>
+                  {noLeidosGrupo > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#1e3a5f', color: 'white' }}>{noLeidosGrupo}</span>}
+                  <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
+                </button>
+              </>
+            )}
+            {esJefeCentro && todasJrvs.length > 0 && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide mt-4 mb-2 ml-1" style={{ color: '#64748b' }}>{userJrv ? 'Otras JRVs' : 'JRVs del Centro'}</p>
+                <div className="space-y-2">
+                  {todasJrvs.sort().map(jrv => {
+                    const nl = noLeidosJrvs[jrv] ?? 0
+                    return (
+                      <button key={jrv} onClick={() => setConversacion({ tipo: 'grupo', jrv })}
+                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
+                        style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: nl > 0 ? '1.5px solid rgba(200,168,75,.5)' : 'none' }}>
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(200,168,75,.1)', border: '1.5px solid rgba(200,168,75,.3)' }}>
+                          <Users className="w-5 h-5" style={{ color: '#c8a84b' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm" style={{ color: '#1e293b' }}>JRV {jrv}</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>Chat grupal</p>
+                        </div>
+                        {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#c8a84b', color: '#1e3a5f' }}>{nl > 9 ? '9+' : nl}</span>}
+                        <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Tab: Todos los miembros ─────────────────────────── */}
+        {(tabActiva === 'todos' || qGlobal) && (
+          <div className="mt-4 pb-6 mx-4">
+            {/* Buscador secundario (solo cuando no hay búsqueda global) */}
+            {!qGlobal && (
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: '#94a3b8' }} />
+                <input type="text" value={busquedaDM} onChange={e => setBusquedaDM(e.target.value)}
+                  placeholder="Filtrar por nombre o cargo…"
+                  className="w-full pl-9 pr-8 py-2.5 text-sm rounded-xl outline-none"
+                  style={{ background: 'white', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+                {busquedaDM && (
+                  <button onClick={() => setBusquedaDM('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
 
           {todosUsuarios.length === 0
             ? <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: '#94a3b8' }} /></div>
             : (() => {
-              const q = busquedaDM.trim().toLowerCase()
+              const q = qGlobal || busquedaDM.trim().toLowerCase()
               const filtrados = q
                 ? todosUsuarios.filter(u => u.nombre.toLowerCase().includes(q) || u.cargo.toLowerCase().includes(q))
                 : todosUsuarios
 
               if (filtrados.length === 0) return (
-                <p className="text-center text-sm py-8" style={{ color: '#94a3b8' }}>Sin resultados para &ldquo;{busquedaDM}&rdquo;</p>
+                <p className="text-center text-sm py-8" style={{ color: '#94a3b8' }}>Sin resultados para &ldquo;{q}&rdquo;</p>
               )
 
               if (q) {
-                // Búsqueda activa: lista plana
                 return (
                   <div className="space-y-1">
                     {filtrados.map(u => {
@@ -1007,7 +1061,7 @@ export default function MensajesSection({
                               {u.cargo}{u.jrv ? ` · JRV ${u.jrv}` : ''}
                             </p>
                           </div>
-                          {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full min-w-[22px] text-center flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
+                          {nl > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: '#1e3a5f', color: 'white' }}>{nl}</span>}
                           <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />
                         </button>
                       )
@@ -1086,7 +1140,9 @@ export default function MensajesSection({
               )
             })()
           }
-        </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
