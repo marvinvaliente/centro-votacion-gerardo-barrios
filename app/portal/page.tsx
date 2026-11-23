@@ -12,8 +12,7 @@ import LogoUrna from '@/components/LogoUrna'
 import MensajesSection from '@/app/portal/_sections/MensajesSection'
 import TransporteSection from '@/app/portal/_sections/TransporteSection'
 import MotoristaSection from '@/app/portal/_sections/MotoristaSection'
-import AdminPanelSection from '@/app/portal/_sections/AdminPanelSection'
-import AdminUsuariosSection from '@/app/portal/_sections/AdminUsuariosSection'
+import AdminRegistrosSection from '@/app/portal/_sections/AdminRegistrosSection'
 import AdminAsignacionSection from '@/app/portal/_sections/AdminAsignacionSection'
 import AdminTransporteSection from '@/app/portal/_sections/AdminTransporteSection'
 import AdminCatalogoSection from '@/app/portal/_sections/AdminCatalogoSection'
@@ -81,7 +80,7 @@ function iconoMime(mime: string) {
 }
 
 
-type Seccion = 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-panel' | 'admin-usuarios' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
+type Seccion = 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
 
 /* ── Componente de sección Asistencia ── */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
@@ -509,7 +508,7 @@ export default function PortalPage() {
       cargarDatos(u)
     }
     // Navegar a la sección indicada en la URL (?s=jrv, ?s=agenda, etc.)
-    if (seccionUrl && ['perfil','jrv','agenda','mensajes','transporte','motorista','admin-panel','admin-usuarios','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
+    if (seccionUrl && ['perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
       setSeccion(seccionUrl as Seccion)
     }
   }, [])
@@ -1859,8 +1858,7 @@ export default function PortalPage() {
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
     // Módulos exclusivos del administrador
     ...(esAdmin ? [
-      { key: 'admin-panel',     label: 'Panel',         icon: ShieldAlert,  href: null, badge: 0, adminOnly: true },
-      { key: 'admin-usuarios',  label: 'Usuarios',      icon: Users,        href: null, badge: 0, adminOnly: true },
+      { key: 'admin-registros', label: 'Registros',     icon: ShieldAlert,  href: null, badge: 0, adminOnly: true },
       { key: 'admin-asignacion',label: 'Asignación',    icon: Link2,        href: null, badge: 0, adminOnly: true },
       { key: 'admin-transporte',label: 'T. Admin',      icon: Truck,        href: null, badge: 0, adminOnly: true },
       { key: 'admin-catalogo',  label: 'Catálogo',      icon: FolderOpen,   href: null, badge: 0, adminOnly: true },
@@ -2595,14 +2593,9 @@ export default function PortalPage() {
             <MotoristaSection usuario={usuario} />
           )}
 
-          {/* ── ADMIN: PANEL ── */}
-          {seccion === 'admin-panel' && (
-            <AdminPanelSection />
-          )}
-
-          {/* ── ADMIN: USUARIOS ── */}
-          {seccion === 'admin-usuarios' && (
-            <AdminUsuariosSection />
+          {/* ── ADMIN: REGISTROS (DUI + Usuarios) ── */}
+          {seccion === 'admin-registros' && (
+            <AdminRegistrosSection />
           )}
 
           {/* ── ADMIN: ASIGNACIÓN ── */}
