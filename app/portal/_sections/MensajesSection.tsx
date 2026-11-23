@@ -83,6 +83,11 @@ export default function MensajesSection({
   const [escribiendo, setEscribiendo] = useState<{ id: string; nombre: string; foto?: string | null }[]>([])
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // Reacciones: mensajeId -> { emoji -> [{ usuario_id, usuario_nombre }] }
+  const [reacciones, setReacciones] = useState<Record<string, Record<string, { usuario_id: string; usuario_nombre: string }[]>>>({})
+  // Picker de emojis: id del mensaje abierto (o null)
+  const [pickerMsgId, setPickerMsgId] = useState<string | null>(null)
+  const EMOJIS = ['👍','❤️','😂','😮','😢','🙏','🔥','👏','✅','🫡']
   // Caché de fotos de perfil: userId -> url (null = sin foto)
   const [fotosCache, setFotosCache] = useState<Record<string, string | null>>(() => {
     // Pre-cargar foto del usuario actual
@@ -180,6 +185,8 @@ export default function MensajesSection({
     if (!conversacion) return
     setCargando(true)
     setLecturas({})
+    setReacciones({})
+    setPickerMsgId(null)
     if (conversacion.tipo === 'general') {
       supabase.from('mensajes_general').select('*').order('created_at', { ascending: true }).limit(150)
         .then(async ({ data }) => {
@@ -193,6 +200,7 @@ export default function MensajesSection({
           await registrarLecturas(msgs, 'general')
           await cargarLecturas(msgs, 'general')
           await cargarFotosAutores(msgs, 'general')
+          await cargarReacciones(msgs, 'general')
         })
     } else if (conversacion.tipo === 'grupo') {
       supabase.from('mensajes_jrv').select('*').eq('jrv', conversacion.jrv).order('created_at', { ascending: true }).limit(100)
@@ -208,6 +216,7 @@ export default function MensajesSection({
           await registrarLecturas(msgs, 'jrv')
           await cargarLecturas(msgs, 'jrv')
           await cargarFotosAutores(msgs, 'jrv')
+          await cargarReacciones(msgs, 'jrv')
         })
     } else {
       const otherId = conversacion.miembro.id
@@ -223,6 +232,7 @@ export default function MensajesSection({
           await registrarLecturas(msgs, 'dm')
           await cargarLecturas(msgs, 'dm')
           await cargarFotosAutores(msgs, 'dm')
+          await cargarReacciones(msgs, 'dm')
         })
     }
   }, [conversacion, usuario.id, jrvData?.jrv])
@@ -319,6 +329,30 @@ export default function MensajesSection({
         }
       }).subscribe()
     channels.push(chanLecturas)
+    // Realtime: reacciones en tiempo real
+    const chanReacciones = supabase.channel(`reacciones-${usuario.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_reacciones' }, (payload) => {
+        const r = payload.new as any
+        setReacciones(prev => ({
+          ...prev,
+          [r.mensaje_id]: {
+            ...(prev[r.mensaje_id] ?? {}),
+            [r.emoji]: [...(prev[r.mensaje_id]?.[r.emoji] ?? []).filter(x => x.usuario_id !== r.usuario_id), { usuario_id: r.usuario_id, usuario_nombre: r.usuario_nombre }],
+          },
+        }))
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mensajes_reacciones' }, (payload) => {
+        const r = payload.old as any
+        if (!r.mensaje_id || !r.emoji) return
+        setReacciones(prev => {
+          if (!prev[r.mensaje_id]?.[r.emoji]) return prev
+          const next = { ...prev, [r.mensaje_id]: { ...(prev[r.mensaje_id]) } }
+          next[r.mensaje_id][r.emoji] = next[r.mensaje_id][r.emoji].filter(x => x.usuario_id !== r.usuario_id)
+          if (next[r.mensaje_id][r.emoji].length === 0) delete next[r.mensaje_id][r.emoji]
+          return next
+        })
+      }).subscribe()
+    channels.push(chanReacciones)
     return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
   }, [usuario.id, conversacion, jrvData])
 
@@ -389,6 +423,50 @@ export default function MensajesSection({
         })
     }
     setLecturas(prev => ({ ...prev, ...map }))
+  }
+
+  // Cargar reacciones de todos los mensajes de una conversación
+  async function cargarReacciones(msgs: any[], tabla: 'general' | 'jrv' | 'dm') {
+    if (msgs.length === 0) return
+    const ids = msgs.map(m => m.id)
+    const { data } = await supabase.from('mensajes_reacciones').select('mensaje_id, emoji, usuario_id, usuario_nombre').eq('tabla', tabla).in('mensaje_id', ids)
+    if (!data) return
+    const map: Record<string, Record<string, { usuario_id: string; usuario_nombre: string }[]>> = {}
+    for (const r of data) {
+      if (!map[r.mensaje_id]) map[r.mensaje_id] = {}
+      if (!map[r.mensaje_id][r.emoji]) map[r.mensaje_id][r.emoji] = []
+      map[r.mensaje_id][r.emoji].push({ usuario_id: r.usuario_id, usuario_nombre: r.usuario_nombre })
+    }
+    setReacciones(prev => ({ ...prev, ...map }))
+  }
+
+  // Toggle reacción: añadir si no existe, quitar si ya es del usuario
+  async function toggleReaccion(msgId: string, emoji: string) {
+    if (!conversacion) return
+    const tabla = conversacion.tipo === 'general' ? 'general' : conversacion.tipo === 'grupo' ? 'jrv' : 'dm'
+    const actuales = reacciones[msgId]?.[emoji] ?? []
+    const yaPuse = actuales.some(r => r.usuario_id === usuario.id)
+    if (yaPuse) {
+      // Quitar
+      await supabase.from('mensajes_reacciones').delete().eq('mensaje_id', msgId).eq('tabla', tabla).eq('usuario_id', usuario.id).eq('emoji', emoji)
+      setReacciones(prev => {
+        const next = { ...prev, [msgId]: { ...(prev[msgId] ?? {}) } }
+        next[msgId][emoji] = (next[msgId][emoji] ?? []).filter(r => r.usuario_id !== usuario.id)
+        if (next[msgId][emoji].length === 0) delete next[msgId][emoji]
+        return next
+      })
+    } else {
+      // Añadir
+      await supabase.from('mensajes_reacciones').upsert({ mensaje_id: msgId, tabla, usuario_id: usuario.id, usuario_nombre: usuario.nombre, emoji }, { onConflict: 'mensaje_id,tabla,usuario_id,emoji', ignoreDuplicates: true })
+      setReacciones(prev => ({
+        ...prev,
+        [msgId]: {
+          ...(prev[msgId] ?? {}),
+          [emoji]: [...(prev[msgId]?.[emoji] ?? []), { usuario_id: usuario.id, usuario_nombre: usuario.nombre }],
+        },
+      }))
+    }
+    setPickerMsgId(null)
   }
 
   // Cargar fotos de perfil de autores que no están en caché
@@ -477,7 +555,7 @@ export default function MensajesSection({
         </div>
 
         {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1" onClick={() => { setPickerMsgId(null); setPopoverLectura(null) }}>
           {cargando && <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-blue-400" /></div>}
           {!cargando && msgs.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-16 text-center">
@@ -492,7 +570,7 @@ export default function MensajesSection({
             const anterior = msgs[i - 1], mismoAutor = anterior && nombreMsg(anterior) === nombre && esMio(anterior) === mio
             const mostrarNombre = !mio && !mismoAutor && (conversacion.tipo === 'grupo' || conversacion.tipo === 'general')
             return (
-              <div key={msg.id} className={`flex ${mio ? 'justify-end' : 'justify-start'} ${mismoAutor ? 'mt-0.5' : 'mt-3'}`}>
+              <div key={msg.id} className={`group flex ${mio ? 'justify-end' : 'justify-start'} ${mismoAutor ? 'mt-0.5' : 'mt-3'}`}>
                 {!mio && !mismoAutor && (() => {
                   const autorId = conversacion.tipo === 'dm' ? (msg as MensajeDirecto).remitente_id : (msg as MensajeGeneral | MensajeJrv).autor_id
                   const fotoUrl = fotosCache[autorId]
@@ -513,10 +591,57 @@ export default function MensajesSection({
                       {nombre}{admin && <span className="text-[9px] px-1 py-0.5 rounded font-medium" style={{ background: '#eff6ff', color: '#3b82f6' }}>Admin</span>}
                     </span>
                   )}
-                  <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${mio ? 'rounded-br-sm text-white' : 'rounded-bl-sm text-gray-800'}`}
-                    style={{ background: mio ? '#1e3a5f' : admin ? '#eff6ff' : 'white', boxShadow: '0 1px 2px rgba(0,0,0,.08)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {msg.contenido}
+                  {/* Burbuja + botón reaccionar */}
+                  <div className="flex items-end gap-1.5" style={{ flexDirection: mio ? 'row-reverse' : 'row' }}>
+                    <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${mio ? 'rounded-br-sm text-white' : 'rounded-bl-sm text-gray-800'}`}
+                      style={{ background: mio ? '#1e3a5f' : admin ? '#eff6ff' : 'white', boxShadow: '0 1px 2px rgba(0,0,0,.08)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {msg.contenido}
+                    </div>
+                    {/* Botón emoji */}
+                    <button
+                      onClick={e => { e.stopPropagation(); setPickerMsgId(pickerMsgId === msg.id ? null : msg.id); setPopoverLectura(null) }}
+                      className="w-6 h-6 rounded-full flex items-center justify-center opacity-30 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      style={{ background: 'rgba(0,0,0,.07)', color: '#64748b', fontSize: 13, lineHeight: 1 }}
+                      title="Reaccionar">
+                      😊
+                    </button>
                   </div>
+                  {/* Picker de emojis */}
+                  {pickerMsgId === msg.id && (
+                    <div className={`absolute z-50 mt-1 flex gap-1 p-1.5 rounded-2xl shadow-xl ${mio ? 'right-0' : 'left-0'}`}
+                      style={{ background: '#1e3a5f', border: '1px solid rgba(255,255,255,.12)', top: '100%' }}
+                      onClick={e => e.stopPropagation()}>
+                      {EMOJIS.map(e => {
+                        const yaPuse = (reacciones[msg.id]?.[e] ?? []).some(r => r.usuario_id === usuario.id)
+                        return (
+                          <button key={e} onClick={() => toggleReaccion(msg.id, e)}
+                            className="w-8 h-8 rounded-xl flex items-center justify-center text-lg transition-transform active:scale-110"
+                            style={{ background: yaPuse ? 'rgba(200,168,75,.25)' : 'transparent' }}
+                            title={e}>
+                            {e}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {/* Chips de reacciones */}
+                  {reacciones[msg.id] && Object.keys(reacciones[msg.id]).length > 0 && (
+                    <div className={`flex flex-wrap gap-1 mt-1 ${mio ? 'justify-end' : 'justify-start'}`}>
+                      {Object.entries(reacciones[msg.id]).map(([emoji, lista]) => {
+                        const yaPuse = lista.some(r => r.usuario_id === usuario.id)
+                        const tooltip = lista.map(r => r.usuario_nombre.split(' ')[0]).join(', ')
+                        return (
+                          <button key={emoji} onClick={() => toggleReaccion(msg.id, emoji)}
+                            title={tooltip}
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium transition-all active:scale-95"
+                            style={{ background: yaPuse ? 'rgba(200,168,75,.2)' : 'rgba(0,0,0,.07)', border: yaPuse ? '1px solid rgba(200,168,75,.5)' : '1px solid rgba(0,0,0,.08)', color: yaPuse ? '#c8a84b' : '#475569' }}>
+                            <span style={{ fontSize: 13 }}>{emoji}</span>
+                            <span>{lista.length}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <span className="text-[10px] mt-0.5 mx-1 flex items-center gap-1" style={{ color: '#94a3b8' }}>
                     {fmtHora(msg.created_at)}
                     {mio && (() => {
