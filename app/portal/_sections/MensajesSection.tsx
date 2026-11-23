@@ -11,9 +11,10 @@ interface UsuarioProp {
   dui: string
   registro_dui_id?: string | null
   rol?: string
+  foto_perfil_url?: string | null
 }
 
-interface MiembroJrv { id: string; nombre: string; cargo: string; dui: string }
+interface MiembroJrv { id: string; nombre: string; cargo: string; dui: string; foto?: string | null }
 
 interface MensajeGeneral {
   id: string; autor_id: string; autor_nombre: string; autor_rol: string; contenido: string; created_at: string
@@ -76,8 +77,15 @@ export default function MensajesSection({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const lastReadGrupoRef = useRef<string>(new Date(0).toISOString())
   // Lecturas (visto por)
-  const [lecturas, setLecturas] = useState<Record<string, { id: string; nombre: string; leido_at: string }[]>>({})
+  const [lecturas, setLecturas] = useState<Record<string, { id: string; nombre: string; leido_at: string; usuario_id?: string }[]>>({})
   const [popoverLectura, setPopoverLectura] = useState<string | null>(null)
+  // Caché de fotos de perfil: userId -> url (null = sin foto)
+  const [fotosCache, setFotosCache] = useState<Record<string, string | null>>(() => {
+    // Pre-cargar foto del usuario actual
+    const init: Record<string, string | null> = {}
+    if (usuario.foto_perfil_url) init[usuario.id] = usuario.foto_perfil_url
+    return init
+  })
 
   // Propagar total no leídos al portal (para el badge del NAV)
   useEffect(() => {
@@ -105,12 +113,18 @@ export default function MensajesSection({
         .then(async ({ data: rdData }) => {
           const rdIds = (rdData ?? []).map((r: { id: string }) => r.id)
           if (rdIds.length === 0) { setMiembros([]); return }
-          const { data: usrData } = await supabase.from('usuarios').select('id, registro_dui_id').in('registro_dui_id', rdIds).neq('id', usuario.id)
-          const result: MiembroJrv[] = (usrData ?? []).map((u: { id: string; registro_dui_id: string }) => {
+          const { data: usrData } = await supabase.from('usuarios').select('id, registro_dui_id, foto_perfil_url').in('registro_dui_id', rdIds).neq('id', usuario.id)
+          const result: MiembroJrv[] = (usrData ?? []).map((u: { id: string; registro_dui_id: string; foto_perfil_url?: string | null }) => {
             const rd = (rdData ?? []).find((r: any) => r.id === u.registro_dui_id)
-            return { id: u.id, nombre: rd?.nombre ?? '', cargo: rd?.cargo ?? '', dui: rd?.dui ?? '' }
+            return { id: u.id, nombre: rd?.nombre ?? '', cargo: rd?.cargo ?? '', dui: rd?.dui ?? '', foto: u.foto_perfil_url ?? null }
           }).filter((m: MiembroJrv) => m.nombre)
           setMiembros(result)
+          // Poblar caché de fotos con los miembros cargados
+          setFotosCache(prev => {
+            const next = { ...prev }
+            for (const m of result) next[m.id] = m.foto ?? null
+            return next
+          })
         })
     }
     if (esJefe) {
@@ -174,6 +188,7 @@ export default function MensajesSection({
           setNoLeidosGeneral(0)
           await registrarLecturas(msgs, 'general')
           await cargarLecturas(msgs, 'general')
+          await cargarFotosAutores(msgs, 'general')
         })
     } else if (conversacion.tipo === 'grupo') {
       supabase.from('mensajes_jrv').select('*').eq('jrv', conversacion.jrv).order('created_at', { ascending: true }).limit(100)
@@ -188,6 +203,7 @@ export default function MensajesSection({
           else setNoLeidosJrvs(prev => ({ ...prev, [conversacion.jrv]: 0 }))
           await registrarLecturas(msgs, 'jrv')
           await cargarLecturas(msgs, 'jrv')
+          await cargarFotosAutores(msgs, 'jrv')
         })
     } else {
       const otherId = conversacion.miembro.id
@@ -202,6 +218,7 @@ export default function MensajesSection({
           setNoLeidos(prev => ({ ...prev, [otherId]: 0 }))
           await registrarLecturas(msgs, 'dm')
           await cargarLecturas(msgs, 'dm')
+          await cargarFotosAutores(msgs, 'dm')
         })
     }
   }, [conversacion, usuario.id, jrvData?.jrv])
@@ -249,8 +266,19 @@ export default function MensajesSection({
         setLecturas(prev => {
           const yaExisten = prev[r.mensaje_id] ?? []
           if (yaExisten.some(x => x.nombre === r.usuario_nombre)) return prev
-          return { ...prev, [r.mensaje_id]: [...yaExisten, { id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at }] }
+          return { ...prev, [r.mensaje_id]: [...yaExisten, { id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at, usuario_id: r.usuario_id }] }
         })
+        // Cargar foto si no está en caché
+        if (r.usuario_id) {
+          setFotosCache(prev => {
+            if (r.usuario_id in prev) return prev
+            supabase.from('usuarios').select('id, foto_perfil_url').eq('id', r.usuario_id).single()
+              .then(({ data }) => {
+                if (data) setFotosCache(p => ({ ...p, [data.id]: data.foto_perfil_url ?? null }))
+              })
+            return prev
+          })
+        }
       }).subscribe()
     channels.push(chanLecturas)
     return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
@@ -299,16 +327,46 @@ export default function MensajesSection({
     if (propios.length === 0) return
     const ids = propios.map(m => m.id)
     const { data } = await supabase.from('mensajes_lecturas')
-      .select('mensaje_id, usuario_nombre, leido_at')
+      .select('mensaje_id, usuario_id, usuario_nombre, leido_at')
       .eq('tabla', tabla)
       .in('mensaje_id', ids)
     if (!data) return
-    const map: Record<string, { id: string; nombre: string; leido_at: string }[]> = {}
+    const map: Record<string, { id: string; nombre: string; leido_at: string; usuario_id?: string }[]> = {}
+    const autorIds: string[] = []
     for (const r of data) {
       if (!map[r.mensaje_id]) map[r.mensaje_id] = []
-      map[r.mensaje_id].push({ id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at })
+      map[r.mensaje_id].push({ id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at, usuario_id: r.usuario_id })
+      if (r.usuario_id && !(r.usuario_id in fotosCache)) autorIds.push(r.usuario_id)
+    }
+    // Cargar fotos de los que leyeron si no están en caché
+    if (autorIds.length > 0) {
+      supabase.from('usuarios').select('id, foto_perfil_url').in('id', [...new Set(autorIds)])
+        .then(({ data: fData }) => {
+          if (!fData) return
+          setFotosCache(prev => {
+            const next = { ...prev }
+            for (const u of fData) next[u.id] = u.foto_perfil_url ?? null
+            return next
+          })
+        })
     }
     setLecturas(prev => ({ ...prev, ...map }))
+  }
+
+  // Cargar fotos de perfil de autores que no están en caché
+  async function cargarFotosAutores(msgs: any[], tabla: 'general' | 'jrv' | 'dm') {
+    const ids = msgs.map(m => tabla === 'dm' ? m.remitente_id : m.autor_id).filter(Boolean)
+    const nuevos = [...new Set(ids)].filter(id => id !== usuario.id && !(id in fotosCache))
+    if (nuevos.length === 0) return
+    const { data } = await supabase.from('usuarios').select('id, foto_perfil_url').in('id', nuevos)
+    if (!data) return
+    setFotosCache(prev => {
+      const next = { ...prev }
+      for (const u of data) next[u.id] = u.foto_perfil_url ?? null
+      // también marcar como null los que no volvieron (no tienen registro)
+      for (const id of nuevos) if (!(id in next)) next[id] = null
+      return next
+    })
   }
 
   // Enviar mensaje
@@ -352,13 +410,13 @@ export default function MensajesSection({
           <button onClick={() => setConversacion(null)} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs"
-            style={{
+          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs overflow-hidden"
+            style={conversacion.tipo === 'dm' && fotosCache[conversacion.miembro.id] ? {} : {
               background: conversacion.tipo === 'general' ? 'rgba(99,102,241,.3)' : conversacion.tipo === 'grupo' ? 'rgba(200,168,75,.3)' : 'rgba(255,255,255,.15)',
               border: conversacion.tipo === 'general' ? '1px solid rgba(99,102,241,.5)' : conversacion.tipo === 'grupo' ? '1px solid rgba(200,168,75,.5)' : '1px solid rgba(255,255,255,.2)',
               color: conversacion.tipo === 'general' ? '#c7d2fe' : conversacion.tipo === 'grupo' ? '#c8a84b' : 'white',
             }}>
-            {conversacion.tipo === 'general' ? <Globe className="w-4 h-4" /> : conversacion.tipo === 'grupo' ? <Users className="w-4 h-4" /> : iniciales(conversacion.miembro.nombre)}
+            {conversacion.tipo === 'general' ? <Globe className="w-4 h-4" /> : conversacion.tipo === 'grupo' ? <Users className="w-4 h-4" /> : (fotosCache[conversacion.miembro.id] ? <img src={fotosCache[conversacion.miembro.id]!} alt={conversacion.miembro.nombre} className="w-full h-full object-cover" /> : iniciales(conversacion.miembro.nombre))}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm leading-tight truncate">{titulo}</p>
@@ -383,12 +441,19 @@ export default function MensajesSection({
             const mostrarNombre = !mio && !mismoAutor && (conversacion.tipo === 'grupo' || conversacion.tipo === 'general')
             return (
               <div key={msg.id} className={`flex ${mio ? 'justify-end' : 'justify-start'} ${mismoAutor ? 'mt-0.5' : 'mt-3'}`}>
-                {!mio && !mismoAutor && (
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mr-2 mt-0.5"
-                    style={admin ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : { background: '#dbeafe', color: '#1e40af' }}>
-                    {admin ? <ShieldAlert className="w-3.5 h-3.5" /> : iniciales(nombre)}
-                  </div>
-                )}
+                {!mio && !mismoAutor && (() => {
+                  const autorId = conversacion.tipo === 'dm' ? (msg as MensajeDirecto).remitente_id : (msg as MensajeGeneral | MensajeJrv).autor_id
+                  const fotoUrl = fotosCache[autorId]
+                  return (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mr-2 mt-0.5 overflow-hidden"
+                      style={!fotoUrl ? (admin ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : { background: '#dbeafe', color: '#1e40af' }) : {}}>
+                      {fotoUrl
+                        ? <img src={fotoUrl} alt={nombre} className="w-full h-full object-cover" />
+                        : (admin ? <ShieldAlert className="w-3.5 h-3.5" /> : iniciales(nombre))
+                      }
+                    </div>
+                  )
+                })()}
                 {!mio && mismoAutor && <div className="w-7 mr-2 flex-shrink-0" />}
                 <div className={`max-w-[75%] ${mio ? 'items-end' : 'items-start'} flex flex-col relative`}>
                   {mostrarNombre && (
@@ -439,14 +504,24 @@ export default function MensajesSection({
                           </button>
                         </div>
                         <div className="max-h-40 overflow-y-auto">
-                          {vistos.map((v, idx) => (
-                            <div key={idx} className="px-3 py-1.5 flex items-center justify-between gap-2">
-                              <span className="text-xs text-white truncate">{v.nombre}</span>
-                              <span className="text-[10px] flex-shrink-0" style={{ color: '#38bdf8' }}>
-                                {new Date(v.leido_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          ))}
+                          {vistos.map((v, idx) => {
+                            const fotoVisto = v.usuario_id ? fotosCache[v.usuario_id] : null
+                            return (
+                              <div key={idx} className="px-3 py-1.5 flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-bold"
+                                  style={fotoVisto ? {} : { background: 'rgba(56,189,248,.2)', color: '#38bdf8' }}>
+                                  {fotoVisto
+                                    ? <img src={fotoVisto} alt={v.nombre} className="w-full h-full object-cover" />
+                                    : iniciales(v.nombre)
+                                  }
+                                </div>
+                                <span className="text-xs text-white truncate flex-1">{v.nombre}</span>
+                                <span className="text-[10px] flex-shrink-0" style={{ color: '#38bdf8' }}>
+                                  {new Date(v.leido_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )
@@ -574,7 +649,13 @@ export default function MensajesSection({
                     <button key={m.id} onClick={() => setConversacion({ tipo: 'dm', miembro: m })}
                       className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all active:scale-[.98]"
                       style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.07)' }}>
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm" style={{ background: '#dbeafe', color: '#1e40af' }}>{iniciales(m.nombre)}</div>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm overflow-hidden"
+                        style={m.foto ? {} : { background: '#dbeafe', color: '#1e40af' }}>
+                        {m.foto
+                          ? <img src={m.foto} alt={m.nombre} className="w-full h-full object-cover" />
+                          : iniciales(m.nombre)
+                        }
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm leading-tight" style={{ color: '#1e293b' }}>{m.nombre}</p>
                         <p className="text-xs mt-0.5 truncate" style={{ color: '#64748b' }}>{m.cargo}</p>
