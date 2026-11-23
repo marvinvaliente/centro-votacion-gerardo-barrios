@@ -12,7 +12,7 @@ import LogoUrna from '@/components/LogoUrna'
 import LogoGB from '@/components/LogoGB'
 import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
-import { bioRegister, bioAuthenticate, bioDelete, bioIsRegistered } from '@/lib/biometric'
+import { bioRegister, bioAuthenticate, bioDelete } from '@/lib/biometric'
 import type { RegistroDUI, Padron } from '@/types'
 
 const LOGO_BUCKET = 'fotos-dui'
@@ -235,7 +235,7 @@ export default function PortalPage() {
     if (typeof window === 'undefined') return
     try {
       if (localStorage.getItem('admin_webauthn_id')) setHuellaRegistrada(true)
-      if (localStorage.getItem('usuario_webauthn_id') || localStorage.getItem('bio_native_registered')) setHuellaUsuarioRegistrada(true)
+      if (localStorage.getItem('bio_dui') || localStorage.getItem('usuario_webauthn_id') || localStorage.getItem('bio_native_registered')) setHuellaUsuarioRegistrada(true)
     } catch {}
     if (window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
@@ -339,22 +339,19 @@ export default function PortalPage() {
 
   async function autenticarHuellaUsuario() {
     setHuellaUsuarioError('')
-    const duiGuardado = localStorage.getItem('usuario_webauthn_dui') || localStorage.getItem('bio_native_registered')
-    if (!duiGuardado) return
+    // bioAuthenticate verifica la huella y devuelve el DUI asociado
     try {
-      const ok = await bioAuthenticate(duiGuardado)
-      if (!ok) { setHuellaUsuarioError('Huella no reconocida'); return }
-      // Autenticación exitosa — cargar usuario por DUI guardado
-      setCargandoLogin(true)
-      // Normalizar DUI: quitar guión y reformatear por si acaso
+      const duiGuardado = await bioAuthenticate()
+      // Normalizar DUI: 043251917 → 04325191-7
       const digits = duiGuardado.replace(/\D/g, '')
       const duiFmt = digits.length >= 9
         ? digits.slice(0, 8) + '-' + digits.slice(8, 9)
-        : duiGuardado  // ya formateado
+        : duiGuardado
+      setCargandoLogin(true)
       const { data: usr, error: dbErr } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
       setCargandoLogin(false)
       if (dbErr || !usr) {
-        setHuellaUsuarioError(`DUI ${duiFmt} no encontrado en el sistema`)
+        setHuellaUsuarioError(`DUI ${duiFmt} no encontrado. Registre su huella de nuevo.`)
         return
       }
       if (!usr.autorizado || !usr.activo) {
@@ -363,15 +360,20 @@ export default function PortalPage() {
       }
       // Sesión de usuario
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-      // Si es admin, también establecer sesión de administrador
+      // Si es admin, también activar sesión de administrador
       if (duiFmt === ADMIN_DUI) {
         sessionStorage.setItem(ADMIN_SESSION, '1')
         sessionStorage.setItem('admin_dui', duiFmt)
       }
       setUsuario(usr); cargarDatos(usr)
     } catch (e: any) {
-      if (e?.name === 'NotAllowedError' || e?.message?.includes('cancel')) return
-      setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
+      const msg = (e as any)?.message ?? ''
+      if (msg.toLowerCase().includes('cancel') || (e as any)?.name === 'NotAllowedError') return
+      if (msg.includes('No hay huella registrada')) {
+        setHuellaUsuarioError('No hay huella registrada. Ve a Mi Perfil para activarla.')
+      } else {
+        setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
+      }
     }
   }
 
@@ -2191,11 +2193,7 @@ export default function PortalPage() {
                 ) : (
                   <button
                     onClick={async () => {
-                      try { await bioDelete(usuario.dui) } catch {}
-                      try {
-                        localStorage.removeItem('usuario_webauthn_id')
-                        localStorage.removeItem('usuario_webauthn_dui')
-                      } catch {}
+                      try { await bioDelete() } catch {}
                       setHuellaUsuarioRegistrada(false)
                       setHuellaUsuarioError('')
                     }}
