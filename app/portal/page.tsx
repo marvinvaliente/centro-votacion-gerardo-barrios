@@ -1816,7 +1816,7 @@ export default function PortalPage() {
               La próxima vez podrás ingresar con tu huella sin necesidad de escribir tu DUI.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠️ <strong>Requisito:</strong> tu dispositivo debe tener algún método de seguridad activo (huella, PIN, patrón o reconocimiento facial). Si no tienes ninguno configurado, no actives esta opción.
+              ⚠️ <strong>Requisito:</strong> tu dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tienes ninguno configurado, no actives esta opción.
             </div>
             <button onClick={() => registrarHuellaUsuario(usuario.dui)}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -1853,7 +1853,7 @@ export default function PortalPage() {
               La próxima vez podrá ingresar con su huella sin necesidad de contraseña.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠️ <strong>Requisito:</strong> el dispositivo debe tener algún método de seguridad activo (huella, PIN, patrón o reconocimiento facial). Si no tiene ninguno configurado, no active esta opción.
+              ⚠️ <strong>Requisito:</strong> el dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tiene ninguno configurado, no active esta opción.
             </div>
             <button onClick={registrarHuella}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -2194,7 +2194,7 @@ export default function PortalPage() {
                   </div>
                   {!huellaUsuarioRegistrada && (
                     <div className="mt-2 text-xs rounded-lg px-3 py-2" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.2)', color: 'var(--texto-muted)', lineHeight: 1.5 }}>
-                      ⚠️ Su dispositivo debe tener algún método de seguridad activo: huella, PIN, patrón o reconocimiento facial. Si no tiene ninguno configurado, no active esta función.
+                      ⚠️ Debe tener un método de desbloqueo activo en su dispositivo: <strong>iPhone</strong> → Face ID / Touch ID · <strong>Android</strong> → huella / patrón / PIN · <strong>Otros</strong> → cualquier bloqueo de pantalla. Sin ninguno configurado, no active esta función.
                     </div>
                   )}
                 </div>
