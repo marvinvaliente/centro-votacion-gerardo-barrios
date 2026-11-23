@@ -14,7 +14,7 @@ interface UsuarioProp { id: string; nombre: string; dui: string; registro_dui_id
 
 type Motorista = {
   id: string; nombre: string; dui: string; telefono: string | null
-  cargo: string; jrv: string; latitud: number | null; longitud: number | null
+  cargo: string; jrv: string
 }
 
 type Evento = {
@@ -145,8 +145,8 @@ function TarjetaEvento({ ev, motorista, abierto, onToggle, onMarcarRecogido, onM
   const recogidos = ev.pasajeros.filter(p => p.recogido)
   const completados = ev.pasajeros.filter(p => p.completado)
   const todoCompleto = ev.pasajeros.length > 0 && completados.length === ev.pasajeros.length
-  const urlRecogida = buildGoogleMapsUrl(motorista.latitud, motorista.longitud, ev.evento_latitud, ev.evento_longitud, recogida, 'recogida', ev.punto_reunion_lat, ev.punto_reunion_lng)
-  const urlRegreso = buildGoogleMapsUrl(motorista.latitud, motorista.longitud, ev.evento_latitud, ev.evento_longitud, regreso, 'regreso')
+  const urlRecogida = buildGoogleMapsUrl(null, null, ev.evento_latitud, ev.evento_longitud, recogida, 'recogida', ev.punto_reunion_lat, ev.punto_reunion_lng)
+  const urlRegreso = buildGoogleMapsUrl(null, null, ev.evento_latitud, ev.evento_longitud, regreso, 'regreso')
 
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${todoCompleto ? 'border-green-200' : 'border-gray-100'}`}>
@@ -241,7 +241,7 @@ export default function MotoristaSection({ usuario }: { usuario: UsuarioProp }) 
     try {
       const { data } = await supabase
         .from('registros_dui')
-        .select('id, nombre, dui, telefono, latitud, longitud, es_motorista, padron:padron_id(cargo,jrv)')
+        .select('id, nombre, dui, telefono, es_motorista, padron:padron_id(cargo,jrv)')
         .eq('dui', usuario.dui).single()
 
       if (!data || !data.es_motorista) { setEsMotorista(false); setCargando(false); return }
@@ -250,7 +250,6 @@ export default function MotoristaSection({ usuario }: { usuario: UsuarioProp }) 
         id: data.id, nombre: data.nombre, dui: data.dui, telefono: data.telefono,
         cargo: (data.padron as any)?.cargo ?? 'Sin asignar',
         jrv: (data.padron as any)?.jrv ?? '-',
-        latitud: data.latitud, longitud: data.longitud,
       }
       setMotorista(mot); setEsMotorista(true)
       await cargarEventos(mot)
@@ -346,22 +345,11 @@ export default function MotoristaSection({ usuario }: { usuario: UsuarioProp }) 
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
-        {!motorista?.latitud && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">Tu ubicación no está registrada.</span>{' '}
-              Ingresá a la sección <strong>Transporte</strong> para marcar tu punto de origen.
-            </p>
-          </div>
-        )}
-
         {/* Métricas */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { label: `Evento${eventos.length !== 1 ? 's' : ''}`, value: eventos.length, color: 'text-indigo-600' },
             { label: `Pasajero${totalPasajeros !== 1 ? 's' : ''}`, value: totalPasajeros, color: 'text-blue-600' },
-            { label: 'Con GPS', value: `${conGPSTotal}/${totalPasajeros}`, color: conGPSTotal === totalPasajeros && totalPasajeros > 0 ? 'text-green-600' : 'text-gray-600' },
             { label: 'Completados', value: `${completadosTotal}/${totalPasajeros}`, color: completadosTotal === totalPasajeros && totalPasajeros > 0 ? 'text-green-600' : 'text-gray-600' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-center">

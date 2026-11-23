@@ -34,7 +34,7 @@ type Solicitud = {
   cargo: string; jrv: string; latitud: number | null; longitud: number | null
 }
 
-type TabActiva = 'motoristas' | 'ubicaciones' | 'solicitudes'
+type TabActiva = 'motoristas' | 'solicitudes'
 
 // ── Utilidades ───────────────────────────────────────────────
 function fmt12(hora: string | null | undefined): string {
@@ -786,7 +786,6 @@ export default function AdminTransporteSection() {
   }
 
   const motoristas = registros.filter((r) => r.es_motorista)
-  const conGPS = registros.filter((r) => r.latitud && r.longitud)
   const solicitudesAsignadas = solicitudes.filter((s) => s.motorista_id)
 
   function buildMapsUrl(origin: string, dest: string, waypoints: string[]) {
@@ -834,7 +833,6 @@ export default function AdminTransporteSection() {
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         {([
           { key: 'motoristas',  label: 'Motoristas',  icon: Truck },
-          { key: 'ubicaciones', label: 'Ubicaciones', icon: MapPin },
           { key: 'solicitudes', label: 'Solicitudes', icon: Users },
         ] as { key: TabActiva; label: string; icon: any }[]).map(({ key: t, label, icon: Icon }) => (
           <button key={t} onClick={() => setTab(t)}
@@ -852,10 +850,6 @@ export default function AdminTransporteSection() {
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
               <p className="text-2xl font-bold text-blue-600">{motoristas.length}</p>
               <p className="text-xs text-gray-500 mt-0.5">Motoristas activos</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{motoristas.filter(m => m.latitud).length}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Con GPS registrado</p>
             </div>
             <div className="col-span-2 sm:col-span-1 bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
               <p className="text-xs text-amber-700 font-medium">Activá el rol de motorista a cualquier persona registrada en el sistema</p>
@@ -954,7 +948,6 @@ export default function AdminTransporteSection() {
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Teléfono</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">GPS</th>
                     <th className="text-center px-4 py-3 font-medium text-gray-600">Motorista</th>
                   </tr>
                 </thead>
@@ -978,13 +971,6 @@ export default function AdminTransporteSection() {
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-gray-500">{r.telefono ?? '—'}</td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        {r.latitud ? (
-                          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Registrado</span>
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin GPS</span>
-                        )}
-                      </td>
                       <td className="px-4 py-3 text-center">
                         <button onClick={() => toggleMotorista(r.id, r.es_motorista)} disabled={toggleando === r.id}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${r.es_motorista ? 'bg-blue-600' : 'bg-gray-200'} ${toggleando === r.id ? 'opacity-50' : ''}`}>
@@ -1004,77 +990,6 @@ export default function AdminTransporteSection() {
                       </td>
                     </tr>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB UBICACIONES ── */}
-      {tab === 'ubicaciones' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{conGPS.length}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Con GPS registrado</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl font-bold text-red-500">{registros.length - conGPS.length}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Sin GPS</p>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              {conGPS.length > 0 && (
-                <a href={`https://www.google.com/maps/dir/?api=1&origin=${conGPS[0].latitud},${conGPS[0].longitud}&destination=${conGPS[conGPS.length-1].latitud},${conGPS[conGPS.length-1].longitud}&waypoints=${conGPS.slice(1,-1).map(p=>`${p.latitud},${p.longitud}`).join('|')}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors">
-                  <ExternalLink className="w-4 h-4" />Ver todos en Maps
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Cargo / JRV</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">GPS</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {registros.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          {r.es_motorista && <Truck className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
-                          <div>
-                            <p className="font-medium text-gray-900 leading-tight">{r.nombre}</p>
-                            <p className="text-xs text-gray-400 font-mono">{r.dui}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <p className="text-gray-700">{r.cargo}</p>
-                        <p className="text-xs text-gray-400">JRV {r.jrv}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.latitud && r.longitud
-                          ? <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full"><MapPin className="w-3 h-3" />Registrado</span>
-                          : <span className="text-xs text-gray-400">Sin GPS</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.latitud && r.longitud && (
-                          <a href={`https://www.google.com/maps?q=${r.latitud},${r.longitud}`} target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg inline-flex">
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             </div>
