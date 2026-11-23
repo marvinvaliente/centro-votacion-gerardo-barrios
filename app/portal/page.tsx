@@ -1792,9 +1792,12 @@ export default function PortalPage() {
               </svg>
             </div>
             <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
-            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
+            <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
               La próxima vez podrás ingresar con tu huella sin necesidad de escribir tu DUI.
             </p>
+            <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
+              ⚠️ <strong>Requisito:</strong> tu dispositivo debe tener una huella dactilar configurada. Si no tienes huella registrada en tu teléfono, no actives esta opción, ya que podría afectar tu método de ingreso actual.
+            </div>
             <button onClick={() => registrarHuellaUsuario(usuario.dui)}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
               style={{ background: 'var(--gold)', color: 'var(--navy-dark)' }}>
@@ -1826,9 +1829,12 @@ export default function PortalPage() {
               </svg>
             </div>
             <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
-            <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
+            <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
               La próxima vez podrá ingresar con su huella sin necesidad de contraseña.
             </p>
+            <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
+              ⚠️ <strong>Requisito:</strong> el dispositivo debe tener una huella dactilar configurada. Si no tiene huella registrada en su teléfono, no active esta opción, ya que podría afectar su método de ingreso actual.
+            </div>
             <button onClick={registrarHuella}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
               style={{ background: 'var(--gold)', color: 'var(--navy-dark)' }}>
@@ -2166,6 +2172,11 @@ export default function PortalPage() {
                       ? 'Puede ingresar con su huella en la pantalla de acceso'
                       : 'Registre su huella para ingresar más rápido la próxima vez'}
                   </div>
+                  {!huellaUsuarioRegistrada && (
+                    <div className="mt-2 text-xs rounded-lg px-3 py-2" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.2)', color: 'var(--texto-muted)', lineHeight: 1.5 }}>
+                      ⚠️ Su dispositivo debe tener una huella dactilar configurada antes de activar esta función. Si no tiene huella registrada en el teléfono, no la active.
+                    </div>
+                  )}
                 </div>
                 <div className="flex-shrink-0">
                   {huellaUsuarioRegistrada ? (
