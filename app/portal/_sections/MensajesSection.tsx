@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeft, Send, Users, MessageCircle, ChevronRight, Loader2, RefreshCw, Globe, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, Send, Users, MessageCircle, ChevronRight, Loader2, Globe, ShieldAlert, Eye, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 // ── Tipos ────────────────────────────────────────────────────
@@ -75,6 +75,9 @@ export default function MensajesSection({
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const lastReadGrupoRef = useRef<string>(new Date(0).toISOString())
+  // Lecturas (visto por)
+  const [lecturas, setLecturas] = useState<Record<string, { id: string; nombre: string; leido_at: string }[]>>({})
+  const [popoverLectura, setPopoverLectura] = useState<string | null>(null)
 
   // Propagar total no leídos al portal (para el badge del NAV)
   useEffect(() => {
@@ -158,26 +161,33 @@ export default function MensajesSection({
   useEffect(() => {
     if (!conversacion) return
     setCargando(true)
+    setLecturas({})
     if (conversacion.tipo === 'general') {
       supabase.from('mensajes_general').select('*').order('created_at', { ascending: true }).limit(150)
-        .then(({ data }) => {
-          setMensajesGeneral((data ?? []) as MensajeGeneral[])
+        .then(async ({ data }) => {
+          const msgs = (data ?? []) as MensajeGeneral[]
+          setMensajesGeneral(msgs)
           setCargando(false)
           const ahora = new Date().toISOString()
           lastReadGeneralRef.current = ahora
           localStorage.setItem('lastReadGeneral', ahora)
           setNoLeidosGeneral(0)
+          await registrarLecturas(msgs, 'general')
+          await cargarLecturas(msgs, 'general')
         })
     } else if (conversacion.tipo === 'grupo') {
       supabase.from('mensajes_jrv').select('*').eq('jrv', conversacion.jrv).order('created_at', { ascending: true }).limit(100)
-        .then(({ data }) => {
-          setMensajesGrupo((data ?? []) as MensajeJrv[])
+        .then(async ({ data }) => {
+          const msgs = (data ?? []) as MensajeJrv[]
+          setMensajesGrupo(msgs)
           setCargando(false)
           const ahora = new Date().toISOString()
           lastReadGrupoRef.current = ahora
           setLastReadGrupoLS(conversacion.jrv, ahora)
           if (conversacion.jrv === jrvData?.jrv) setNoLeidosGrupo(0)
           else setNoLeidosJrvs(prev => ({ ...prev, [conversacion.jrv]: 0 }))
+          await registrarLecturas(msgs, 'jrv')
+          await cargarLecturas(msgs, 'jrv')
         })
     } else {
       const otherId = conversacion.miembro.id
@@ -185,10 +195,13 @@ export default function MensajesSection({
         .or(`and(remitente_id.eq.${usuario.id},destinatario_id.eq.${otherId}),and(remitente_id.eq.${otherId},destinatario_id.eq.${usuario.id})`)
         .order('created_at', { ascending: true }).limit(100)
         .then(async ({ data }) => {
-          setMensajesDm((data ?? []) as MensajeDirecto[])
+          const msgs = (data ?? []) as MensajeDirecto[]
+          setMensajesDm(msgs)
           setCargando(false)
           await supabase.from('mensajes_directos').update({ leido: true }).eq('destinatario_id', usuario.id).eq('remitente_id', otherId).eq('leido', false)
           setNoLeidos(prev => ({ ...prev, [otherId]: 0 }))
+          await registrarLecturas(msgs, 'dm')
+          await cargarLecturas(msgs, 'dm')
         })
     }
   }, [conversacion, usuario.id, jrvData?.jrv])
@@ -203,6 +216,7 @@ export default function MensajesSection({
         if (conversacion?.tipo === 'general') {
           setMensajesGeneral(prev => [...prev, msg])
           const ahora = new Date().toISOString(); lastReadGeneralRef.current = ahora; localStorage.setItem('lastReadGeneral', ahora)
+          if (msg.autor_id !== usuario.id) supabase.from('mensajes_lecturas').upsert({ mensaje_id: msg.id, tabla: 'general', usuario_id: usuario.id, usuario_nombre: usuario.nombre }, { onConflict: 'mensaje_id,tabla,usuario_id', ignoreDuplicates: true })
         } else if (msg.autor_id !== usuario.id) setNoLeidosGeneral(prev => prev + 1)
       }).subscribe()
     const chanDm = supabase.channel(`dm-para-${usuario.id}`)
@@ -211,6 +225,7 @@ export default function MensajesSection({
         if (conversacion?.tipo === 'dm' && conversacion.miembro.id === msg.remitente_id) {
           setMensajesDm(prev => [...prev, msg])
           supabase.from('mensajes_directos').update({ leido: true }).eq('id', msg.id)
+          supabase.from('mensajes_lecturas').upsert({ mensaje_id: msg.id, tabla: 'dm', usuario_id: usuario.id, usuario_nombre: usuario.nombre }, { onConflict: 'mensaje_id,tabla,usuario_id', ignoreDuplicates: true })
         } else setNoLeidos(prev => ({ ...prev, [msg.remitente_id]: (prev[msg.remitente_id] ?? 0) + 1 }))
       }).subscribe()
     const channels = [chanGeneral, chanDm]
@@ -221,10 +236,23 @@ export default function MensajesSection({
           if (conversacion?.tipo === 'grupo' && conversacion.jrv === userJrv) {
             setMensajesGrupo(prev => [...prev, msg])
             const ahora = new Date().toISOString(); lastReadGrupoRef.current = ahora; setLastReadGrupoLS(userJrv, ahora)
+            if (msg.autor_id !== usuario.id) supabase.from('mensajes_lecturas').upsert({ mensaje_id: msg.id, tabla: 'jrv', usuario_id: usuario.id, usuario_nombre: usuario.nombre }, { onConflict: 'mensaje_id,tabla,usuario_id', ignoreDuplicates: true })
           } else if (msg.autor_id !== usuario.id) setNoLeidosGrupo(prev => prev + 1)
         }).subscribe()
       channels.push(chanGrupo)
     }
+    // Realtime: nuevas lecturas de mis mensajes
+    const chanLecturas = supabase.channel(`lecturas-${usuario.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes_lecturas' }, (payload) => {
+        const r = payload.new as any
+        // Solo actualizar si la lectura pertenece a un mensaje que tenemos en pantalla
+        setLecturas(prev => {
+          const yaExisten = prev[r.mensaje_id] ?? []
+          if (yaExisten.some(x => x.nombre === r.usuario_nombre)) return prev
+          return { ...prev, [r.mensaje_id]: [...yaExisten, { id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at }] }
+        })
+      }).subscribe()
+    channels.push(chanLecturas)
     return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
   }, [usuario.id, conversacion, jrvData])
 
@@ -244,6 +272,44 @@ export default function MensajesSection({
     )
     return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
   }, [usuario.id, todasJrvs, conversacion])
+
+  // Registrar lecturas al abrir conversación (mensajes no propios)
+  async function registrarLecturas(msgs: any[], tabla: 'general' | 'jrv' | 'dm') {
+    const ajenos = msgs.filter(m => {
+      const autorId = tabla === 'dm' ? m.remitente_id : m.autor_id
+      return autorId !== usuario.id
+    })
+    if (ajenos.length === 0) return
+    const rows = ajenos.map(m => ({
+      mensaje_id: m.id,
+      tabla,
+      usuario_id: usuario.id,
+      usuario_nombre: usuario.nombre,
+    }))
+    // upsert ignora duplicados por la constraint UNIQUE
+    await supabase.from('mensajes_lecturas').upsert(rows, { onConflict: 'mensaje_id,tabla,usuario_id', ignoreDuplicates: true })
+  }
+
+  // Cargar lecturas de los mensajes propios
+  async function cargarLecturas(msgs: any[], tabla: 'general' | 'jrv' | 'dm') {
+    const propios = msgs.filter(m => {
+      const autorId = tabla === 'dm' ? m.remitente_id : m.autor_id
+      return autorId === usuario.id
+    })
+    if (propios.length === 0) return
+    const ids = propios.map(m => m.id)
+    const { data } = await supabase.from('mensajes_lecturas')
+      .select('mensaje_id, usuario_nombre, leido_at')
+      .eq('tabla', tabla)
+      .in('mensaje_id', ids)
+    if (!data) return
+    const map: Record<string, { id: string; nombre: string; leido_at: string }[]> = {}
+    for (const r of data) {
+      if (!map[r.mensaje_id]) map[r.mensaje_id] = []
+      map[r.mensaje_id].push({ id: r.mensaje_id, nombre: r.usuario_nombre, leido_at: r.leido_at })
+    }
+    setLecturas(prev => ({ ...prev, ...map }))
+  }
 
   // Enviar mensaje
   async function enviar() {
@@ -324,7 +390,7 @@ export default function MensajesSection({
                   </div>
                 )}
                 {!mio && mismoAutor && <div className="w-7 mr-2 flex-shrink-0" />}
-                <div className={`max-w-[75%] ${mio ? 'items-end' : 'items-start'} flex flex-col`}>
+                <div className={`max-w-[75%] ${mio ? 'items-end' : 'items-start'} flex flex-col relative`}>
                   {mostrarNombre && (
                     <span className="text-xs font-semibold mb-0.5 ml-1 flex items-center gap-1" style={{ color: admin ? '#1d4ed8' : '#1e40af' }}>
                       {nombre}{admin && <span className="text-[9px] px-1 py-0.5 rounded font-medium" style={{ background: '#eff6ff', color: '#3b82f6' }}>Admin</span>}
@@ -334,10 +400,57 @@ export default function MensajesSection({
                     style={{ background: mio ? '#1e3a5f' : admin ? '#eff6ff' : 'white', boxShadow: '0 1px 2px rgba(0,0,0,.08)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {msg.contenido}
                   </div>
-                  <span className="text-[10px] mt-0.5 mx-1" style={{ color: '#94a3b8' }}>
+                  <span className="text-[10px] mt-0.5 mx-1 flex items-center gap-1" style={{ color: '#94a3b8' }}>
                     {fmtHora(msg.created_at)}
-                    {mio && conversacion.tipo === 'dm' && (msg as MensajeDirecto).leido && <span className="ml-1" style={{ color: '#38bdf8' }}>✓✓</span>}
+                    {mio && (() => {
+                      const vistos = lecturas[msg.id] ?? []
+                      const leido = conversacion.tipo === 'dm' ? (msg as MensajeDirecto).leido : false
+                      const hayLecturas = vistos.length > 0 || leido
+                      if (!hayLecturas) return <span style={{ color: '#94a3b8' }}>✓</span>
+                      return (
+                        <button
+                          onClick={() => setPopoverLectura(popoverLectura === msg.id ? null : msg.id)}
+                          className="flex items-center gap-0.5 hover:opacity-80 transition-opacity"
+                          style={{ color: '#38bdf8', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                          <span>✓✓</span>
+                          {conversacion.tipo !== 'dm' && vistos.length > 0 && (
+                            <span className="flex items-center gap-0.5">
+                              <Eye size={9} />
+                              <span>{vistos.length}</span>
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })()}
                   </span>
+                  {/* Popover lecturas */}
+                  {popoverLectura === msg.id && (() => {
+                    const vistos = lecturas[msg.id] ?? []
+                    if (vistos.length === 0) return null
+                    return (
+                      <div className="absolute z-50 bottom-full mb-1 right-0 w-56 rounded-xl shadow-lg overflow-hidden"
+                        style={{ background: '#1e3a5f', border: '1px solid rgba(255,255,255,.12)' }}>
+                        <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'rgba(255,255,255,.1)' }}>
+                          <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                            <Eye size={11} style={{ color: '#38bdf8' }} /> Visto por {vistos.length}
+                          </span>
+                          <button onClick={() => setPopoverLectura(null)} style={{ color: 'rgba(255,255,255,.4)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                            <X size={12} />
+                          </button>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto">
+                          {vistos.map((v, idx) => (
+                            <div key={idx} className="px-3 py-1.5 flex items-center justify-between gap-2">
+                              <span className="text-xs text-white truncate">{v.nombre}</span>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: '#38bdf8' }}>
+                                {new Date(v.leido_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )
