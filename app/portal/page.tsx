@@ -215,19 +215,11 @@ export default function PortalPage() {
   const [dui, setDui]         = useState('')
   const [errorLogin, setErrorLogin] = useState('')
   const [cargandoLogin, setCargandoLogin] = useState(false)
-  // Bloquear tap-through 400ms despuÃ©s del login (Android ghost tap fix)
+  // Bloquear tap-through 500ms despuÃ©s del login (Android ghost tap fix)
   const [bloqueandoTaps, setBloqueandoTaps] = useState(false)
   const bloquearTaps = () => { setBloqueandoTaps(true); setTimeout(() => setBloqueandoTaps(false), 500) }
   const [seccion, setSeccion] = useState<Seccion>('inicio')
-  // Debug temporal: mostrar nombre de secciÃ³n activa 2s tras cada cambio
-  const [debugSeccion, setDebugSeccion] = useState<string | null>(null)
-  const debugTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const setSeccionConDebug = (s: Seccion) => {
-    setSeccion(s)
-    if (debugTimer.current) clearTimeout(debugTimer.current)
-    setDebugSeccion(s)
-    debugTimer.current = setTimeout(() => setDebugSeccion(null), 2500)
-  }
+  const setSeccionConDebug = (s: Seccion) => { setSeccion(s) }
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null)
@@ -535,12 +527,27 @@ export default function PortalPage() {
     if (stored) {
       const u = JSON.parse(stored)
       setUsuario(u)
+      // Siempre arrancar en inicio al restaurar sesion (PWA resume / recarga)
+      // Solo respetar seccionUrl si viene explicitamente en la URL
+      if (seccionUrl && ['inicio','perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
+        setSeccion(seccionUrl as Seccion)
+      } else {
+        setSeccion('inicio')
+      }
       cargarDatos(u)
     }
-    // Navegar a la secciÃ³n indicada en la URL (?s=jrv, ?s=agenda, etc.)
-    if (seccionUrl && ['inicio','perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
-      setSeccion(seccionUrl as Seccion)
+  }, [])
+
+  // Cuando el usuario vuelve al primer plano en Android PWA, resetear a inicio
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const stored = sessionStorage.getItem(SESSION_KEY)
+        if (stored) setSeccion('inicio')
+      }
     }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   // Si viene ?evento=id en la URL, navegar a Agenda y abrir RSVP
@@ -1921,12 +1928,6 @@ export default function PortalPage() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
       )}
 
-      {/* DEBUG temporal: badge que muestra la seccion activa al cambiar */}
-      {debugSeccion && (
-        <div style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: '#1e3a5f', color: '#c8a84b', padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, border: '2px solid #c8a84b', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-          seccion → {debugSeccion}
-        </div>
-      )}
 
       {/* â”€â”€ Sidebar desktop (md+) â”€â”€ */}
       <aside className="hidden md:flex w-56 flex-col flex-shrink-0"
