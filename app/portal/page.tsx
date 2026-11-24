@@ -215,6 +215,9 @@ export default function PortalPage() {
   const [dui, setDui]         = useState('')
   const [errorLogin, setErrorLogin] = useState('')
   const [cargandoLogin, setCargandoLogin] = useState(false)
+  // Bloquear tap-through 400ms después del login (Android ghost tap fix)
+  const [bloqueandoTaps, setBloqueandoTaps] = useState(false)
+  const bloquearTaps = () => { setBloqueandoTaps(true); setTimeout(() => setBloqueandoTaps(false), 400) }
   const [seccion, setSeccion] = useState<Seccion>('inicio')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
@@ -320,7 +323,7 @@ export default function PortalPage() {
       const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', ADMIN_DUI).single()
       if (usrAdmin) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
-        setSeccion('inicio')
+        bloquearTaps(); setSeccion('inicio')
         setUsuario(usrAdmin); cargarDatos(usrAdmin)
       } else {
         const adminFallback: Usuario = {
@@ -385,7 +388,7 @@ export default function PortalPage() {
         sessionStorage.setItem(ADMIN_SESSION, '1')
         sessionStorage.setItem('admin_dui', duiFmt)
       }
-      setSeccion('inicio')
+      bloquearTaps(); setSeccion('inicio')
       setUsuario(usr); cargarDatos(usr)
     } catch (e: any) {
       const msg = (e as any)?.message ?? ''
@@ -577,7 +580,7 @@ export default function PortalPage() {
 
     // Cargar datos del admin para mostrarlo en el portal (como cualquier usuario)
     const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
-    setSeccion('inicio')
+    bloquearTaps(); setSeccion('inicio')
     if (usrAdmin) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
       setUsuario(usrAdmin); cargarDatos(usrAdmin)
@@ -614,7 +617,7 @@ export default function PortalPage() {
     // Usuario autorizado y activo → ingresar al portal
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-      setSeccion('inicio')
+      bloquearTaps(); setSeccion('inicio')
       setUsuario(usr); cargarDatos(usr)
       // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aún
       if (!localStorage.getItem('usuario_webauthn_id') && !localStorage.getItem('bio_native_registered')) {
@@ -1982,7 +1985,7 @@ export default function PortalPage() {
 
       {/* ── Barra inferior móvil (< md) — 4 ítems fijos ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
-        style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)', pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
         <div className="grid grid-cols-4">
           {(['inicio','agenda','mensajes','perfil'] as const).map((key) => {
             const item = NAV.find(n => n.key === key)
@@ -2052,7 +2055,8 @@ export default function PortalPage() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6 transition-opacity duration-150"
-          key={seccion}>
+          key={seccion}
+          style={{ pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
 
           {/* ── INICIO (pantalla principal móvil) ── */}
           {seccion === 'inicio' && (
