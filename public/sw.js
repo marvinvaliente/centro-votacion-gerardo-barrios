@@ -3,7 +3,7 @@
 // IMPORTANTE: next.config.mjs envía Cache-Control: no-cache para este archivo
 // para que el navegador siempre lo re-descargue y detecte cambios.
 
-const CACHE_NAME = 'sircev-v20261124-2'
+const CACHE_NAME = 'sircev-v20261124-3'
 
 // Al instalar: pre-cachear recursos esenciales
 self.addEventListener('install', (event) => {
