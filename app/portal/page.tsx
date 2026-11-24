@@ -2018,8 +2018,21 @@ export default function PortalPage() {
               <span className="font-semibold">Portal Electoral</span>
             )}
           </div>
-          <div className="ml-auto">
-            <span className="badge badge-blue text-xs">{usuario.rol}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="badge badge-blue text-xs hidden md:inline">{usuario.rol}</span>
+            {/* Avatar en header móvil (solo en inicio) */}
+            {seccion === 'inicio' && (
+              <div
+                className="md:hidden w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs flex-shrink-0"
+                style={{ background: 'var(--navy)', color: 'var(--gold)', border: '2px solid var(--gold)' }}
+                onClick={() => setSeccion('perfil')}
+              >
+                {usuario.foto_perfil_url
+                  ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
+                  : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                }
+              </div>
+            )}
           </div>
         </header>
 
@@ -2027,55 +2040,54 @@ export default function PortalPage() {
 
           {/* ── INICIO (pantalla principal móvil) ── */}
           {seccion === 'inicio' && (
-            <div>
+            <div className="max-w-lg mx-auto">
               {/* Saludo */}
-              <div className="mb-5 flex items-center gap-3">
+              <div className="mb-6 flex items-center gap-3">
                 <div
-                  className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center font-bold text-base flex-shrink-0"
-                  style={{ background: 'rgba(200,168,75,.2)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.3)' }}
+                  className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm flex-shrink-0"
+                  style={{ background: 'var(--navy)', color: 'var(--gold)', border: '2px solid var(--gold)' }}
                 >
                   {usuario.foto_perfil_url
                     ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
                     : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
                   }
                 </div>
-                <div>
-                  <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Bienvenido</div>
-                  <div className="font-bold text-base leading-tight">{usuario.nombre.split(' ').slice(0, 2).join(' ')}</div>
-                  <div className="text-xs font-mono" style={{ color: 'var(--texto-muted)' }}>{usuario.dui}</div>
+                <div className="font-bold text-lg" style={{ color: 'var(--texto)' }}>
+                  ¡Bienvenido, {usuario.nombre.split(' ')[0]}! 👋
                 </div>
               </div>
 
-              {/* Grid de módulos */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Grid 2 columnas */}
+              <div className="grid grid-cols-2 gap-4">
                 {NAV.filter(n => !n.adminOnly && n.key !== 'inicio').map(({ key, label, icon: Icon, badge }) => {
-                  const colores: Record<string, { bg: string; color: string; border: string }> = {
-                    perfil:    { bg: 'rgba(59,130,246,.12)',  color: '#3b82f6', border: 'rgba(59,130,246,.25)' },
-                    jrv:       { bg: 'rgba(16,185,129,.12)', color: '#10b981', border: 'rgba(16,185,129,.25)' },
-                    agenda:    { bg: 'rgba(245,158,11,.12)', color: '#f59e0b', border: 'rgba(245,158,11,.25)' },
-                    mensajes:  { bg: 'rgba(139,92,246,.12)', color: '#8b5cf6', border: 'rgba(139,92,246,.25)' },
-                    transporte:{ bg: 'rgba(236,72,153,.12)', color: '#ec4899', border: 'rgba(236,72,153,.25)' },
-                    motorista: { bg: 'rgba(249,115,22,.12)', color: '#f97316', border: 'rgba(249,115,22,.25)' },
+                  const colores: Record<string, { bg: string; iconBg: string; color: string }> = {
+                    perfil:    { bg: 'white', iconBg: 'rgba(59,130,246,.15)',  color: '#3b82f6' },
+                    jrv:       { bg: 'white', iconBg: 'rgba(16,185,129,.15)', color: '#10b981' },
+                    agenda:    { bg: 'white', iconBg: 'rgba(245,158,11,.15)', color: '#f59e0b' },
+                    mensajes:  { bg: 'white', iconBg: 'rgba(139,92,246,.15)', color: '#8b5cf6' },
+                    transporte:{ bg: 'white', iconBg: 'rgba(236,72,153,.15)', color: '#ec4899' },
+                    motorista: { bg: 'white', iconBg: 'rgba(249,115,22,.15)', color: '#f97316' },
                   }
-                  const c = colores[key] ?? { bg: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: 'rgba(200,168,75,.25)' }
+                  const c = colores[key] ?? { bg: 'white', iconBg: 'rgba(200,168,75,.15)', color: 'var(--gold)' }
                   return (
                     <button
                       key={key}
                       onClick={() => setSeccion(key as Seccion)}
-                      className="flex flex-col items-center justify-center gap-2 rounded-2xl p-4 relative transition-transform active:scale-95"
-                      style={{ background: c.bg, border: `1.5px solid ${c.border}`, minHeight: 90 }}
+                      className="flex flex-col items-center justify-center gap-3 rounded-2xl py-7 px-4 relative transition-transform active:scale-95 shadow-sm"
+                      style={{ background: c.bg, border: '1px solid var(--borde)' }}
                     >
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: c.color + '22' }}>
-                        <Icon size={22} style={{ color: c.color }} />
+                      {/* Icono circular grande */}
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: c.iconBg }}>
+                        <Icon size={30} style={{ color: c.color }} />
                       </div>
-                      <span className="text-xs font-semibold text-center leading-tight"
-                        style={{ color: 'var(--texto)', fontSize: 11 }}>
+                      <span className="font-semibold text-sm text-center leading-tight"
+                        style={{ color: 'var(--texto)' }}>
                         {label}
                       </span>
                       {badge > 0 && (
-                        <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 rounded-full"
-                          style={{ background: '#c8a84b', color: '#1e3a5f', lineHeight: '16px', minWidth: 16, textAlign: 'center' }}>
+                        <span className="absolute top-3 right-3 text-[10px] font-bold rounded-full flex items-center justify-center"
+                          style={{ background: '#c8a84b', color: '#1e3a5f', minWidth: 20, height: 20, padding: '0 5px' }}>
                           {badge > 9 ? '9+' : badge}
                         </span>
                       )}
@@ -2086,7 +2098,7 @@ export default function PortalPage() {
 
               {/* Módulos admin si aplica */}
               {esAdmin && (
-                <div className="mt-4">
+                <div className="mt-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex-1 h-px" style={{ background: 'var(--borde)' }} />
                     <span className="text-[10px] uppercase tracking-widest font-semibold px-2" style={{ color: 'rgba(200,168,75,.6)' }}>Administración</span>
