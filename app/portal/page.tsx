@@ -2951,9 +2951,9 @@ export default function PortalPage() {
                           <div className="text-sm font-medium">🚐 Llevarme a {modalRsvp.nombre}</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                             {modalRsvp.recogida_domicilio
-                              ? 'Pasaremos a buscarle en su domicilio. ¡No tiene que moverse!'
+                              ? 'Pasaremos a buscarle directamente en su domicilio. ¡No tiene que moverse!'
                               : modalRsvp.punto_reunion
-                                ? <>Nos reuniremos en <strong>{modalRsvp.punto_reunion}</strong>. Le esperamos puntualmente en ese lugar.</>
+                                ? <>Pasaremos a buscarle en el punto de reunión: <strong>{modalRsvp.punto_reunion}</strong>. Por favor llegue puntualmente a ese lugar.</>
                                 : 'Le trasladaremos desde el punto de reunión que se le indicará.'}
                           </div>
                         </div>
@@ -3029,7 +3029,7 @@ export default function PortalPage() {
                       {modalRsvp.recogida_domicilio
                         ? 'Pasamos a buscarle en su domicilio'
                         : modalRsvp.punto_reunion
-                          ? `Punto de reunión: ${modalRsvp.punto_reunion}`
+                          ? `Pasamos a buscarle en ${modalRsvp.punto_reunion}`
                           : 'Desde el punto de reunión indicado'}
                     </p>
                   )}
@@ -3043,7 +3043,7 @@ export default function PortalPage() {
                   <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                     <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>📍 Punto de reunión</p>
                     <p className="text-sm font-medium" style={{ color: '#9a3412' }}>{modalRsvp.punto_reunion}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Por favor preséntese puntualmente en ese lugar.</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Pasaremos a buscarle aquí. Por favor llegue puntualmente a este lugar.</p>
                   </div>
                 )}
 
