@@ -16,10 +16,10 @@ import { supabase } from '@/lib/supabase'
 import { bioRegister, bioAuthenticate, bioDelete } from '@/lib/biometric'
 import type { RegistroDUI, Padron } from '@/types'
 
-/* â”€â”€ Carga diferida de secciones pesadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* â"€â"€ Carga diferida de secciones pesadas â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
    El bundle inicial no incluye ninguna de estas secciones.
    SÃ³lo se descargan la primera vez que el usuario navega a ellas.
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+   â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ */
 const SectionLoader = () => (
   <div className="flex items-center justify-center py-20">
     <Loader2 size={24} className="animate-spin" style={{ color: 'var(--gold)' }} />
@@ -94,7 +94,7 @@ function iconoMime(mime: string) {
 
 type Seccion = 'inicio' | 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
 
-/* â”€â”€ Componente de secciÃ³n Asistencia â”€â”€ */
+/* â"€â"€ Componente de secciÃ³n Asistencia â"€â"€ */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
   const [actividades, setActividades] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
@@ -181,7 +181,7 @@ function AsistenciaSection({ dui, registroId }: { dui: string; registroId: strin
               <p className="font-semibold text-sm truncate" style={{ color: 'var(--texto)' }}>{a.titulo}</p>
               {a.lugar && <p className="text-xs truncate" style={{ color: 'var(--texto-muted)' }}>{a.lugar}</p>}
               <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                {a.hora ? `${a.hora.slice(0,5)}${a.hora_fin ? ` â€“ ${a.hora_fin.slice(0,5)}` : ''}` : 'Sin hora'}
+                {a.hora ? `${a.hora.slice(0,5)}${a.hora_fin ? ` â€" ${a.hora_fin.slice(0,5)}` : ''}` : 'Sin hora'}
               </p>
             </div>
             <div className="shrink-0">
@@ -227,7 +227,7 @@ export default function PortalPage() {
   const inputFotoRef = useRef<HTMLInputElement>(null)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cuenta regresiva â€” 28 feb 2027
+  // Cuenta regresiva â€" 28 feb 2027
   const ELECCION = new Date('2027-02-28T06:00:00-06:00').getTime()
   const calcularRestante = () => {
     const diff = ELECCION - Date.now()
@@ -271,7 +271,7 @@ export default function PortalPage() {
       .catch(() => {})
   }, [])
 
-  // â”€â”€ WebAuthn helpers â”€â”€
+  // â"€â"€ WebAuthn helpers â"€â"€
   function b64url(buf: ArrayBuffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buf)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
@@ -318,7 +318,7 @@ export default function PortalPage() {
           timeout: 60000,
         },
       })
-      // AutenticaciÃ³n exitosa â€” mismo flujo que contraseÃ±a correcta
+      // AutenticaciÃ³n exitosa â€" mismo flujo que contraseÃ±a correcta
       sessionStorage.setItem(ADMIN_SESSION, '1')
       sessionStorage.setItem('admin_dui', ADMIN_DUI)
       const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', ADMIN_DUI).single()
@@ -340,7 +340,7 @@ export default function PortalPage() {
     }
   }
 
-  // â”€â”€ WebAuthn para usuario regular â”€â”€
+  // â"€â"€ WebAuthn para usuario regular â"€â"€
   async function registrarHuellaUsuario(duiUsuario: string) {
     setHuellaUsuarioError('')
     setGuardandoBiometria(true)
@@ -352,7 +352,7 @@ export default function PortalPage() {
       const nombre = (e as any)?.name ?? ''
       const msg = (e as any)?.message ?? ''
       if (nombre === 'NotAllowedError' || msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user cancel')) {
-        // usuario cancelÃ³ â€” sin error
+        // usuario cancelÃ³ â€" sin error
       } else {
         setHuellaUsuarioError(`Error: ${msg || nombre || 'No se pudo registrar la huella'}`)
       }
@@ -366,7 +366,7 @@ export default function PortalPage() {
     // bioAuthenticate verifica la huella y devuelve el DUI asociado
     try {
       const duiGuardado = await bioAuthenticate()
-      // Normalizar DUI: 043251917 â†’ 04325191-7
+      // Normalizar DUI: 043251917 â†' 04325191-7
       const digits = duiGuardado.replace(/\D/g, '')
       const duiFmt = digits.length >= 9
         ? digits.slice(0, 8) + '-' + digits.slice(8, 9)
@@ -479,11 +479,11 @@ export default function PortalPage() {
   const [materiales, setMateriales]   = useState<Material[]>([])
   const [filtroMat, setFiltroMat]     = useState('Todas')
 
-  // Agenda â€” solo eventos (actividades eliminadas)
+  // Agenda â€" solo eventos (actividades eliminadas)
   const [tabAgenda, setTabAgenda] = useState<'eventos' | 'materiales'>('eventos')
   // Eventos
   const [eventosTransporte, setEventosTransporte] = useState<any[]>([])
-  // confirmaciones: mapa evento_id â†’ { confirmado, necesita_recogida, necesita_regreso, check_in_at, id }
+  // confirmaciones: mapa evento_id â†' { confirmado, necesita_recogida, necesita_regreso, check_in_at, id }
   const [confirmaciones, setConfirmaciones] = useState<Record<string, any>>({})
   const [guardandoConf, setGuardandoConf] = useState<string | null>(null)
   const [checkingIn, setCheckingIn] = useState<string | null>(null)
@@ -493,7 +493,7 @@ export default function PortalPage() {
   const [rsvpJustificacion, setRsvpJustificacion] = useState('')
   const [rsvpWarnJust, setRsvpWarnJust] = useState(false)
   const [rsvpWarnTransporte, setRsvpWarnTransporte] = useState(false)
-  // Paso 2 â€” formulario de transporte inline
+  // Paso 2 â€" formulario de transporte inline
   const [rsvpPaso, setRsvpPaso] = useState<1 | 2>(1)
   const [rsvpRegistroId, setRsvpRegistroId] = useState<string | null>(null)
   const [rsvpGpsLat, setRsvpGpsLat] = useState<number | null>(null)
@@ -584,7 +584,7 @@ export default function PortalPage() {
       const hash = await hashDUI(passwordAdmin)
       acceso = usr.password_hash === hash
     } else {
-      // Fallback: DUI fijo sin registro en BD â†’ contraseÃ±a compartida del entorno
+      // Fallback: DUI fijo sin registro en BD â†' contraseÃ±a compartida del entorno
       acceso = passwordAdmin === ADMIN_PASSWORD
     }
 
@@ -601,7 +601,7 @@ export default function PortalPage() {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
       setUsuario(usrAdmin); cargarDatos(usrAdmin)
     } else {
-      // Admin sin registro en tabla usuarios â†’ crear objeto mÃ­nimo
+      // Admin sin registro en tabla usuarios â†' crear objeto mÃ­nimo
       const adminFallback: Usuario = {
         id: 'admin', nombre: 'Administrador', dui: duiFmt,
         email: null, telefono: null, rol: 'administrador',
@@ -618,19 +618,19 @@ export default function PortalPage() {
     setCargandoLogin(true); setErrorLogin('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
 
-    // DUI administrador â†’ pedir contraseÃ±a
+    // DUI administrador â†' pedir contraseÃ±a
     const [{ data: usr }, { data: reg }] = await Promise.all([
       supabase.from('usuarios').select('*').eq('dui', duiFmt).single(),
       supabase.from('registros_dui').select('*, padron(*)').eq('dui', duiFmt).single(),
     ])
     setCargandoLogin(false)
 
-    // Administrador (por rol en BD o por DUI fijo) â†’ mostrar campo contraseÃ±a inline
+    // Administrador (por rol en BD o por DUI fijo) â†' mostrar campo contraseÃ±a inline
     if (duiFmt === ADMIN_DUI || (usr?.rol === 'administrador' && usr?.autorizado)) {
       setMostrarPassAdmin(true); return
     }
 
-    // Usuario autorizado y activo â†’ ingresar al portal
+    // Usuario autorizado y activo â†' ingresar al portal
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
       bloquearTaps(); setSeccionConDebug('inicio')
@@ -652,7 +652,7 @@ export default function PortalPage() {
       setRegExistente(reg); setVistaLogin('pendiente'); return
     }
 
-    // Tiene registro en DUI pero sin usuario â†’ mostrar sus datos
+    // Tiene registro en DUI pero sin usuario â†' mostrar sus datos
     if (reg) {
       setRegExistente(reg)
       setFormReg({ nombre: reg.nombre ?? '', telefono: reg.telefono ?? '', correo: reg.correo ?? '', direccion: reg.direccion ?? '' })
@@ -660,7 +660,7 @@ export default function PortalPage() {
       setVistaLogin('ver'); return
     }
 
-    // Sin ningÃºn registro â†’ formulario de registro nuevo
+    // Sin ningÃºn registro â†' formulario de registro nuevo
     setRegExistente(null)
     setFormReg({ nombre: '', telefono: '', correo: '', direccion: '' })
     setModoFormReg('registrar')
@@ -728,7 +728,7 @@ export default function PortalPage() {
       setPerfilValReg(false); setPerfilRazonReg(calidadOk.razon); setValidandoPReg(false); return
     }
 
-    // 2. DetecciÃ³n de rostro (FaceDetector API â€” Chrome/Android)
+    // 2. DetecciÃ³n de rostro (FaceDetector API â€" Chrome/Android)
     try {
       if ('FaceDetector' in window) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -901,7 +901,7 @@ export default function PortalPage() {
     setUsuario(null); setDui('')
   }, [])
 
-  // â”€â”€ Validar foto â”€â”€
+  // â"€â"€ Validar foto â"€â"€
   async function validarFoto(file: File): Promise<boolean> {
     return new Promise(resolve => {
       const img = new Image()
@@ -927,7 +927,7 @@ export default function PortalPage() {
     else { setFotoReverso(file); setReversoPreview(prev); setReversoValido(null); setValidandoR(true); setReversoValido(await validarFoto(file)); setValidandoR(false) }
   }
 
-  // â”€â”€ Foto de perfil â”€â”€
+  // â"€â"€ Foto de perfil â"€â"€
   async function subirFotoPerfil(file: File) {
     setSubiendoFotoPerfil(true); setErrorFotoPerfil('')
     const ext = file.name.split('.').pop() ?? 'jpg'
@@ -952,7 +952,7 @@ export default function PortalPage() {
     setSubiendoFotoPerfil(false)
   }
 
-  // â”€â”€ Guardar perfil â”€â”€
+  // â"€â"€ Guardar perfil â"€â"€
   async function guardarPerfil() {
     if (!formPerfil.nombre.trim()) { setErrorPerfil('El nombre es obligatorio'); return }
     if (!usuario!.foto_perfil_url) { setErrorPerfil('Debe subir una foto de perfil antes de guardar. Use el Ã­cono de cÃ¡mara en su avatar.'); return }
@@ -983,7 +983,7 @@ export default function PortalPage() {
     setGuardandoPerfil(false)
   }
 
-  // â”€â”€ RSVP a evento â”€â”€
+  // â"€â"€ RSVP a evento â"€â"€
   async function guardarRsvp() {
     if (!modalRsvp || !usuario) return
 
@@ -1002,7 +1002,7 @@ export default function PortalPage() {
     }
     setRsvpWarnTransporte(false)
 
-    // Si solicitÃ³ transporte â†’ cargar registros_dui y avanzar al paso 2
+    // Si solicitÃ³ transporte â†' cargar registros_dui y avanzar al paso 2
     if (rsvpConf.confirmado && (rsvpConf.necesita_recogida || rsvpConf.necesita_regreso)) {
       const duiFmt = usuario.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario.dui.replace(/\D/g, '').slice(8, 9)
       const { data: reg } = await supabase.from('registros_dui').select('id, latitud, longitud').eq('dui', duiFmt).single()
@@ -1139,7 +1139,7 @@ export default function PortalPage() {
       await supabase.from('confirmaciones_evento').update({ check_in_at: now }).eq('id', existing.id)
       setConfirmaciones(prev => ({ ...prev, [eventoId]: { ...existing, check_in_at: now } }))
     } else {
-      // Check-in sin RSVP previo â†’ crear confirmaciÃ³n con check-in
+      // Check-in sin RSVP previo â†' crear confirmaciÃ³n con check-in
       const payload = { evento_id: eventoId, usuario_id: usuario.id, confirmado: true, necesita_recogida: false, necesita_regreso: false, fecha_confirmacion: now, check_in_at: now }
       const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
       if (data) setConfirmaciones(prev => ({ ...prev, [eventoId]: data }))
@@ -1178,7 +1178,7 @@ export default function PortalPage() {
     setModalRsvp(ev)
   }
 
-  // â”€â”€ CRUD eventos de transporte (admin) â”€â”€
+  // â"€â"€ CRUD eventos de transporte (admin) â"€â"€
   function abrirNuevoEvento() {
     setEditandoEvento(null)
     setFormEv(FORM_EV_VACIO)
@@ -1259,14 +1259,14 @@ export default function PortalPage() {
     acc[mes].push(e); return acc
   }, {} as Record<string, any[]>)
 
-  /* â”€â”€ LOGIN / PRE-LOGIN â”€â”€ */
+  /* â"€â"€ LOGIN / PRE-LOGIN â"€â"€ */
   if (!usuario) {
     return (
       <>
       <main className="min-h-screen flex flex-col lg:flex-row"
         style={{ background: 'linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%)' }}>
 
-        {/* â”€â”€ PANEL IZQUIERDO â€” informaciÃ³n institucional â”€â”€ */}
+        {/* â"€â"€ PANEL IZQUIERDO â€" informaciÃ³n institucional â"€â"€ */}
         <div className="hidden lg:flex flex-col justify-between flex-1 p-14"
           style={{ borderRight: '1px solid rgba(255,255,255,.07)' }}>
 
@@ -1388,28 +1388,28 @@ export default function PortalPage() {
           </div>
         </div>
 
-        {/* â”€â”€ PANEL DERECHO â€” formulario â”€â”€ */}
+        {/* â"€â"€ PANEL DERECHO â€" formulario â"€â"€ */}
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
-          {/* Header institucional â€” solo mÃ³vil */}
-          <div className=”lg:hidden text-center mb-8”>
-            <div className=”inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 mx-auto”
+          {/* Header institucional â€" solo mÃ³vil */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 mx-auto"
               style={{ background: 'rgba(200,168,75,.14)', border: '1.5px solid rgba(200,168,75,.35)', boxShadow: '0 0 24px rgba(200,168,75,.12)' }}>
               <LogoGB size={32} />
             </div>
-            <div className=”text-base font-bold text-white mb-0.5” style={{ letterSpacing: '.01em' }}>SIRCEV</div>
-            <div className=”text-xs” style={{ color: 'rgba(255,255,255,.35)', letterSpacing: '0.02em' }}>
+            <div className="text-base font-bold text-white mb-0.5" style={{ letterSpacing: '.01em' }}>SIRCEV</div>
+            <div className="text-xs" style={{ color: 'rgba(255,255,255,.35)', letterSpacing: '0.02em' }}>
               C.E. CapitÃ¡n General Gerardo Barrios
             </div>
           </div>
 
-        {/* â”€â”€ INGRESO DUI â”€â”€ */}
+        {/* â"€â"€ INGRESO DUI â"€â"€ */}
         {vistaLogin === 'dui' && (
-          <div className=”w-full max-w-sm”>
+          <div className="w-full max-w-sm">
 
-            <div className=”rounded-2xl p-8” style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
-              <h2 className=”font-bold text-white text-xl mb-1 text-center”>Ingrese su DUI</h2>
-              <p className=”text-sm text-center mb-6” style={{ color: 'rgba(255,255,255,.45)' }}>
+            <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
+              <h2 className="font-bold text-white text-xl mb-1 text-center">Ingrese su DUI</h2>
+              <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.45)' }}>
                 Su nÃºmero de DUI es su credencial de acceso
               </p>
 
@@ -1440,12 +1440,12 @@ export default function PortalPage() {
                 : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;Â·&nbsp; El guiÃ³n es opcional</p>
               }
 
-              {/* Campo contraseÃ±a admin â€” aparece solo cuando el DUI es de administrador */}
+              {/* Campo contraseÃ±a admin â€" aparece solo cuando el DUI es de administrador */}
               {mostrarPassAdmin && (
                 <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <ShieldAlert size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                    <span className="text-xs font-medium" style={{ color: 'var(--gold)' }}>Acceso de administrador â€” ingrese su contraseÃ±a</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--gold)' }}>Acceso de administrador â€" ingrese su contraseÃ±a</span>
                   </div>
                   <input
                     type="password"
@@ -1480,11 +1480,11 @@ export default function PortalPage() {
                 }}>
                 {cargandoLogin
                   ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
-                  : mostrarPassAdmin ? 'Ingresar â†’' : 'Continuar â†’'
+                  : mostrarPassAdmin ? 'Ingresar' : 'Continuar'
                 }
               </button>
 
-              {/* BotÃ³n huella â€” opcional, si el dispositivo lo soporta y el usuario la registrÃ³ */}
+              {/* BotÃ³n huella â€" opcional, si el dispositivo lo soporta y el usuario la registrÃ³ */}
               {!mostrarPassAdmin && huellaUsuarioRegistrada && (
                 <button
                   onClick={autenticarHuellaUsuario}
@@ -1518,7 +1518,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* â”€â”€ PENDIENTE DE AUTORIZACIÃ“N â”€â”€ */}
+        {/* â"€â"€ PENDIENTE DE AUTORIZACIÃ"N â"€â"€ */}
         {vistaLogin === 'pendiente' && (
           <div className="w-full max-w-sm">
             <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1551,7 +1551,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* â”€â”€ VER REGISTRO EXISTENTE (sin usuario) â”€â”€ */}
+        {/* â"€â"€ VER REGISTRO EXISTENTE (sin usuario) â"€â"€ */}
         {vistaLogin === 'ver' && regExistente && (
           <div className="w-full max-w-md">
             <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1580,7 +1580,7 @@ export default function PortalPage() {
                         style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
                         <span style={{ color: 'rgba(255,255,255,.4)' }}>{label}</span>
                         <span className="font-medium text-right" style={{ color: value ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.25)' }}>
-                          {value ?? 'â€”'}
+                          {value ?? 'â€"'}
                         </span>
                       </div>
                     ))}
@@ -1610,7 +1610,7 @@ export default function PortalPage() {
                 )}
                 {modoFormReg === 'guardado' && (
                   <div className="rounded-xl p-4 mb-4 text-center" style={{ background: 'rgba(5,150,105,.12)', border: '1px solid rgba(5,150,105,.3)' }}>
-                    <p className="font-semibold text-sm" style={{ color: '#34d399' }}>âœ“ Datos actualizados correctamente</p>
+                    <p className="font-semibold text-sm" style={{ color: '#34d399' }}>âœ" Datos actualizados correctamente</p>
                     <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.4)' }}>Su solicitud estÃ¡ siendo procesada</p>
                   </div>
                 )}
@@ -1648,7 +1648,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* â”€â”€ REGISTRO NUEVO â”€â”€ */}
+        {/* â"€â"€ REGISTRO NUEVO â"€â"€ */}
         {vistaLogin === 'registrar' && (
           <div className="w-full max-w-md">
             <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1704,9 +1704,9 @@ export default function PortalPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             {validandoPReg && <p className="text-xs" style={{ color: 'rgba(255,255,255,.5)' }}>Validando foto...</p>}
-                            {!validandoPReg && perfilValReg === true && <p className="text-xs font-semibold" style={{ color: '#34d399' }}>âœ“ Foto vÃ¡lida</p>}
+                            {!validandoPReg && perfilValReg === true && <p className="text-xs font-semibold" style={{ color: '#34d399' }}>âœ" Foto vÃ¡lida</p>}
                             {!validandoPReg && perfilValReg === false && (
-                              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>âœ— {perfilRazonReg}</p>
+                              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>âœ-- {perfilRazonReg}</p>
                             )}
                             {!validandoPReg && perfilValReg === null && (
                               <p className="text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
@@ -1756,7 +1756,7 @@ export default function PortalPage() {
                           {validando && <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.35)' }}>Validando...</p>}
                           {!validando && val !== null && (
                             <p className="text-xs mt-1" style={{ color: val ? '#34d399' : '#f87171' }}>
-                              {val ? 'âœ“' : 'âœ—'} {razon}
+                              {val ? 'âœ"' : 'âœ--'} {razon}
                             </p>
                           )}
                         </div>
@@ -1895,7 +1895,7 @@ export default function PortalPage() {
     )
   }
 
-  /* â”€â”€ PORTAL â”€â”€ */
+  /* â"€â"€ PORTAL â"€â"€ */
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = useMemo(() => [
@@ -1915,21 +1915,21 @@ export default function PortalPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [mensajesNoLeidos, esMotorista, esAdmin])
 
-  /** NavegaciÃ³n memoizada â€” referencia estable para evitar re-renders en hijos */
+  /** NavegaciÃ³n memoizada â€" referencia estable para evitar re-renders en hijos */
   const irA = useCallback((s: Seccion) => setSeccion(s), [])
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
 
-      {/* â”€â”€ Escudo anti-ghost-tap: capa transparente que absorbe TODOS los toques
+      {/* â"€â"€ Escudo anti-ghost-tap: capa transparente que absorbe TODOS los toques
            durante 500ms tras el login, evita que el touchend del botÃ³n Ingresar
-           aterrice en cualquier elemento del portal â”€â”€ */}
+           aterrice en cualquier elemento del portal â"€â"€ */}
       {bloqueandoTaps && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
       )}
 
 
-      {/* â”€â”€ Sidebar desktop (md+) â”€â”€ */}
+      {/* â"€â"€ Sidebar desktop (md+) â"€â"€ */}
       <aside className="hidden md:flex w-56 flex-col flex-shrink-0"
         style={{ background: 'linear-gradient(180deg, var(--navy-dark), var(--navy))', borderRight: '1px solid rgba(255,255,255,.06)' }}>
         <div className="px-4 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
@@ -1995,7 +1995,7 @@ export default function PortalPage() {
         </div>
       </aside>
 
-      {/* â”€â”€ Barra inferior mÃ³vil (< md) â€” 4 Ã­tems fijos â”€â”€ */}
+      {/* â"€â"€ Barra inferior mÃ³vil (< md) â€" 4 Ã­tems fijos â"€â"€ */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)', pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
         <div className="grid grid-cols-4">
@@ -2070,7 +2070,7 @@ export default function PortalPage() {
           key={seccion}
           style={{ pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
 
-          {/* â”€â”€ INICIO (pantalla principal mÃ³vil) â”€â”€ */}
+          {/* â"€â"€ INICIO (pantalla principal mÃ³vil) â"€â"€ */}
           {seccion === 'inicio' && (
             <div className="max-w-lg mx-auto">
               {/* Saludo */}
@@ -2167,11 +2167,11 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* â”€â”€ MI PERFIL (rediseÃ±o Android / red social) â”€â”€ */}
+          {/* â"€â"€ MI PERFIL (rediseÃ±o Android / red social) â"€â"€ */}
           {seccion === 'perfil' && (
             <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 24 }}>
 
-              {/* â”€â”€ HERO: banner + avatar centrado â”€â”€ */}
+              {/* â"€â"€ HERO: banner + avatar centrado â"€â"€ */}
               <div style={{ position: 'relative', marginBottom: 56 }}>
                 {/* Banner */}
                 <div style={{
@@ -2235,7 +2235,7 @@ export default function PortalPage() {
                 </div>
               </div>
 
-              {/* â”€â”€ INFO: nombre + DUI + rol â”€â”€ */}
+              {/* â"€â"€ INFO: nombre + DUI + rol â"€â"€ */}
               <div style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 16, borderBottom: '1px solid var(--borde)' }}>
                 <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--texto)', lineHeight: 1.2 }}>
                   {registro?.nombre ?? usuario.nombre}
@@ -2266,14 +2266,14 @@ export default function PortalPage() {
 
               {!editando ? (
                 <>
-                  {/* â”€â”€ DATOS: filas tipo WhatsApp/Android â”€â”€ */}
+                  {/* â"€â"€ DATOS: filas tipo WhatsApp/Android â"€â"€ */}
                   <div style={{ margin: '12px 12px 0' }}>
                     <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
                       {[
-                        { icon: 'ðŸ“ž', label: 'TelÃ©fono', value: registro?.telefono },
+                        { icon: 'ðŸ"ž', label: 'TelÃ©fono', value: registro?.telefono },
                         { icon: 'âœ‰ï¸',  label: 'Correo',   value: registro?.correo   },
-                        { icon: 'ðŸ“', label: 'DirecciÃ³n', value: registro?.direccion },
-                        { icon: 'ðŸ—³ï¸',  label: 'JRV',       value: padronInfo?.jrv    },
+                        { icon: 'ðŸ"', label: 'DirecciÃ³n', value: registro?.direccion },
+                        { icon: 'ðŸ--³ï¸',  label: 'JRV',       value: padronInfo?.jrv    },
                         { icon: 'ðŸ›ï¸',  label: 'Centro de votaciÃ³n', value: padronInfo?.centro },
                       ].map(({ icon, label, value }, idx, arr) => (
                         <div key={label} style={{
@@ -2285,7 +2285,7 @@ export default function PortalPage() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, color: 'var(--texto-muted)', fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
                             <div style={{ fontSize: 14, fontWeight: 500, color: value ? 'var(--texto)' : 'var(--texto-muted)', wordBreak: 'break-word' }}>
-                              {value || 'â€”'}
+                              {value || 'â€"'}
                             </div>
                           </div>
                         </div>
@@ -2293,11 +2293,11 @@ export default function PortalPage() {
                     </div>
                   </div>
 
-                  {/* â”€â”€ FOTOS DUI (si existen) â”€â”€ */}
+                  {/* â"€â"€ FOTOS DUI (si existen) â"€â"€ */}
                   {(registro?.foto_frente_url || registro?.foto_reverso_url) && (
                     <div style={{ margin: '12px 12px 0' }}>
                       <div className="card" style={{ borderRadius: 16, padding: '14px 18px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>ðŸ“„ FotografÃ­as del DUI</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>ðŸ"„ FotografÃ­as del DUI</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                           {[{ l: 'Frente', u: registro?.foto_frente_url }, { l: 'Reverso', u: registro?.foto_reverso_url }].map(({ l, u }) => (
                             <div key={l}>
@@ -2313,7 +2313,7 @@ export default function PortalPage() {
                     </div>
                   )}
 
-                  {/* â”€â”€ HUELLA DIGITAL (fila tipo ajustes Android) â”€â”€ */}
+                  {/* â"€â"€ HUELLA DIGITAL (fila tipo ajustes Android) â"€â"€ */}
                   <div style={{ margin: '12px 12px 0' }}>
                     <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
                       <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: huellaUsuarioRegistrada ? 'none' : '1px solid var(--borde)' }}>
@@ -2337,7 +2337,7 @@ export default function PortalPage() {
                       {!huellaUsuarioRegistrada && (
                         <div style={{ padding: '10px 18px 14px', background: 'rgba(251,191,36,.05)', borderTop: '1px solid rgba(251,191,36,.12)' }}>
                           <div style={{ fontSize: 11, color: 'var(--texto-muted)', lineHeight: 1.5, marginBottom: 10 }}>
-                            âš ï¸ Necesita un bloqueo de pantalla activo: <strong>Android</strong> â†’ huella / PIN / patrÃ³n Â· <strong>iPhone</strong> â†’ Face ID / Touch ID
+                            âš ï¸ Necesita un bloqueo de pantalla activo: <strong>Android</strong> â†' huella / PIN / patrÃ³n Â· <strong>iPhone</strong> â†' Face ID / Touch ID
                           </div>
                           <button onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)} disabled={guardandoBiometria}
                             style={{ width: '100%', padding: '10px 0', borderRadius: 12, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2366,7 +2366,7 @@ export default function PortalPage() {
                     </div>
                   </div>
 
-                  {/* â”€â”€ BOTÃ“N EDITAR al pie â”€â”€ */}
+                  {/* â"€â"€ BOTÃ"N EDITAR al pie â"€â"€ */}
                   <div style={{ margin: '16px 12px 0' }}>
                     <button onClick={() => setEditando(true)}
                       style={{ width: '100%', padding: '13px 0', borderRadius: 14, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2375,7 +2375,7 @@ export default function PortalPage() {
                   </div>
                 </>
               ) : (
-                /* â”€â”€ MODO EDICIÃ“N â”€â”€ */
+                /* â"€â"€ MODO EDICIÃ"N â"€â"€ */
                 <div style={{ margin: '12px 12px 0' }}>
                   <div className="card" style={{ borderRadius: 16, padding: '20px 18px' }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--texto)', marginBottom: 16 }}>Editar informaciÃ³n</div>
@@ -2402,7 +2402,7 @@ export default function PortalPage() {
 
                     {/* Fotos DUI */}
                     <div style={{ marginTop: 20 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>ðŸ“„ Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>â€” Opcional</span></div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>ðŸ"„ Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>â€" Opcional</span></div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         {(['frente', 'reverso'] as const).map(lado => {
                           const prev = lado === 'frente' ? frentePreview : reversoPreview
@@ -2425,8 +2425,8 @@ export default function PortalPage() {
                               </div>
                               <div style={{ fontSize: 11, marginTop: 4 }}>
                                 {val2 && <span style={{ color: 'var(--amber)' }}>Validando...</span>}
-                                {val === true && <span style={{ color: 'var(--verde)' }}>âœ“ VÃ¡lida</span>}
-                                {val === false && <span style={{ color: 'var(--rojo)' }}>âœ— No legible</span>}
+                                {val === true && <span style={{ color: 'var(--verde)' }}>âœ" VÃ¡lida</span>}
+                                {val === false && <span style={{ color: 'var(--rojo)' }}>âœ-- No legible</span>}
                                 {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Toca para reemplazar' : 'Sin imagen'}</span>}
                               </div>
                             </div>
@@ -2454,7 +2454,7 @@ export default function PortalPage() {
           )}
 
 
-          {/* â”€â”€ MI JRV â”€â”€ */}
+          {/* â"€â"€ MI JRV â"€â"€ */}
           {seccion === 'jrv' && (
             <div className="max-w-2xl space-y-5">
               {padronInfo ? (
@@ -2513,7 +2513,7 @@ export default function PortalPage() {
                         <div className="flex-1 min-w-0 space-y-3">
                           <div>
                             <div className="font-semibold text-sm">{c.nombre}</div>
-                            <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--azul)' }}>{(c as RegistroDUI & { padron?: { cargo?: string } }).padron?.cargo ?? 'â€”'}</div>
+                            <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--azul)' }}>{(c as RegistroDUI & { padron?: { cargo?: string } }).padron?.cargo ?? 'â€"'}</div>
                           </div>
                           <div className="grid grid-cols-1 xs:grid-cols-2 gap-x-6 gap-y-1.5">
                             <div>
@@ -2540,16 +2540,16 @@ export default function PortalPage() {
                                   </a>
                                 </div>
                               ) : (
-                                <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>â€”</div>
+                                <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>â€"</div>
                               )}
                             </div>
                             <div>
                               <div className="field-label">Correo</div>
-                              <div className="text-xs break-all">{c.correo ?? 'â€”'}</div>
+                              <div className="text-xs break-all">{c.correo ?? 'â€"'}</div>
                             </div>
                             <div>
                               <div className="field-label">DirecciÃ³n</div>
-                              <div className="text-xs">{c.direccion ?? 'â€”'}</div>
+                              <div className="text-xs">{c.direccion ?? 'â€"'}</div>
                             </div>
                           </div>
                           {(c.foto_frente_url || c.foto_reverso_url) && (
@@ -2579,7 +2579,7 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* â”€â”€ AGENDA (Eventos + Materiales) â”€â”€ */}
+          {/* â"€â"€ AGENDA (Eventos + Materiales) â"€â"€ */}
           {seccion === 'agenda' && (
             <div className="max-w-4xl space-y-4">
               {/* PestaÃ±as */}
@@ -2682,7 +2682,7 @@ export default function PortalPage() {
                               </div>
                               {ev.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{ev.descripcion}</p>}
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{ev.hora.slice(0, 5)}{ev.hora_fin ? ` â€“ ${ev.hora_fin.slice(0,5)}` : ''}</span>}
+                                {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{ev.hora.slice(0, 5)}{ev.hora_fin ? ` â€" ${ev.hora_fin.slice(0,5)}` : ''}</span>}
                                 {ev.lugar && (
                                   ev.lugar.startsWith('http')
                                     ? <a href={ev.lugar} target="_blank" rel="noopener noreferrer"
@@ -2731,7 +2731,7 @@ export default function PortalPage() {
                                   {yaConfirmado ? <><Pencil size={11} /> Editar confirmaciÃ³n</> : yaDeclinado ? 'Cambiar respuesta' : 'Confirmar asistencia'}
                                 </button>
                               )}
-                              {/* Compartir â€” visible para todos */}
+                              {/* Compartir â€" visible para todos */}
                               {(() => {
                                 const base = typeof window !== 'undefined' ? window.location.origin : 'https://centro-votacion-gerardo-barrios.vercel.app'
                                 const url = `${base}/portal?evento=${ev.id}`
@@ -2786,22 +2786,22 @@ export default function PortalPage() {
                               )}
                             </div>
                           </div>{/* fin flex sm:flex-row */}
-                            {/* Panel de asistencia inline â€” solo admin */}
+                            {/* Panel de asistencia inline â€" solo admin */}
                             {esAdmin && asistenciaEvId === ev.id && (() => {
                               const lista: any[] = asistenciaData[ev.id] ?? []
                               const confirmados  = lista.filter(c => c.confirmado)
                               const declinados   = lista.filter(c => c.confirmado === false)
                               const conTransporte = lista.filter(c => c.necesita_recogida || c.necesita_regreso)
                               const presentes    = lista.filter(c => c.check_in_at)
-                              const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? 'â€”'
+                              const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? 'â€"'
                               return (
                                 <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--borde)', background: 'var(--fondo)' }}>
                                   {/* Cabecera resumen */}
                                   <div className="px-4 py-3 flex flex-wrap gap-4 text-xs font-medium border-b" style={{ borderColor: 'var(--borde)', background: 'var(--superficie)' }}>
-                                    <span style={{ color: '#16a34a' }}>âœ“ {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
+                                    <span style={{ color: '#16a34a' }}>âœ" {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
                                     <span style={{ color: '#2563eb' }}>ðŸšŒ {conTransporte.length} con transporte</span>
-                                    <span style={{ color: '#7c3aed' }}>ðŸ“‹ {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
-                                    {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>âœ— {declinados.length} no asistirÃ¡</span>}
+                                    <span style={{ color: '#7c3aed' }}>ðŸ"‹ {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
+                                    {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>âœ-- {declinados.length} no asistirÃ¡</span>}
                                   </div>
                                   {lista.length === 0 ? (
                                     <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--texto-muted)' }}>Sin confirmaciones registradas aÃºn.</div>
@@ -2900,37 +2900,37 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* â”€â”€ MENSAJES â”€â”€ */}
+          {/* â"€â"€ MENSAJES â"€â"€ */}
           {seccion === 'mensajes' && (
             <MensajesSection usuario={usuario} onNoLeidosChange={setMensajesNoLeidos} />
           )}
 
-          {/* â”€â”€ TRANSPORTE â”€â”€ */}
+          {/* â"€â"€ TRANSPORTE â"€â"€ */}
           {seccion === 'transporte' && (
             <TransporteSection usuario={usuario} />
           )}
 
-          {/* â”€â”€ MOTORISTA â”€â”€ */}
+          {/* â"€â"€ MOTORISTA â"€â"€ */}
           {seccion === 'motorista' && (
             <MotoristaSection usuario={usuario} />
           )}
 
-          {/* â”€â”€ ADMIN: REGISTROS (DUI + Usuarios) â”€â”€ */}
+          {/* â"€â"€ ADMIN: REGISTROS (DUI + Usuarios) â"€â"€ */}
           {seccion === 'admin-registros' && (
             <AdminRegistrosSection />
           )}
 
-          {/* â”€â”€ ADMIN: ASIGNACIÃ“N â”€â”€ */}
+          {/* â"€â"€ ADMIN: ASIGNACIÃ"N â"€â"€ */}
           {seccion === 'admin-asignacion' && (
             <AdminAsignacionSection />
           )}
 
-          {/* â”€â”€ ADMIN: TRANSPORTE â”€â”€ */}
+          {/* â"€â"€ ADMIN: TRANSPORTE â"€â"€ */}
           {seccion === 'admin-transporte' && (
             <AdminTransporteSection usuario={usuario ? { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, foto_perfil_url: usuario.foto_perfil_url } : undefined} />
           )}
 
-          {/* â”€â”€ ADMIN: CATÃLOGO â”€â”€ */}
+          {/* â"€â"€ ADMIN: CATÃLOGO â"€â"€ */}
           {seccion === 'admin-catalogo' && (
             <AdminCatalogoSection />
           )}
@@ -3000,7 +3000,7 @@ export default function PortalPage() {
                   </label>
                 )}
               </div>
-              {/* Punto de reuniÃ³n â€” solo si algÃºn transporte activo y NO es a domicilio */}
+              {/* Punto de reuniÃ³n â€" solo si algÃºn transporte activo y NO es a domicilio */}
               {(formEv.transporte_recogida || formEv.transporte_regreso) && (!formEv.recogida_domicilio || !formEv.regreso_domicilio) && (
                 <div>
                   <label className="field-label">Punto de reuniÃ³n</label>
@@ -3028,7 +3028,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* â”€â”€ MODAL LINK COMPARTIBLE â”€â”€ */}
+      {/* â"€â"€ MODAL LINK COMPARTIBLE â"€â"€ */}
       {linkEvento && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
@@ -3078,7 +3078,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* â”€â”€ MODAL RSVP â”€â”€ */}
+      {/* â"€â"€ MODAL RSVP â"€â"€ */}
       {modalRsvp && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
@@ -3140,7 +3140,7 @@ export default function PortalPage() {
                   )}
                 </div>
               )}
-              {/* Transporte â€” solo si confirma asistencia y el evento ofrece */}
+              {/* Transporte â€" solo si confirma asistencia y el evento ofrece */}
               {rsvpConf.confirmado && (modalRsvp.transporte_recogida || modalRsvp.transporte_regreso) && (
                 <div>
                   <p className="text-sm font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--texto)' }}>
@@ -3222,15 +3222,15 @@ export default function PortalPage() {
               )}
             </>)}
 
-            {/* â”€â”€ PASO 2: Formulario de transporte inline â”€â”€ */}
+            {/* â"€â"€ PASO 2: Formulario de transporte inline â"€â"€ */}
             {rsvpPaso === 2 && (
               <div className="space-y-4">
                 {/* Resumen de lo que solicitÃ³ */}
                 <div className="p-3 rounded-xl space-y-1.5" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>ðŸ“‹ Resumen de su solicitud</p>
+                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>ðŸ"‹ Resumen de su solicitud</p>
                   {rsvpConf.necesita_recogida && (
                     <p className="text-xs" style={{ color: '#1e40af' }}>
-                      ðŸš <strong>Le llevamos a {modalRsvp.nombre}</strong> â€”{' '}
+                      ðŸš <strong>Le llevamos a {modalRsvp.nombre}</strong> â€"{' '}
                       {modalRsvp.recogida_domicilio
                         ? 'Pasamos a buscarle en su domicilio'
                         : modalRsvp.punto_reunion
@@ -3239,23 +3239,23 @@ export default function PortalPage() {
                     </p>
                   )}
                   {rsvpConf.necesita_regreso && (
-                    <p className="text-xs" style={{ color: '#1e40af' }}>ðŸ  <strong>Le llevamos a casa</strong> â€” le regresamos a su domicilio al terminar</p>
+                    <p className="text-xs" style={{ color: '#1e40af' }}>ðŸ  <strong>Le llevamos a casa</strong> â€" le regresamos a su domicilio al terminar</p>
                   )}
                 </div>
 
-                {/* Punto de reuniÃ³n â€” si aplica */}
+                {/* Punto de reuniÃ³n â€" si aplica */}
                 {!modalRsvp.recogida_domicilio && modalRsvp.punto_reunion && (
                   <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>ðŸ“ Punto de reuniÃ³n</p>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>ðŸ" Punto de reuniÃ³n</p>
                     <p className="text-sm font-medium" style={{ color: '#9a3412' }}>{modalRsvp.punto_reunion}</p>
                     <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Pasaremos a buscarle aquÃ­. Por favor llegue puntualmente a este lugar.</p>
                   </div>
                 )}
 
-                {/* GPS â€” siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
+                {/* GPS â€" siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>
-                    ðŸ“ {modalRsvp.recogida_domicilio ? 'Â¿DÃ³nde pasamos a buscarle?' : 'Â¿A dÃ³nde le llevamos de regreso?'}
+                    ðŸ" {modalRsvp.recogida_domicilio ? 'Â¿DÃ³nde pasamos a buscarle?' : 'Â¿A dÃ³nde le llevamos de regreso?'}
                   </p>
                   <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
                     {modalRsvp.recogida_domicilio
@@ -3281,7 +3281,7 @@ export default function PortalPage() {
                       <div className="flex items-center justify-between px-2.5 py-2" style={{ background: '#f0fdf4' }}>
                         <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin size={12} style={{ color: '#16a34a', flexShrink: 0 }} />
-                          <span className="text-xs font-semibold" style={{ color: '#15803d' }}>UbicaciÃ³n registrada âœ“</span>
+                          <span className="text-xs font-semibold" style={{ color: '#15803d' }}>UbicaciÃ³n registrada âœ"</span>
                           <span className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(4)}, {rsvpGpsLng.toFixed(4)}</span>
                         </div>
                         <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
@@ -3300,7 +3300,7 @@ export default function PortalPage() {
                           loading="lazy"
                         />
                         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
-                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>ðŸ“ Su ubicaciÃ³n aÃºn no estÃ¡ registrada</span>
+                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>ðŸ" Su ubicaciÃ³n aÃºn no estÃ¡ registrada</span>
                         </div>
                         <button onClick={() => setRsvpMapaExpandido(true)}
                           className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center"
@@ -3326,7 +3326,7 @@ export default function PortalPage() {
             )}
             </div>
 
-            {/* Footer â€” cambia segÃºn el paso */}
+            {/* Footer â€" cambia segÃºn el paso */}
             <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)', justifyContent: rsvpPaso === 2 ? 'space-between' : 'flex-end' }}>
               {rsvpPaso === 2 ? (
                 <>
@@ -3354,7 +3354,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* â”€â”€ MAPA FULLSCREEN â”€â”€ */}
+      {/* â"€â"€ MAPA FULLSCREEN â"€â"€ */}
       {rsvpMapaExpandido && (
         <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: '#000' }}>
           {/* Barra superior */}
@@ -3362,7 +3362,7 @@ export default function PortalPage() {
             <div className="flex items-center gap-2">
               <MapPin size={14} style={{ color: '#60a5fa' }} />
               <span className="text-sm font-semibold text-white">
-                {rsvpGpsLat && rsvpGpsLng ? 'Su ubicaciÃ³n registrada' : 'Mapa de referencia â€” Santa Ana'}
+                {rsvpGpsLat && rsvpGpsLng ? 'Su ubicaciÃ³n registrada' : 'Mapa de referencia â€" Santa Ana'}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -3404,7 +3404,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* â”€â”€ LIGHTBOX â”€â”€ */}
+      {/* â"€â"€ LIGHTBOX â"€â"€ */}
       {lightboxUrl && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
