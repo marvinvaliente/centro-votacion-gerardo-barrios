@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
@@ -16,10 +16,10 @@ import { supabase } from '@/lib/supabase'
 import { bioRegister, bioAuthenticate, bioDelete } from '@/lib/biometric'
 import type { RegistroDUI, Padron } from '@/types'
 
-/* ── Carga diferida de secciones pesadas ─────────────────────────────────
+/* â”€â”€ Carga diferida de secciones pesadas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    El bundle inicial no incluye ninguna de estas secciones.
-   Sólo se descargan la primera vez que el usuario navega a ellas.
-   ─────────────────────────────────────────────────────────────────────── */
+   SÃ³lo se descargan la primera vez que el usuario navega a ellas.
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const SectionLoader = () => (
   <div className="flex items-center justify-center py-20">
     <Loader2 size={24} className="animate-spin" style={{ color: 'var(--gold)' }} />
@@ -94,7 +94,7 @@ function iconoMime(mime: string) {
 
 type Seccion = 'inicio' | 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
 
-/* ── Componente de sección Asistencia ── */
+/* â”€â”€ Componente de secciÃ³n Asistencia â”€â”€ */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
   const [actividades, setActividades] = useState<any[]>([])
   const [cargando, setCargando] = useState(true)
@@ -161,7 +161,7 @@ function AsistenciaSection({ dui, registroId }: { dui: string; registroId: strin
               {score.asistidas} de {score.total} {score.total === 1 ? 'actividad' : 'actividades'}
             </p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-              {pct === 100 ? '¡Asistencia perfecta! 🌟' : pct! >= 80 ? 'Excelente participación' : pct! >= 50 ? 'Buena participación' : 'Recuerde marcar su asistencia'}
+              {pct === 100 ? 'Â¡Asistencia perfecta! ðŸŒŸ' : pct! >= 80 ? 'Excelente participaciÃ³n' : pct! >= 50 ? 'Buena participaciÃ³n' : 'Recuerde marcar su asistencia'}
             </p>
           </div>
         </div>
@@ -181,7 +181,7 @@ function AsistenciaSection({ dui, registroId }: { dui: string; registroId: strin
               <p className="font-semibold text-sm truncate" style={{ color: 'var(--texto)' }}>{a.titulo}</p>
               {a.lugar && <p className="text-xs truncate" style={{ color: 'var(--texto-muted)' }}>{a.lugar}</p>}
               <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                {a.hora ? `${a.hora.slice(0,5)}${a.hora_fin ? ` – ${a.hora_fin.slice(0,5)}` : ''}` : 'Sin hora'}
+                {a.hora ? `${a.hora.slice(0,5)}${a.hora_fin ? ` â€“ ${a.hora_fin.slice(0,5)}` : ''}` : 'Sin hora'}
               </p>
             </div>
             <div className="shrink-0">
@@ -215,10 +215,19 @@ export default function PortalPage() {
   const [dui, setDui]         = useState('')
   const [errorLogin, setErrorLogin] = useState('')
   const [cargandoLogin, setCargandoLogin] = useState(false)
-  // Bloquear tap-through 400ms después del login (Android ghost tap fix)
+  // Bloquear tap-through 400ms despuÃ©s del login (Android ghost tap fix)
   const [bloqueandoTaps, setBloqueandoTaps] = useState(false)
-  const bloquearTaps = () => { setBloqueandoTaps(true); setTimeout(() => setBloqueandoTaps(false), 400) }
+  const bloquearTaps = () => { setBloqueandoTaps(true); setTimeout(() => setBloqueandoTaps(false), 500) }
   const [seccion, setSeccion] = useState<Seccion>('inicio')
+  // Debug temporal: mostrar nombre de secciÃ³n activa 2s tras cada cambio
+  const [debugSeccion, setDebugSeccion] = useState<string | null>(null)
+  const debugTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setSeccionConDebug = (s: Seccion) => {
+    setSeccion(s)
+    if (debugTimer.current) clearTimeout(debugTimer.current)
+    setDebugSeccion(s)
+    debugTimer.current = setTimeout(() => setDebugSeccion(null), 2500)
+  }
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null)
@@ -226,7 +235,7 @@ export default function PortalPage() {
   const inputFotoRef = useRef<HTMLInputElement>(null)
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cuenta regresiva — 28 feb 2027
+  // Cuenta regresiva â€” 28 feb 2027
   const ELECCION = new Date('2027-02-28T06:00:00-06:00').getTime()
   const calcularRestante = () => {
     const diff = ELECCION - Date.now()
@@ -252,7 +261,7 @@ export default function PortalPage() {
       .catch(() => {})
   }, [])
 
-  // Detectar soporte de huella + cargar config biometría
+  // Detectar soporte de huella + cargar config biometrÃ­a
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
@@ -264,13 +273,13 @@ export default function PortalPage() {
         .then(ok => setHuellaDisponible(ok))
         .catch(() => {})
     }
-    // Cargar config biometría desde Supabase
+    // Cargar config biometrÃ­a desde Supabase
     supabase.from('app_config').select('valor').eq('clave', 'biometria_habilitada').single()
       .then(({ data }) => { if (data) setBiometriaHabilitada(data.valor === 'true') })
       .catch(() => {})
   }, [])
 
-  // ── WebAuthn helpers ──
+  // â”€â”€ WebAuthn helpers â”€â”€
   function b64url(buf: ArrayBuffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buf)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
@@ -317,13 +326,13 @@ export default function PortalPage() {
           timeout: 60000,
         },
       })
-      // Autenticación exitosa — mismo flujo que contraseña correcta
+      // AutenticaciÃ³n exitosa â€” mismo flujo que contraseÃ±a correcta
       sessionStorage.setItem(ADMIN_SESSION, '1')
       sessionStorage.setItem('admin_dui', ADMIN_DUI)
       const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', ADMIN_DUI).single()
       if (usrAdmin) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
-        bloquearTaps(); setSeccion('inicio')
+        bloquearTaps(); setSeccionConDebug('inicio')
         setUsuario(usrAdmin); cargarDatos(usrAdmin)
       } else {
         const adminFallback: Usuario = {
@@ -339,7 +348,7 @@ export default function PortalPage() {
     }
   }
 
-  // ── WebAuthn para usuario regular ──
+  // â”€â”€ WebAuthn para usuario regular â”€â”€
   async function registrarHuellaUsuario(duiUsuario: string) {
     setHuellaUsuarioError('')
     setGuardandoBiometria(true)
@@ -351,7 +360,7 @@ export default function PortalPage() {
       const nombre = (e as any)?.name ?? ''
       const msg = (e as any)?.message ?? ''
       if (nombre === 'NotAllowedError' || msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user cancel')) {
-        // usuario canceló — sin error
+        // usuario cancelÃ³ â€” sin error
       } else {
         setHuellaUsuarioError(`Error: ${msg || nombre || 'No se pudo registrar la huella'}`)
       }
@@ -365,7 +374,7 @@ export default function PortalPage() {
     // bioAuthenticate verifica la huella y devuelve el DUI asociado
     try {
       const duiGuardado = await bioAuthenticate()
-      // Normalizar DUI: 043251917 → 04325191-7
+      // Normalizar DUI: 043251917 â†’ 04325191-7
       const digits = duiGuardado.replace(/\D/g, '')
       const duiFmt = digits.length >= 9
         ? digits.slice(0, 8) + '-' + digits.slice(8, 9)
@@ -381,14 +390,14 @@ export default function PortalPage() {
         setHuellaUsuarioError('Usuario no autorizado o inactivo')
         return
       }
-      // Sesión de usuario
+      // SesiÃ³n de usuario
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-      // Si es admin, también activar sesión de administrador
+      // Si es admin, tambiÃ©n activar sesiÃ³n de administrador
       if (duiFmt === ADMIN_DUI) {
         sessionStorage.setItem(ADMIN_SESSION, '1')
         sessionStorage.setItem('admin_dui', duiFmt)
       }
-      bloquearTaps(); setSeccion('inicio')
+      bloquearTaps(); setSeccionConDebug('inicio')
       setUsuario(usr); cargarDatos(usr)
     } catch (e: any) {
       const msg = (e as any)?.message ?? ''
@@ -396,7 +405,7 @@ export default function PortalPage() {
       if (msg.includes('No hay huella registrada')) {
         setHuellaUsuarioError('No hay huella registrada. Ve a Mi Perfil para activarla.')
       } else {
-        setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseña.')
+        setHuellaUsuarioError('Huella no reconocida. Intente con DUI y contraseÃ±a.')
       }
     }
   }
@@ -418,7 +427,7 @@ export default function PortalPage() {
   const [huellaRegistrada, setHuellaRegistrada] = useState(false)
   const [ofrecerHuella, setOfrecerHuella]       = useState(false)
   const [huellaError, setHuellaError]           = useState('')
-  // Config global de biometría
+  // Config global de biometrÃ­a
   const [biometriaHabilitada, setBiometriaHabilitada] = useState(false)
   const [guardandoBiometria, setGuardandoBiometria]   = useState(false)
   // Huella para usuario regular (no admin)
@@ -456,7 +465,7 @@ export default function PortalPage() {
   const [padronInfo, setPadronInfo]   = useState<Padron | null>(null)
   const [companeros, setCompaneros]   = useState<RegistroDUI[]>([])
 
-  // Edición de perfil
+  // EdiciÃ³n de perfil
   const [editando, setEditando]       = useState(false)
   const [formPerfil, setFormPerfil]   = useState({ nombre: '', telefono: '', correo: '', direccion: '' })
   const [subiendoFotoPerfil, setSubiendoFotoPerfil] = useState(false)
@@ -478,11 +487,11 @@ export default function PortalPage() {
   const [materiales, setMateriales]   = useState<Material[]>([])
   const [filtroMat, setFiltroMat]     = useState('Todas')
 
-  // Agenda — solo eventos (actividades eliminadas)
+  // Agenda â€” solo eventos (actividades eliminadas)
   const [tabAgenda, setTabAgenda] = useState<'eventos' | 'materiales'>('eventos')
   // Eventos
   const [eventosTransporte, setEventosTransporte] = useState<any[]>([])
-  // confirmaciones: mapa evento_id → { confirmado, necesita_recogida, necesita_regreso, check_in_at, id }
+  // confirmaciones: mapa evento_id â†’ { confirmado, necesita_recogida, necesita_regreso, check_in_at, id }
   const [confirmaciones, setConfirmaciones] = useState<Record<string, any>>({})
   const [guardandoConf, setGuardandoConf] = useState<string | null>(null)
   const [checkingIn, setCheckingIn] = useState<string | null>(null)
@@ -492,7 +501,7 @@ export default function PortalPage() {
   const [rsvpJustificacion, setRsvpJustificacion] = useState('')
   const [rsvpWarnJust, setRsvpWarnJust] = useState(false)
   const [rsvpWarnTransporte, setRsvpWarnTransporte] = useState(false)
-  // Paso 2 — formulario de transporte inline
+  // Paso 2 â€” formulario de transporte inline
   const [rsvpPaso, setRsvpPaso] = useState<1 | 2>(1)
   const [rsvpRegistroId, setRsvpRegistroId] = useState<string | null>(null)
   const [rsvpGpsLat, setRsvpGpsLat] = useState<number | null>(null)
@@ -514,10 +523,10 @@ export default function PortalPage() {
   const [asistenciaEvId, setAsistenciaEvId]     = useState<string | null>(null)
   const [asistenciaData, setAsistenciaData]     = useState<Record<string, any[]>>({})
   const [cargandoAsistencia, setCargandoAsistencia] = useState<string | null>(null)
-  // Link compartible del último evento creado
+  // Link compartible del Ãºltimo evento creado
   const [linkEvento, setLinkEvento] = useState<{ nombre: string; url: string } | null>(null)
   const [linkCopiado, setLinkCopiado] = useState(false)
-  // Parámetros URL: ?evento=id para auto-abrir RSVP, ?s=seccion para navegación directa
+  // ParÃ¡metros URL: ?evento=id para auto-abrir RSVP, ?s=seccion para navegaciÃ³n directa
   const eventoIdUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('evento') : null
   const seccionUrl  = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('s') : null
 
@@ -528,7 +537,7 @@ export default function PortalPage() {
       setUsuario(u)
       cargarDatos(u)
     }
-    // Navegar a la sección indicada en la URL (?s=jrv, ?s=agenda, etc.)
+    // Navegar a la secciÃ³n indicada en la URL (?s=jrv, ?s=agenda, etc.)
     if (seccionUrl && ['inicio','perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
       setSeccion(seccionUrl as Seccion)
     }
@@ -556,11 +565,11 @@ export default function PortalPage() {
   }
 
   async function ingresarAdmin() {
-    if (!passwordAdmin) { setErrorAdmin('Ingrese la contraseña'); return }
+    if (!passwordAdmin) { setErrorAdmin('Ingrese la contraseÃ±a'); return }
     setErrorAdmin('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
 
-    // Buscar el usuario en BD para verificar su contraseña propia
+    // Buscar el usuario en BD para verificar su contraseÃ±a propia
     const { data: usr } = await supabase.from('usuarios').select('password_hash').eq('dui', duiFmt).single()
 
     let acceso = false
@@ -568,24 +577,24 @@ export default function PortalPage() {
       const hash = await hashDUI(passwordAdmin)
       acceso = usr.password_hash === hash
     } else {
-      // Fallback: DUI fijo sin registro en BD → contraseña compartida del entorno
+      // Fallback: DUI fijo sin registro en BD â†’ contraseÃ±a compartida del entorno
       acceso = passwordAdmin === ADMIN_PASSWORD
     }
 
-    if (!acceso) { setErrorAdmin('Contraseña incorrecta'); setPasswordAdmin(''); return }
-    // Ofrecer huella si el dispositivo la soporta y no está registrada aún
+    if (!acceso) { setErrorAdmin('ContraseÃ±a incorrecta'); setPasswordAdmin(''); return }
+    // Ofrecer huella si el dispositivo la soporta y no estÃ¡ registrada aÃºn
     if (huellaDisponible && !huellaRegistrada) setOfrecerHuella(true)
     sessionStorage.setItem(ADMIN_SESSION, '1')
     sessionStorage.setItem('admin_dui', duiFmt)
 
     // Cargar datos del admin para mostrarlo en el portal (como cualquier usuario)
     const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
-    bloquearTaps(); setSeccion('inicio')
+    bloquearTaps(); setSeccionConDebug('inicio')
     if (usrAdmin) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
       setUsuario(usrAdmin); cargarDatos(usrAdmin)
     } else {
-      // Admin sin registro en tabla usuarios → crear objeto mínimo
+      // Admin sin registro en tabla usuarios â†’ crear objeto mÃ­nimo
       const adminFallback: Usuario = {
         id: 'admin', nombre: 'Administrador', dui: duiFmt,
         email: null, telefono: null, rol: 'administrador',
@@ -598,28 +607,28 @@ export default function PortalPage() {
   }
 
   async function verificarDUI() {
-    if (dui.replace(/\D/g, '').length < 9) { setErrorLogin('Ingrese los 9 dígitos del DUI'); return }
+    if (dui.replace(/\D/g, '').length < 9) { setErrorLogin('Ingrese los 9 dÃ­gitos del DUI'); return }
     setCargandoLogin(true); setErrorLogin('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
 
-    // DUI administrador → pedir contraseña
+    // DUI administrador â†’ pedir contraseÃ±a
     const [{ data: usr }, { data: reg }] = await Promise.all([
       supabase.from('usuarios').select('*').eq('dui', duiFmt).single(),
       supabase.from('registros_dui').select('*, padron(*)').eq('dui', duiFmt).single(),
     ])
     setCargandoLogin(false)
 
-    // Administrador (por rol en BD o por DUI fijo) → mostrar campo contraseña inline
+    // Administrador (por rol en BD o por DUI fijo) â†’ mostrar campo contraseÃ±a inline
     if (duiFmt === ADMIN_DUI || (usr?.rol === 'administrador' && usr?.autorizado)) {
       setMostrarPassAdmin(true); return
     }
 
-    // Usuario autorizado y activo → ingresar al portal
+    // Usuario autorizado y activo â†’ ingresar al portal
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
-      bloquearTaps(); setSeccion('inicio')
+      bloquearTaps(); setSeccionConDebug('inicio')
       setUsuario(usr); cargarDatos(usr)
-      // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aún
+      // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aÃºn
       if (!localStorage.getItem('usuario_webauthn_id') && !localStorage.getItem('bio_native_registered')) {
         setOfrecerHuellaUsuario(true)
       }
@@ -628,15 +637,15 @@ export default function PortalPage() {
 
     // Usuario deshabilitado
     if (usr?.autorizado && !usr?.activo) {
-      setErrorLogin('Su cuenta está deshabilitada. Contacte al administrador.'); return
+      setErrorLogin('Su cuenta estÃ¡ deshabilitada. Contacte al administrador.'); return
     }
 
-    // Tiene registro pero pendiente de autorización
+    // Tiene registro pero pendiente de autorizaciÃ³n
     if (usr && !usr.autorizado) {
       setRegExistente(reg); setVistaLogin('pendiente'); return
     }
 
-    // Tiene registro en DUI pero sin usuario → mostrar sus datos
+    // Tiene registro en DUI pero sin usuario â†’ mostrar sus datos
     if (reg) {
       setRegExistente(reg)
       setFormReg({ nombre: reg.nombre ?? '', telefono: reg.telefono ?? '', correo: reg.correo ?? '', direccion: reg.direccion ?? '' })
@@ -644,7 +653,7 @@ export default function PortalPage() {
       setVistaLogin('ver'); return
     }
 
-    // Sin ningún registro → formulario de registro nuevo
+    // Sin ningÃºn registro â†’ formulario de registro nuevo
     setRegExistente(null)
     setFormReg({ nombre: '', telefono: '', correo: '', direccion: '' })
     setModoFormReg('registrar')
@@ -663,9 +672,9 @@ export default function PortalPage() {
     return new Promise(resolve => {
       const img = new Image()
       img.onload = () => {
-        if (img.width < 200 || img.height < 100) return resolve({ valido: false, razon: 'La imagen es demasiado pequeña.' })
+        if (img.width < 200 || img.height < 100) return resolve({ valido: false, razon: 'La imagen es demasiado pequeÃ±a.' })
         const ratio = img.width / img.height
-        if (ratio < 0.8 || ratio > 3.5) return resolve({ valido: false, razon: 'La proporción no corresponde a un DUI.' })
+        if (ratio < 0.8 || ratio > 3.5) return resolve({ valido: false, razon: 'La proporciÃ³n no corresponde a un DUI.' })
         const canvas = document.createElement('canvas')
         const scale = Math.min(400 / img.width, 400 / img.height, 1)
         canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
@@ -673,9 +682,9 @@ export default function PortalPage() {
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
         let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
         const avg = b / (pixels.length / 4)
-        if (avg < 40) return resolve({ valido: false, razon: 'La imagen está muy oscura.' })
-        if (avg > 230) return resolve({ valido: false, razon: 'La imagen está sobreexpuesta.' })
-        resolve({ valido: true, razon: 'Imagen válida' })
+        if (avg < 40) return resolve({ valido: false, razon: 'La imagen estÃ¡ muy oscura.' })
+        if (avg > 230) return resolve({ valido: false, razon: 'La imagen estÃ¡ sobreexpuesta.' })
+        resolve({ valido: true, razon: 'Imagen vÃ¡lida' })
       }
       img.onerror = () => resolve({ valido: false, razon: 'No se pudo leer el archivo.' })
       img.src = URL.createObjectURL(file)
@@ -688,11 +697,11 @@ export default function PortalPage() {
     setPerfilPrevReg(objectUrl)
     setPerfilValReg(null); setPerfilRazonReg(''); setValidandoPReg(true)
 
-    // 1. Validaciones básicas de calidad
+    // 1. Validaciones bÃ¡sicas de calidad
     const calidadOk = await new Promise<{ ok: boolean; razon: string }>(resolve => {
       const img = new Image()
       img.onload = () => {
-        if (img.width < 100 || img.height < 100) { resolve({ ok: false, razon: 'La imagen es demasiado pequeña.' }); return }
+        if (img.width < 100 || img.height < 100) { resolve({ ok: false, razon: 'La imagen es demasiado pequeÃ±a.' }); return }
         const canvas = document.createElement('canvas')
         const scale = Math.min(400 / img.width, 400 / img.height, 1)
         canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale)
@@ -700,8 +709,8 @@ export default function PortalPage() {
         const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
         let b = 0; for (let i = 0; i < pixels.length; i += 4) b += pixels[i] * .299 + pixels[i+1] * .587 + pixels[i+2] * .114
         const avg = b / (pixels.length / 4)
-        if (avg < 35) { resolve({ ok: false, razon: 'La foto está muy oscura. Busque mejor iluminación.' }); return }
-        if (avg > 235) { resolve({ ok: false, razon: 'La foto está sobreexpuesta. Evite luz directa al lente.' }); return }
+        if (avg < 35) { resolve({ ok: false, razon: 'La foto estÃ¡ muy oscura. Busque mejor iluminaciÃ³n.' }); return }
+        if (avg > 235) { resolve({ ok: false, razon: 'La foto estÃ¡ sobreexpuesta. Evite luz directa al lente.' }); return }
         resolve({ ok: true, razon: '' })
       }
       img.onerror = () => resolve({ ok: false, razon: 'No se pudo leer el archivo. Intente con otro.' })
@@ -712,7 +721,7 @@ export default function PortalPage() {
       setPerfilValReg(false); setPerfilRazonReg(calidadOk.razon); setValidandoPReg(false); return
     }
 
-    // 2. Detección de rostro (FaceDetector API — Chrome/Android)
+    // 2. DetecciÃ³n de rostro (FaceDetector API â€” Chrome/Android)
     try {
       if ('FaceDetector' in window) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -723,7 +732,7 @@ export default function PortalPage() {
         const rostros = await detector.detect(img)
         if (rostros.length === 0) {
           setPerfilValReg(false)
-          setPerfilRazonReg('No se detectó un rostro. Tome la foto de frente con su cara bien visible.')
+          setPerfilRazonReg('No se detectÃ³ un rostro. Tome la foto de frente con su cara bien visible.')
           setValidandoPReg(false); return
         }
         if (rostros.length > 1) {
@@ -733,10 +742,10 @@ export default function PortalPage() {
         }
       }
     } catch {
-      // Si falla la detección (API no soportada o error), se permite continuar
+      // Si falla la detecciÃ³n (API no soportada o error), se permite continuar
     }
 
-    setPerfilValReg(true); setPerfilRazonReg('Foto válida'); setValidandoPReg(false)
+    setPerfilValReg(true); setPerfilRazonReg('Foto vÃ¡lida'); setValidandoPReg(false)
   }
 
   async function handleFotoReg(file: File, lado: 'frente' | 'reverso') {
@@ -752,18 +761,18 @@ export default function PortalPage() {
 
   async function guardarRegistro() {
     if (!formReg.nombre.trim()) { setErrorReg('El nombre es obligatorio'); return }
-    if (!formReg.telefono.trim()) { setErrorReg('El teléfono es obligatorio'); return }
+    if (!formReg.telefono.trim()) { setErrorReg('El telÃ©fono es obligatorio'); return }
     if (!formReg.correo.trim()) { setErrorReg('El correo es obligatorio'); return }
-    if (!formReg.direccion.trim()) { setErrorReg('La dirección es obligatoria'); return }
+    if (!formReg.direccion.trim()) { setErrorReg('La direcciÃ³n es obligatoria'); return }
     const tieneFrenteGuardada = !!regExistente?.foto_frente_url
     const tieneReversoGuardada = !!regExistente?.foto_reverso_url
-    if (!fotoFrenteReg && !tieneFrenteGuardada) { setFrenteFaltReg(true); setErrorReg('Cargue la fotografía del frente del DUI'); return }
-    if (!fotoReversoReg && !tieneReversoGuardada) { setReversoFaltReg(true); setErrorReg('Cargue la fotografía del reverso del DUI'); return }
+    if (!fotoFrenteReg && !tieneFrenteGuardada) { setFrenteFaltReg(true); setErrorReg('Cargue la fotografÃ­a del frente del DUI'); return }
+    if (!fotoReversoReg && !tieneReversoGuardada) { setReversoFaltReg(true); setErrorReg('Cargue la fotografÃ­a del reverso del DUI'); return }
     if (fotoFrenteReg && !frenteValReg) { setErrorReg(`Frente: ${frenteRazonReg}`); return }
     if (fotoReversoReg && !reversoValReg) { setErrorReg(`Reverso: ${reversoRazonReg}`); return }
     if (!fotoPerfilReg) { setPerfilFaltReg(true); setErrorReg('La foto de perfil es obligatoria'); return }
     if (perfilValReg === false) { setErrorReg(`Foto de perfil: ${perfilRazonReg}`); return }
-    if (perfilValReg === null) { setErrorReg('Espere a que termine la validación de la foto de perfil'); return }
+    if (perfilValReg === null) { setErrorReg('Espere a que termine la validaciÃ³n de la foto de perfil'); return }
 
     setGuardandoReg(true); setErrorReg('')
     const duiFmt = dui.replace(/\D/g, '').slice(0, 8) + '-' + dui.replace(/\D/g, '').slice(8, 9)
@@ -832,7 +841,7 @@ export default function PortalPage() {
         // Guardar registro en sessionStorage para que PortalNavBar lea es_motorista
         try { sessionStorage.setItem('portal_registro', JSON.stringify(reg)) } catch {}
         if (reg.padron_id) {
-          // Obtener compañeros de la misma JRV
+          // Obtener compaÃ±eros de la misma JRV
           const { data: mismaJrv } = await supabase.from('padron').select('id').eq('jrv', reg.padron.jrv)
           if (mismaJrv) {
             const ids = mismaJrv.map((p: { id: string }) => p.id)
@@ -867,7 +876,7 @@ export default function PortalPage() {
       const checkins = confs.filter((c: any) => c.check_in_at != null).length
       setScoreAgenda({ total: totalPasados, confirmados, checkins })
     }
-    // Mensajes no leídos
+    // Mensajes no leÃ­dos
     const { count: nlGrupo } = await supabase
       .from('mensajes_jrv').select('*', { count: 'exact', head: true })
       .eq('jrv', u.jrv).neq('autor_id', u.id)
@@ -885,7 +894,7 @@ export default function PortalPage() {
     setUsuario(null); setDui('')
   }, [])
 
-  // ── Validar foto ──
+  // â”€â”€ Validar foto â”€â”€
   async function validarFoto(file: File): Promise<boolean> {
     return new Promise(resolve => {
       const img = new Image()
@@ -911,7 +920,7 @@ export default function PortalPage() {
     else { setFotoReverso(file); setReversoPreview(prev); setReversoValido(null); setValidandoR(true); setReversoValido(await validarFoto(file)); setValidandoR(false) }
   }
 
-  // ── Foto de perfil ──
+  // â”€â”€ Foto de perfil â”€â”€
   async function subirFotoPerfil(file: File) {
     setSubiendoFotoPerfil(true); setErrorFotoPerfil('')
     const ext = file.name.split('.').pop() ?? 'jpg'
@@ -936,10 +945,10 @@ export default function PortalPage() {
     setSubiendoFotoPerfil(false)
   }
 
-  // ── Guardar perfil ──
+  // â”€â”€ Guardar perfil â”€â”€
   async function guardarPerfil() {
     if (!formPerfil.nombre.trim()) { setErrorPerfil('El nombre es obligatorio'); return }
-    if (!usuario!.foto_perfil_url) { setErrorPerfil('Debe subir una foto de perfil antes de guardar. Use el ícono de cámara en su avatar.'); return }
+    if (!usuario!.foto_perfil_url) { setErrorPerfil('Debe subir una foto de perfil antes de guardar. Use el Ã­cono de cÃ¡mara en su avatar.'); return }
     setGuardandoPerfil(true); setErrorPerfil('')
     try {
       const dui = registro!.dui
@@ -967,18 +976,18 @@ export default function PortalPage() {
     setGuardandoPerfil(false)
   }
 
-  // ── RSVP a evento ──
+  // â”€â”€ RSVP a evento â”€â”€
   async function guardarRsvp() {
     if (!modalRsvp || !usuario) return
 
-    // Validación: si no puede asistir, debe ingresar justificación
+    // ValidaciÃ³n: si no puede asistir, debe ingresar justificaciÃ³n
     if (!rsvpConf.confirmado && !rsvpJustificacion.trim()) {
       setRsvpWarnJust(true)
       return
     }
     setRsvpWarnJust(false)
 
-    // Advertencia: ofrece transporte, confirmó asistencia, pero no marcó nada
+    // Advertencia: ofrece transporte, confirmÃ³ asistencia, pero no marcÃ³ nada
     const ofreceTrans = modalRsvp.transporte_recogida || modalRsvp.transporte_regreso
     if (rsvpConf.confirmado && ofreceTrans && !rsvpConf.necesita_recogida && !rsvpConf.necesita_regreso) {
       setRsvpWarnTransporte(true)
@@ -986,7 +995,7 @@ export default function PortalPage() {
     }
     setRsvpWarnTransporte(false)
 
-    // Si solicitó transporte → cargar registros_dui y avanzar al paso 2
+    // Si solicitÃ³ transporte â†’ cargar registros_dui y avanzar al paso 2
     if (rsvpConf.confirmado && (rsvpConf.necesita_recogida || rsvpConf.necesita_regreso)) {
       const duiFmt = usuario.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario.dui.replace(/\D/g, '').slice(8, 9)
       const { data: reg } = await supabase.from('registros_dui').select('id, latitud, longitud').eq('dui', duiFmt).single()
@@ -1016,7 +1025,7 @@ export default function PortalPage() {
       const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
       if (data) setConfirmaciones(prev => ({ ...prev, [modalRsvp.id]: data }))
     }
-    // Si ya no necesita transporte (o no asistirá), cancelar solicitud previa si existe
+    // Si ya no necesita transporte (o no asistirÃ¡), cancelar solicitud previa si existe
     const duiFmt = usuario.dui.replace(/\D/g, '').slice(0, 8) + '-' + usuario.dui.replace(/\D/g, '').slice(8, 9)
     const { data: reg } = await supabase.from('registros_dui').select('id').eq('dui', duiFmt).single()
     if (reg) {
@@ -1049,10 +1058,10 @@ export default function PortalPage() {
       },
       (err) => {
         const msg = err.code === 1
-          ? 'Permiso de ubicación denegado. Por favor permita el acceso en la configuración del navegador.'
+          ? 'Permiso de ubicaciÃ³n denegado. Por favor permita el acceso en la configuraciÃ³n del navegador.'
           : err.code === 3
-            ? 'Se agotó el tiempo. Verifique que el GPS esté activo e intente de nuevo.'
-            : 'No se pudo obtener su ubicación. Intente de nuevo.'
+            ? 'Se agotÃ³ el tiempo. Verifique que el GPS estÃ© activo e intente de nuevo.'
+            : 'No se pudo obtener su ubicaciÃ³n. Intente de nuevo.'
         setRsvpGpsError(msg)
         setRsvpGpsCapturando(false)
       },
@@ -1062,9 +1071,9 @@ export default function PortalPage() {
 
   async function confirmarRsvpConTransporte() {
     if (!modalRsvp || !usuario) return
-    // Si aún no hay GPS, bloquear (siempre necesario para organizar la ruta)
+    // Si aÃºn no hay GPS, bloquear (siempre necesario para organizar la ruta)
     if (!rsvpGpsLat) {
-      setRsvpGpsError('Necesitamos su ubicación para organizar la ruta del vehículo.')
+      setRsvpGpsError('Necesitamos su ubicaciÃ³n para organizar la ruta del vehÃ­culo.')
       return
     }
     setRsvpSolicitando(true)
@@ -1123,7 +1132,7 @@ export default function PortalPage() {
       await supabase.from('confirmaciones_evento').update({ check_in_at: now }).eq('id', existing.id)
       setConfirmaciones(prev => ({ ...prev, [eventoId]: { ...existing, check_in_at: now } }))
     } else {
-      // Check-in sin RSVP previo → crear confirmación con check-in
+      // Check-in sin RSVP previo â†’ crear confirmaciÃ³n con check-in
       const payload = { evento_id: eventoId, usuario_id: usuario.id, confirmado: true, necesita_recogida: false, necesita_regreso: false, fecha_confirmacion: now, check_in_at: now }
       const { data } = await supabase.from('confirmaciones_evento').insert(payload).select().single()
       if (data) setConfirmaciones(prev => ({ ...prev, [eventoId]: data }))
@@ -1132,7 +1141,7 @@ export default function PortalPage() {
   }
 
   async function toggleAsistenciaEvento(eventoId: string) {
-    // Si ya está abierto, cerrar
+    // Si ya estÃ¡ abierto, cerrar
     if (asistenciaEvId === eventoId) { setAsistenciaEvId(null); return }
     // Si ya tenemos datos cargados, solo abrir
     if (asistenciaData[eventoId]) { setAsistenciaEvId(eventoId); return }
@@ -1162,7 +1171,7 @@ export default function PortalPage() {
     setModalRsvp(ev)
   }
 
-  // ── CRUD eventos de transporte (admin) ──
+  // â”€â”€ CRUD eventos de transporte (admin) â”€â”€
   function abrirNuevoEvento() {
     setEditandoEvento(null)
     setFormEv(FORM_EV_VACIO)
@@ -1219,14 +1228,14 @@ export default function PortalPage() {
   }
 
   async function eliminarEvento(id: string) {
-    if (!confirm('¿Eliminar este evento?')) return
+    if (!confirm('Â¿Eliminar este evento?')) return
     setEliminandoEv(id)
     await supabase.from('eventos_transporte').delete().eq('id', id)
     setEventosTransporte(prev => prev.filter(e => e.id !== id))
     setEliminandoEv(null)
   }
 
-  // Categorías de materiales
+  // CategorÃ­as de materiales
   const catsMat = ['Todas', ...Array.from(new Set(materiales.map(m => m.categoria)))]
   const matsFiltrados = materiales.filter(m => filtroMat === 'Todas' || m.categoria === filtroMat)
 
@@ -1243,14 +1252,14 @@ export default function PortalPage() {
     acc[mes].push(e); return acc
   }, {} as Record<string, any[]>)
 
-  /* ── LOGIN / PRE-LOGIN ── */
+  /* â”€â”€ LOGIN / PRE-LOGIN â”€â”€ */
   if (!usuario) {
     return (
       <>
       <main className="min-h-screen flex flex-col lg:flex-row"
         style={{ background: 'linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%)' }}>
 
-        {/* ── PANEL IZQUIERDO — información institucional ── */}
+        {/* â”€â”€ PANEL IZQUIERDO â€” informaciÃ³n institucional â”€â”€ */}
         <div className="hidden lg:flex flex-col justify-between flex-1 p-14"
           style={{ borderRight: '1px solid rgba(255,255,255,.07)' }}>
 
@@ -1274,22 +1283,22 @@ export default function PortalPage() {
               <span style={{ color: 'var(--gold)' }}>Colaborador</span>
             </h1>
             <p className="text-base mb-10" style={{ color: 'rgba(255,255,255,.55)', maxWidth: 380, lineHeight: 1.7 }}>
-              Acceda a su información, confirme su asistencia a capacitaciones y consulte los detalles de su Junta Receptora de Votos.
+              Acceda a su informaciÃ³n, confirme su asistencia a capacitaciones y consulte los detalles de su Junta Receptora de Votos.
             </p>
 
             {/* Info del centro */}
             <div className="space-y-4">
-              {/* Centro de votación + botón cómo llegar */}
+              {/* Centro de votaciÃ³n + botÃ³n cÃ³mo llegar */}
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
                   style={{ background: 'rgba(200,168,75,.12)', border: '1px solid rgba(200,168,75,.2)' }}>
                   <MapPin size={14} style={{ color: 'var(--gold)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs" style={{ color: 'rgba(255,255,255,.38)' }}>Centro de Votación</div>
+                  <div className="text-xs" style={{ color: 'rgba(255,255,255,.38)' }}>Centro de VotaciÃ³n</div>
                   <div className="flex items-center gap-2 flex-wrap mt-0.5">
                     <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,.82)' }}>
-                      C.E. Capitán General Gerardo Barrios
+                      C.E. CapitÃ¡n General Gerardo Barrios
                     </span>
                     <a
                       href="https://maps.app.goo.gl/7MBiZdwQmH5XBFJg7"
@@ -1301,14 +1310,14 @@ export default function PortalPage() {
                       onMouseLeave={e => { e.currentTarget.style.background = 'rgba(200,168,75,.18)'; e.currentTarget.style.borderColor = 'rgba(200,168,75,.4)' }}
                     >
                       <MapPin size={11} />
-                      Cómo llegar
+                      CÃ³mo llegar
                     </a>
                   </div>
                 </div>
               </div>
 
               {[
-                { icon: MapPin,   label: 'Municipio',         value: 'Santa Ana Centro · Departamento de Santa Ana' },
+                { icon: MapPin,   label: 'Municipio',         value: 'Santa Ana Centro Â· Departamento de Santa Ana' },
                 { icon: Calendar, label: 'Proceso Electoral', value: 'Elecciones Presidenciales, Legislativas y Municipales 2027' },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-start gap-3">
@@ -1328,11 +1337,11 @@ export default function PortalPage() {
           {/* Cuenta regresiva */}
           <div className="rounded-2xl p-5" style={{ background: 'rgba(200,168,75,.08)', border: '1px solid rgba(200,168,75,.2)' }}>
             <p className="text-xs font-semibold mb-3 uppercase tracking-widest" style={{ color: 'rgba(200,168,75,.7)' }}>
-              Faltan para las elecciones · 28 feb 2027
+              Faltan para las elecciones Â· 28 feb 2027
             </p>
             <div className="grid grid-cols-4 gap-2">
               {[
-                { valor: cuenta.dias,     label: 'Días' },
+                { valor: cuenta.dias,     label: 'DÃ­as' },
                 { valor: cuenta.horas,    label: 'Horas' },
                 { valor: cuenta.minutos,  label: 'Min' },
                 { valor: cuenta.segundos, label: 'Seg' },
@@ -1356,11 +1365,11 @@ export default function PortalPage() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { icon: User,      text: 'Ver y editar su perfil' },
-                { icon: Users,     text: 'Consultar su JRV y compañeros' },
+                { icon: Users,     text: 'Consultar su JRV y compaÃ±eros' },
                 { icon: Calendar,  text: 'Ver actividades programadas' },
                 { icon: CheckCircle, text: 'Confirmar asistencia' },
-                { icon: BookOpen,  text: 'Descargar material de capacitación' },
-                { icon: FileText,  text: 'Consultar su asignación de cargo' },
+                { icon: BookOpen,  text: 'Descargar material de capacitaciÃ³n' },
+                { icon: FileText,  text: 'Consultar su asignaciÃ³n de cargo' },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
                   style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)' }}>
@@ -1372,10 +1381,10 @@ export default function PortalPage() {
           </div>
         </div>
 
-        {/* ── PANEL DERECHO — formulario ── */}
+        {/* â”€â”€ PANEL DERECHO â€” formulario â”€â”€ */}
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
-          {/* Bienvenida móvil */}
+          {/* Bienvenida mÃ³vil */}
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1 rounded-full text-xs font-medium"
               style={{ background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.2)', letterSpacing: '0.05em' }}>
@@ -1386,11 +1395,11 @@ export default function PortalPage() {
               Complejo Educativo
             </h1>
             <h1 className="font-bold leading-tight" style={{ fontSize: '1.15rem', color: 'var(--gold)' }}>
-              Capitán General<br />Gerardo Barrios
+              CapitÃ¡n General<br />Gerardo Barrios
             </h1>
           </div>
 
-        {/* ── INGRESO DUI ── */}
+        {/* â”€â”€ INGRESO DUI â”€â”€ */}
         {vistaLogin === 'dui' && (
           <div className="w-full max-w-sm">
             {/* Badge institucional */}
@@ -1406,11 +1415,11 @@ export default function PortalPage() {
             <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
               <h2 className="font-bold text-white text-xl mb-1 text-center">Ingrese su DUI</h2>
               <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.45)' }}>
-                Su número de DUI es su credencial de acceso al sistema
+                Su nÃºmero de DUI es su credencial de acceso al sistema
               </p>
 
               <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.5)' }}>
-                Número de DUI
+                NÃºmero de DUI
               </label>
               <input
                 type="text"
@@ -1433,22 +1442,22 @@ export default function PortalPage() {
 
               {errorLogin
                 ? <p className="text-xs mb-4 text-center" style={{ color: '#f87171' }}>{errorLogin}</p>
-                : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;·&nbsp; El guión es opcional</p>
+                : <p className="text-xs mb-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>Formato: 12345678-9 &nbsp;Â·&nbsp; El guiÃ³n es opcional</p>
               }
 
-              {/* Campo contraseña admin — aparece solo cuando el DUI es de administrador */}
+              {/* Campo contraseÃ±a admin â€” aparece solo cuando el DUI es de administrador */}
               {mostrarPassAdmin && (
                 <div className="mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <ShieldAlert size={14} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-                    <span className="text-xs font-medium" style={{ color: 'var(--gold)' }}>Acceso de administrador — ingrese su contraseña</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--gold)' }}>Acceso de administrador â€” ingrese su contraseÃ±a</span>
                   </div>
                   <input
                     type="password"
                     value={passwordAdmin}
                     onChange={e => { setPasswordAdmin(e.target.value); setErrorAdmin('') }}
                     onKeyDown={e => e.key === 'Enter' && ingresarAdmin()}
-                    placeholder="Contraseña"
+                    placeholder="ContraseÃ±a"
                     autoFocus
                     className="w-full rounded-xl text-center font-mono text-xl font-bold mb-2 outline-none transition-all"
                     style={{
@@ -1476,11 +1485,11 @@ export default function PortalPage() {
                 }}>
                 {cargandoLogin
                   ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Verificando...</>
-                  : mostrarPassAdmin ? 'Ingresar →' : 'Continuar →'
+                  : mostrarPassAdmin ? 'Ingresar â†’' : 'Continuar â†’'
                 }
               </button>
 
-              {/* Botón huella — opcional, si el dispositivo lo soporta y el usuario la registró */}
+              {/* BotÃ³n huella â€” opcional, si el dispositivo lo soporta y el usuario la registrÃ³ */}
               {!mostrarPassAdmin && huellaUsuarioRegistrada && (
                 <button
                   onClick={autenticarHuellaUsuario}
@@ -1514,7 +1523,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* ── PENDIENTE DE AUTORIZACIÓN ── */}
+        {/* â”€â”€ PENDIENTE DE AUTORIZACIÃ“N â”€â”€ */}
         {vistaLogin === 'pendiente' && (
           <div className="w-full max-w-sm">
             <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1522,9 +1531,9 @@ export default function PortalPage() {
                 style={{ background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.3)' }}>
                 <Clock size={30} style={{ color: '#f59e0b' }} />
               </div>
-              <h2 className="font-bold text-white text-xl mb-2">Solicitud en revisión</h2>
+              <h2 className="font-bold text-white text-xl mb-2">Solicitud en revisiÃ³n</h2>
               <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,.5)', lineHeight: 1.7 }}>
-                Su registro está siendo revisado por el equipo administrativo. Recibirá acceso una vez que sea autorizado.
+                Su registro estÃ¡ siendo revisado por el equipo administrativo. RecibirÃ¡ acceso una vez que sea autorizado.
               </p>
               {regExistente && (
                 <div className="rounded-xl p-4 text-left mb-5" style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)' }}>
@@ -1535,19 +1544,19 @@ export default function PortalPage() {
               )}
               <div className="rounded-xl p-3 mb-5" style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)' }}>
                 <p className="text-xs" style={{ color: 'rgba(245,158,11,.85)' }}>
-                  Si tiene preguntas, contacte al coordinador del centro de votación.
+                  Si tiene preguntas, contacte al coordinador del centro de votaciÃ³n.
                 </p>
               </div>
               <button onClick={() => { setVistaLogin('dui'); setErrorLogin('') }}
                 className="w-full py-3 rounded-xl text-sm font-medium transition-all"
                 style={{ background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.7)', border: '1px solid rgba(255,255,255,.12)' }}>
-                ← Ingresar otro DUI
+                â† Ingresar otro DUI
               </button>
             </div>
           </div>
         )}
 
-        {/* ── VER REGISTRO EXISTENTE (sin usuario) ── */}
+        {/* â”€â”€ VER REGISTRO EXISTENTE (sin usuario) â”€â”€ */}
         {vistaLogin === 'ver' && regExistente && (
           <div className="w-full max-w-md">
             <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1568,15 +1577,15 @@ export default function PortalPage() {
                   <div className="space-y-3 mb-5">
                     {[
                       { label: 'Nombre completo', value: regExistente.nombre },
-                      { label: 'Teléfono',         value: regExistente.telefono },
+                      { label: 'TelÃ©fono',         value: regExistente.telefono },
                       { label: 'Correo',            value: regExistente.correo },
-                      { label: 'Dirección',         value: regExistente.direccion },
+                      { label: 'DirecciÃ³n',         value: regExistente.direccion },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between gap-4 text-sm py-2"
                         style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
                         <span style={{ color: 'rgba(255,255,255,.4)' }}>{label}</span>
                         <span className="font-medium text-right" style={{ color: value ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.25)' }}>
-                          {value ?? '—'}
+                          {value ?? 'â€”'}
                         </span>
                       </div>
                     ))}
@@ -1586,9 +1595,9 @@ export default function PortalPage() {
                   <div className="space-y-3 mb-4">
                     {[
                       { field: 'nombre',    label: 'Nombre completo',    type: 'text' },
-                      { field: 'telefono',  label: 'Teléfono',           type: 'tel' },
-                      { field: 'correo',    label: 'Correo electrónico', type: 'email' },
-                      { field: 'direccion', label: 'Dirección',          type: 'text' },
+                      { field: 'telefono',  label: 'TelÃ©fono',           type: 'tel' },
+                      { field: 'correo',    label: 'Correo electrÃ³nico', type: 'email' },
+                      { field: 'direccion', label: 'DirecciÃ³n',          type: 'text' },
                     ].map(({ field, label, type }) => (
                       <div key={field}>
                         <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>{label}</label>
@@ -1606,8 +1615,8 @@ export default function PortalPage() {
                 )}
                 {modoFormReg === 'guardado' && (
                   <div className="rounded-xl p-4 mb-4 text-center" style={{ background: 'rgba(5,150,105,.12)', border: '1px solid rgba(5,150,105,.3)' }}>
-                    <p className="font-semibold text-sm" style={{ color: '#34d399' }}>✓ Datos actualizados correctamente</p>
-                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.4)' }}>Su solicitud está siendo procesada</p>
+                    <p className="font-semibold text-sm" style={{ color: '#34d399' }}>âœ“ Datos actualizados correctamente</p>
+                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.4)' }}>Su solicitud estÃ¡ siendo procesada</p>
                   </div>
                 )}
 
@@ -1637,14 +1646,14 @@ export default function PortalPage() {
 
                 <button onClick={() => { setVistaLogin('dui'); setErrorLogin('') }}
                   className="w-full text-xs mt-4 text-center" style={{ color: 'rgba(255,255,255,.3)' }}>
-                  ← Ingresar otro DUI
+                  â† Ingresar otro DUI
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── REGISTRO NUEVO ── */}
+        {/* â”€â”€ REGISTRO NUEVO â”€â”€ */}
         {vistaLogin === 'registrar' && (
           <div className="w-full max-w-md">
             <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
@@ -1664,9 +1673,9 @@ export default function PortalPage() {
                   <div className="p-5 md:p-7 space-y-3">
                     {[
                       { field: 'nombre',    label: 'Nombre completo *',    type: 'text' },
-                      { field: 'telefono',  label: 'Teléfono *',           type: 'tel' },
-                      { field: 'correo',    label: 'Correo electrónico *', type: 'email' },
-                      { field: 'direccion', label: 'Dirección *',          type: 'text' },
+                      { field: 'telefono',  label: 'TelÃ©fono *',           type: 'tel' },
+                      { field: 'correo',    label: 'Correo electrÃ³nico *', type: 'email' },
+                      { field: 'direccion', label: 'DirecciÃ³n *',          type: 'text' },
                     ].map(({ field, label, type }) => (
                       <div key={field}>
                         <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.4)' }}>{label}</label>
@@ -1700,9 +1709,9 @@ export default function PortalPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             {validandoPReg && <p className="text-xs" style={{ color: 'rgba(255,255,255,.5)' }}>Validando foto...</p>}
-                            {!validandoPReg && perfilValReg === true && <p className="text-xs font-semibold" style={{ color: '#34d399' }}>✓ Foto válida</p>}
+                            {!validandoPReg && perfilValReg === true && <p className="text-xs font-semibold" style={{ color: '#34d399' }}>âœ“ Foto vÃ¡lida</p>}
                             {!validandoPReg && perfilValReg === false && (
-                              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>✗ {perfilRazonReg}</p>
+                              <p className="text-xs font-semibold" style={{ color: '#f87171' }}>âœ— {perfilRazonReg}</p>
                             )}
                             {!validandoPReg && perfilValReg === null && (
                               <p className="text-xs" style={{ color: 'rgba(255,255,255,.35)' }}>
@@ -1752,7 +1761,7 @@ export default function PortalPage() {
                           {validando && <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,.35)' }}>Validando...</p>}
                           {!validando && val !== null && (
                             <p className="text-xs mt-1" style={{ color: val ? '#34d399' : '#f87171' }}>
-                              {val ? '✓' : '✗'} {razon}
+                              {val ? 'âœ“' : 'âœ—'} {razon}
                             </p>
                           )}
                         </div>
@@ -1771,7 +1780,7 @@ export default function PortalPage() {
                     </button>
                     <button onClick={() => { setVistaLogin('dui'); setErrorLogin(''); resetFormReg() }}
                       className="w-full text-xs text-center" style={{ color: 'rgba(255,255,255,.3)' }}>
-                      ← Ingresar otro DUI
+                      â† Ingresar otro DUI
                     </button>
                   </div>
                 </>
@@ -1781,14 +1790,14 @@ export default function PortalPage() {
                     style={{ background: 'rgba(5,150,105,.15)', border: '1px solid rgba(5,150,105,.3)' }}>
                     <Check size={30} style={{ color: '#34d399' }} />
                   </div>
-                  <h2 className="font-bold text-white text-xl mb-2">¡Solicitud enviada!</h2>
+                  <h2 className="font-bold text-white text-xl mb-2">Â¡Solicitud enviada!</h2>
                   <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,.5)', lineHeight: 1.7 }}>
-                    Su registro ha sido recibido. El equipo administrativo revisará su solicitud y le habilitará el acceso al portal.
+                    Su registro ha sido recibido. El equipo administrativo revisarÃ¡ su solicitud y le habilitarÃ¡ el acceso al portal.
                   </p>
 
                   {/* Pregunta de transporte */}
                   <div className="rounded-xl p-4 mb-5 text-left" style={{ background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.3)' }}>
-                    <p className="text-sm font-semibold text-white mb-1">🚐 ¿Necesita transporte al evento?</p>
+                    <p className="text-sm font-semibold text-white mb-1">ðŸš Â¿Necesita transporte al evento?</p>
                     <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,.5)' }}>
                       Puede solicitar que un motorista lo lleve al evento o lo traiga de regreso.
                     </p>
@@ -1796,7 +1805,7 @@ export default function PortalPage() {
                       <a href={`/transporte?dui=${dui.replace(/\D/g,'')}`}
                         className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-center"
                         style={{ background: 'rgba(99,102,241,.8)', color: '#fff' }}>
-                        Sí, solicitar transporte
+                        SÃ­, solicitar transporte
                       </a>
                       <button onClick={() => { setVistaLogin('dui'); setErrorLogin(''); resetFormReg() }}
                         className="flex-1 py-2.5 rounded-xl text-sm font-medium"
@@ -1809,7 +1818,7 @@ export default function PortalPage() {
                   <button onClick={() => { setVistaLogin('dui'); setErrorLogin(''); resetFormReg() }}
                     className="w-full py-2.5 rounded-xl text-xs"
                     style={{ color: 'rgba(255,255,255,.25)' }}>
-                    ← Volver al inicio
+                    â† Volver al inicio
                   </button>
                 </div>
               )}
@@ -1832,10 +1841,10 @@ export default function PortalPage() {
             </div>
             <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
             <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
-              La próxima vez podrás ingresar con tu huella sin necesidad de escribir tu DUI.
+              La prÃ³xima vez podrÃ¡s ingresar con tu huella sin necesidad de escribir tu DUI.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠️ <strong>Requisito:</strong> tu dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tienes ninguno configurado, no actives esta opción.
+              âš ï¸ <strong>Requisito:</strong> tu dispositivo debe tener un mÃ©todo de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID Â· <strong>Android:</strong> huella, patrÃ³n o PIN Â· <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tienes ninguno configurado, no actives esta opciÃ³n.
             </div>
             <button onClick={() => registrarHuellaUsuario(usuario.dui)}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -1869,10 +1878,10 @@ export default function PortalPage() {
             </div>
             <h3 className="font-bold text-white text-lg mb-1">Activar huella digital</h3>
             <p className="text-sm mb-3" style={{ color: 'rgba(255,255,255,.45)', lineHeight: 1.6 }}>
-              La próxima vez podrá ingresar con su huella sin necesidad de contraseña.
+              La prÃ³xima vez podrÃ¡ ingresar con su huella sin necesidad de contraseÃ±a.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠️ <strong>Requisito:</strong> el dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tiene ninguno configurado, no active esta opción.
+              âš ï¸ <strong>Requisito:</strong> el dispositivo debe tener un mÃ©todo de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID Â· <strong>Android:</strong> huella, patrÃ³n o PIN Â· <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tiene ninguno configurado, no active esta opciÃ³n.
             </div>
             <button onClick={registrarHuella}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -1891,7 +1900,7 @@ export default function PortalPage() {
     )
   }
 
-  /* ── PORTAL ── */
+  /* â”€â”€ PORTAL â”€â”€ */
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = useMemo(() => [
@@ -1904,20 +1913,34 @@ export default function PortalPage() {
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
     ...(esAdmin ? [
       { key: 'admin-registros',  label: 'Registros',  icon: ShieldAlert, href: null, badge: 0, adminOnly: true },
-      { key: 'admin-asignacion', label: 'Asignación', icon: Link2,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-asignacion', label: 'AsignaciÃ³n', icon: Link2,       href: null, badge: 0, adminOnly: true },
       { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
-      { key: 'admin-catalogo',   label: 'Catálogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
+      { key: 'admin-catalogo',   label: 'CatÃ¡logo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
     ] : []),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [mensajesNoLeidos, esMotorista, esAdmin])
 
-  /** Navegación memoizada — referencia estable para evitar re-renders en hijos */
+  /** NavegaciÃ³n memoizada â€” referencia estable para evitar re-renders en hijos */
   const irA = useCallback((s: Seccion) => setSeccion(s), [])
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
 
-      {/* ── Sidebar desktop (md+) ── */}
+      {/* â”€â”€ Escudo anti-ghost-tap: capa transparente que absorbe TODOS los toques
+           durante 500ms tras el login, evita que el touchend del botÃ³n Ingresar
+           aterrice en cualquier elemento del portal â”€â”€ */}
+      {bloqueandoTaps && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'transparent' }} />
+      )}
+
+      {/* DEBUG temporal: badge que muestra la seccion activa al cambiar */}
+      {debugSeccion && (
+        <div style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: '#1e3a5f', color: '#c8a84b', padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, border: '2px solid #c8a84b', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          seccion → {debugSeccion}
+        </div>
+      )}
+
+      {/* â”€â”€ Sidebar desktop (md+) â”€â”€ */}
       <aside className="hidden md:flex w-56 flex-col flex-shrink-0"
         style={{ background: 'linear-gradient(180deg, var(--navy-dark), var(--navy))', borderRight: '1px solid rgba(255,255,255,.06)' }}>
         <div className="px-4 py-5 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
@@ -1978,12 +2001,12 @@ export default function PortalPage() {
             onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.45)')}>
             <LogOut size={15} className="flex-shrink-0" />
-            <span>Cerrar sesión</span>
+            <span>Cerrar sesiÃ³n</span>
           </button>
         </div>
       </aside>
 
-      {/* ── Barra inferior móvil (< md) — 4 ítems fijos ── */}
+      {/* â”€â”€ Barra inferior mÃ³vil (< md) â€” 4 Ã­tems fijos â”€â”€ */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)', pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
         <div className="grid grid-cols-4">
@@ -2038,7 +2061,7 @@ export default function PortalPage() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="badge badge-blue text-xs hidden md:inline">{usuario.rol}</span>
-            {/* Avatar en header móvil (solo en inicio) */}
+            {/* Avatar en header mÃ³vil (solo en inicio) */}
             {seccion === 'inicio' && (
               <div
                 className="md:hidden w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs flex-shrink-0"
@@ -2058,7 +2081,7 @@ export default function PortalPage() {
           key={seccion}
           style={{ pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
 
-          {/* ── INICIO (pantalla principal móvil) ── */}
+          {/* â”€â”€ INICIO (pantalla principal mÃ³vil) â”€â”€ */}
           {seccion === 'inicio' && (
             <div className="max-w-lg mx-auto">
               {/* Saludo */}
@@ -2076,13 +2099,13 @@ export default function PortalPage() {
                   <div className="font-bold text-lg leading-tight" style={{ color: 'var(--texto)' }}>
                     {(() => {
                       const h = new Date().getHours()
-                      if (h >= 5 && h < 12) return `¡Buenos días, ${usuario.nombre.split(' ')[0]}! ☀️`
-                      if (h >= 12 && h < 19) return `¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! 🌤️`
-                      return `¡Buenas noches, ${usuario.nombre.split(' ')[0]}! 🌙`
+                      if (h >= 5 && h < 12) return `Â¡Buenos dÃ­as, ${usuario.nombre.split(' ')[0]}! â˜€ï¸`
+                      if (h >= 12 && h < 19) return `Â¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! ðŸŒ¤ï¸`
+                      return `Â¡Buenas noches, ${usuario.nombre.split(' ')[0]}! ðŸŒ™`
                     })()}
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                    {usuario.rol.charAt(0).toUpperCase() + usuario.rol.slice(1)} · {new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {usuario.rol.charAt(0).toUpperCase() + usuario.rol.slice(1)} Â· {new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </div>
                 </div>
               </div>
@@ -2126,12 +2149,12 @@ export default function PortalPage() {
                 })}
               </div>
 
-              {/* Módulos admin si aplica */}
+              {/* MÃ³dulos admin si aplica */}
               {esAdmin && (
                 <div className="mt-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex-1 h-px" style={{ background: 'var(--borde)' }} />
-                    <span className="text-[10px] uppercase tracking-widest font-semibold px-2" style={{ color: 'rgba(200,168,75,.6)' }}>Administración</span>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold px-2" style={{ color: 'rgba(200,168,75,.6)' }}>AdministraciÃ³n</span>
                     <div className="flex-1 h-px" style={{ background: 'var(--borde)' }} />
                   </div>
                   <div className="grid grid-cols-4 gap-2">
@@ -2155,11 +2178,11 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── MI PERFIL (rediseño Android / red social) ── */}
+          {/* â”€â”€ MI PERFIL (rediseÃ±o Android / red social) â”€â”€ */}
           {seccion === 'perfil' && (
             <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 24 }}>
 
-              {/* ── HERO: banner + avatar centrado ── */}
+              {/* â”€â”€ HERO: banner + avatar centrado â”€â”€ */}
               <div style={{ position: 'relative', marginBottom: 56 }}>
                 {/* Banner */}
                 <div style={{
@@ -2169,12 +2192,12 @@ export default function PortalPage() {
                   position: 'relative',
                   overflow: 'hidden',
                 }}>
-                  {/* Patrón decorativo */}
+                  {/* PatrÃ³n decorativo */}
                   <svg style={{ position: 'absolute', right: 0, top: 0, opacity: .08 }} width="180" height="120" viewBox="0 0 180 120" fill="none">
                     <circle cx="140" cy="20" r="80" fill="var(--gold)" />
                     <circle cx="20" cy="100" r="50" fill="var(--gold)" />
                   </svg>
-                  {/* Botón editar en banner */}
+                  {/* BotÃ³n editar en banner */}
                   {!editando && (
                     <button onClick={() => setEditando(true)}
                       style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(255,255,255,.18)', color: 'white', border: '1px solid rgba(255,255,255,.25)', borderRadius: 999, padding: '5px 14px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
@@ -2185,7 +2208,7 @@ export default function PortalPage() {
                 {/* Avatar superpuesto */}
                 <div style={{ position: 'absolute', left: 20, bottom: -48, zIndex: 2 }}>
                   <div className="relative group" style={{ cursor: 'pointer' }}
-                    title="Toca para ampliar · Doble toque para cambiar foto"
+                    title="Toca para ampliar Â· Doble toque para cambiar foto"
                     onClick={() => {
                       if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; inputFotoRef.current?.click(); return }
                       clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }, 220)
@@ -2205,7 +2228,7 @@ export default function PortalPage() {
                         : usuario.nombre.trim().split(' ').slice(0, 2).map((p: string) => p[0]).join('').toUpperCase()
                       }
                     </div>
-                    {/* Overlay cámara */}
+                    {/* Overlay cÃ¡mara */}
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ borderRadius: '50%', background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {subiendoFotoPerfil
@@ -2213,7 +2236,7 @@ export default function PortalPage() {
                         : <Camera size={18} color="white" />
                       }
                     </div>
-                    {/* Badge cámara siempre visible en móvil */}
+                    {/* Badge cÃ¡mara siempre visible en mÃ³vil */}
                     <div style={{ position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: '50%', background: 'var(--navy)', border: '2px solid var(--fondo)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Camera size={12} color="var(--gold)" />
                     </div>
@@ -2223,7 +2246,7 @@ export default function PortalPage() {
                 </div>
               </div>
 
-              {/* ── INFO: nombre + DUI + rol ── */}
+              {/* â”€â”€ INFO: nombre + DUI + rol â”€â”€ */}
               <div style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 16, borderBottom: '1px solid var(--borde)' }}>
                 <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--texto)', lineHeight: 1.2 }}>
                   {registro?.nombre ?? usuario.nombre}
@@ -2254,15 +2277,15 @@ export default function PortalPage() {
 
               {!editando ? (
                 <>
-                  {/* ── DATOS: filas tipo WhatsApp/Android ── */}
+                  {/* â”€â”€ DATOS: filas tipo WhatsApp/Android â”€â”€ */}
                   <div style={{ margin: '12px 12px 0' }}>
                     <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
                       {[
-                        { icon: '📞', label: 'Teléfono', value: registro?.telefono },
-                        { icon: '✉️',  label: 'Correo',   value: registro?.correo   },
-                        { icon: '📍', label: 'Dirección', value: registro?.direccion },
-                        { icon: '🗳️',  label: 'JRV',       value: padronInfo?.jrv    },
-                        { icon: '🏛️',  label: 'Centro de votación', value: padronInfo?.centro },
+                        { icon: 'ðŸ“ž', label: 'TelÃ©fono', value: registro?.telefono },
+                        { icon: 'âœ‰ï¸',  label: 'Correo',   value: registro?.correo   },
+                        { icon: 'ðŸ“', label: 'DirecciÃ³n', value: registro?.direccion },
+                        { icon: 'ðŸ—³ï¸',  label: 'JRV',       value: padronInfo?.jrv    },
+                        { icon: 'ðŸ›ï¸',  label: 'Centro de votaciÃ³n', value: padronInfo?.centro },
                       ].map(({ icon, label, value }, idx, arr) => (
                         <div key={label} style={{
                           display: 'flex', alignItems: 'flex-start', gap: 14,
@@ -2273,7 +2296,7 @@ export default function PortalPage() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, color: 'var(--texto-muted)', fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
                             <div style={{ fontSize: 14, fontWeight: 500, color: value ? 'var(--texto)' : 'var(--texto-muted)', wordBreak: 'break-word' }}>
-                              {value || '—'}
+                              {value || 'â€”'}
                             </div>
                           </div>
                         </div>
@@ -2281,11 +2304,11 @@ export default function PortalPage() {
                     </div>
                   </div>
 
-                  {/* ── FOTOS DUI (si existen) ── */}
+                  {/* â”€â”€ FOTOS DUI (si existen) â”€â”€ */}
                   {(registro?.foto_frente_url || registro?.foto_reverso_url) && (
                     <div style={{ margin: '12px 12px 0' }}>
                       <div className="card" style={{ borderRadius: 16, padding: '14px 18px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>📄 Fotografías del DUI</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>ðŸ“„ FotografÃ­as del DUI</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                           {[{ l: 'Frente', u: registro?.foto_frente_url }, { l: 'Reverso', u: registro?.foto_reverso_url }].map(({ l, u }) => (
                             <div key={l}>
@@ -2301,7 +2324,7 @@ export default function PortalPage() {
                     </div>
                   )}
 
-                  {/* ── HUELLA DIGITAL (fila tipo ajustes Android) ── */}
+                  {/* â”€â”€ HUELLA DIGITAL (fila tipo ajustes Android) â”€â”€ */}
                   <div style={{ margin: '12px 12px 0' }}>
                     <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
                       <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: huellaUsuarioRegistrada ? 'none' : '1px solid var(--borde)' }}>
@@ -2325,7 +2348,7 @@ export default function PortalPage() {
                       {!huellaUsuarioRegistrada && (
                         <div style={{ padding: '10px 18px 14px', background: 'rgba(251,191,36,.05)', borderTop: '1px solid rgba(251,191,36,.12)' }}>
                           <div style={{ fontSize: 11, color: 'var(--texto-muted)', lineHeight: 1.5, marginBottom: 10 }}>
-                            ⚠️ Necesita un bloqueo de pantalla activo: <strong>Android</strong> → huella / PIN / patrón · <strong>iPhone</strong> → Face ID / Touch ID
+                            âš ï¸ Necesita un bloqueo de pantalla activo: <strong>Android</strong> â†’ huella / PIN / patrÃ³n Â· <strong>iPhone</strong> â†’ Face ID / Touch ID
                           </div>
                           <button onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)} disabled={guardandoBiometria}
                             style={{ width: '100%', padding: '10px 0', borderRadius: 12, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2354,7 +2377,7 @@ export default function PortalPage() {
                     </div>
                   </div>
 
-                  {/* ── BOTÓN EDITAR al pie ── */}
+                  {/* â”€â”€ BOTÃ“N EDITAR al pie â”€â”€ */}
                   <div style={{ margin: '16px 12px 0' }}>
                     <button onClick={() => setEditando(true)}
                       style={{ width: '100%', padding: '13px 0', borderRadius: 14, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2363,10 +2386,10 @@ export default function PortalPage() {
                   </div>
                 </>
               ) : (
-                /* ── MODO EDICIÓN ── */
+                /* â”€â”€ MODO EDICIÃ“N â”€â”€ */
                 <div style={{ margin: '12px 12px 0' }}>
                   <div className="card" style={{ borderRadius: 16, padding: '20px 18px' }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--texto)', marginBottom: 16 }}>Editar información</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--texto)', marginBottom: 16 }}>Editar informaciÃ³n</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                       <div>
                         <label className="field-label">Nombre completo</label>
@@ -2374,7 +2397,7 @@ export default function PortalPage() {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                          <label className="field-label">Teléfono</label>
+                          <label className="field-label">TelÃ©fono</label>
                           <input type="tel" value={formPerfil.telefono} onChange={e => setFormPerfil(p => ({ ...p, telefono: e.target.value }))} className="input" />
                         </div>
                         <div>
@@ -2383,14 +2406,14 @@ export default function PortalPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="field-label">Dirección</label>
+                        <label className="field-label">DirecciÃ³n</label>
                         <input type="text" value={formPerfil.direccion} onChange={e => setFormPerfil(p => ({ ...p, direccion: e.target.value }))} className="input" />
                       </div>
                     </div>
 
                     {/* Fotos DUI */}
                     <div style={{ marginTop: 20 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>📄 Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>— Opcional</span></div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>ðŸ“„ Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>â€” Opcional</span></div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         {(['frente', 'reverso'] as const).map(lado => {
                           const prev = lado === 'frente' ? frentePreview : reversoPreview
@@ -2408,13 +2431,13 @@ export default function PortalPage() {
                                 <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} />
                               </label>
                               <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                                <label className="btn btn-ghost btn-sm flex-1 justify-center cursor-pointer" style={{ fontSize: 11, borderRadius: 10 }}><Upload size={10} /> Galería<input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
-                                <label className="btn btn-sm flex-1 justify-center cursor-pointer" style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe', fontSize: 11, borderRadius: 10 }}><Camera size={10} /> Cámara<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
+                                <label className="btn btn-ghost btn-sm flex-1 justify-center cursor-pointer" style={{ fontSize: 11, borderRadius: 10 }}><Upload size={10} /> GalerÃ­a<input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
+                                <label className="btn btn-sm flex-1 justify-center cursor-pointer" style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe', fontSize: 11, borderRadius: 10 }}><Camera size={10} /> CÃ¡mara<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
                               </div>
                               <div style={{ fontSize: 11, marginTop: 4 }}>
                                 {val2 && <span style={{ color: 'var(--amber)' }}>Validando...</span>}
-                                {val === true && <span style={{ color: 'var(--verde)' }}>✓ Válida</span>}
-                                {val === false && <span style={{ color: 'var(--rojo)' }}>✗ No legible</span>}
+                                {val === true && <span style={{ color: 'var(--verde)' }}>âœ“ VÃ¡lida</span>}
+                                {val === false && <span style={{ color: 'var(--rojo)' }}>âœ— No legible</span>}
                                 {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Toca para reemplazar' : 'Sin imagen'}</span>}
                               </div>
                             </div>
@@ -2442,7 +2465,7 @@ export default function PortalPage() {
           )}
 
 
-          {/* ── MI JRV ── */}
+          {/* â”€â”€ MI JRV â”€â”€ */}
           {seccion === 'jrv' && (
             <div className="max-w-2xl space-y-5">
               {padronInfo ? (
@@ -2464,7 +2487,7 @@ export default function PortalPage() {
                         <div className="text-xs mt-0.5" style={{ color: 'var(--azul)' }}>{padronInfo.cargo}</div>
                       </div>
                     </div>
-                    <div className="field-label mb-3">Mi asignación</div>
+                    <div className="field-label mb-3">Mi asignaciÃ³n</div>
                     <div className="grid grid-cols-2 gap-3">
                       {[['JRV', padronInfo.jrv], ['Cargo', padronInfo.cargo], ['Departamento', padronInfo.departamento], ['Municipio', padronInfo.municipio], ['Centro', padronInfo.centro]].map(([l, v]) => (
                         <div key={l} className={l === 'Centro' ? 'col-span-2' : ''}>
@@ -2476,10 +2499,10 @@ export default function PortalPage() {
                   </div>
                   <div className="card overflow-hidden">
                     <div className="px-5 py-3 font-semibold text-sm" style={{ background: 'var(--fondo)', borderBottom: '1px solid var(--borde)' }}>
-                      Compañeros en JRV {padronInfo.jrv} ({companeros.length})
+                      CompaÃ±eros en JRV {padronInfo.jrv} ({companeros.length})
                     </div>
                     {companeros.length === 0 ? (
-                      <div className="p-8 text-center text-sm" style={{ color: 'var(--texto-muted)' }}>No hay otros compañeros registrados en esta JRV</div>
+                      <div className="p-8 text-center text-sm" style={{ color: 'var(--texto-muted)' }}>No hay otros compaÃ±eros registrados en esta JRV</div>
                     ) : companeros.map((c, i) => (
                       <div key={c.id} className="px-5 py-4 flex gap-4"
                         style={{ borderBottom: i < companeros.length - 1 ? '1px solid var(--borde)' : 'none', background: i % 2 === 0 ? 'var(--superficie)' : '#fafafa' }}>
@@ -2501,7 +2524,7 @@ export default function PortalPage() {
                         <div className="flex-1 min-w-0 space-y-3">
                           <div>
                             <div className="font-semibold text-sm">{c.nombre}</div>
-                            <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--azul)' }}>{(c as RegistroDUI & { padron?: { cargo?: string } }).padron?.cargo ?? '—'}</div>
+                            <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--azul)' }}>{(c as RegistroDUI & { padron?: { cargo?: string } }).padron?.cargo ?? 'â€”'}</div>
                           </div>
                           <div className="grid grid-cols-1 xs:grid-cols-2 gap-x-6 gap-y-1.5">
                             <div>
@@ -2509,7 +2532,7 @@ export default function PortalPage() {
                               <div className="text-xs font-mono">{c.dui}</div>
                             </div>
                             <div>
-                              <div className="field-label">Teléfono</div>
+                              <div className="field-label">TelÃ©fono</div>
                               {c.telefono ? (
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-xs font-mono">{c.telefono}</span>
@@ -2528,16 +2551,16 @@ export default function PortalPage() {
                                   </a>
                                 </div>
                               ) : (
-                                <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>—</div>
+                                <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>â€”</div>
                               )}
                             </div>
                             <div>
                               <div className="field-label">Correo</div>
-                              <div className="text-xs break-all">{c.correo ?? '—'}</div>
+                              <div className="text-xs break-all">{c.correo ?? 'â€”'}</div>
                             </div>
                             <div>
-                              <div className="field-label">Dirección</div>
-                              <div className="text-xs">{c.direccion ?? '—'}</div>
+                              <div className="field-label">DirecciÃ³n</div>
+                              <div className="text-xs">{c.direccion ?? 'â€”'}</div>
                             </div>
                           </div>
                           {(c.foto_frente_url || c.foto_reverso_url) && (
@@ -2561,16 +2584,16 @@ export default function PortalPage() {
               ) : (
                 <div className="card p-10 text-center" style={{ color: 'var(--texto-muted)' }}>
                   <Users size={32} className="mx-auto mb-3" style={{ opacity: .25 }} />
-                  No tiene JRV asignada aún
+                  No tiene JRV asignada aÃºn
                 </div>
               )}
             </div>
           )}
 
-          {/* ── AGENDA (Eventos + Materiales) ── */}
+          {/* â”€â”€ AGENDA (Eventos + Materiales) â”€â”€ */}
           {seccion === 'agenda' && (
             <div className="max-w-4xl space-y-4">
-              {/* Pestañas */}
+              {/* PestaÃ±as */}
               <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--fondo)', border: '1px solid var(--borde)' }}>
                 {([['eventos', Calendar, 'Eventos'], ['materiales', BookOpen, 'Materiales']] as const).map(([tab, Icon, label]) => (
                   <button key={tab} onClick={() => setTabAgenda(tab)}
@@ -2588,7 +2611,7 @@ export default function PortalPage() {
               {/* Tab: Eventos */}
               {tabAgenda === 'eventos' && (
                 <div className="space-y-4">
-                  {/* Score participación */}
+                  {/* Score participaciÃ³n */}
                   {scoreAgenda && scoreAgenda.total > 0 && (() => {
                     const pct = Math.round((scoreAgenda.checkins / scoreAgenda.total) * 100)
                     return (
@@ -2606,13 +2629,13 @@ export default function PortalPage() {
                             {scoreAgenda.checkins} de {scoreAgenda.total} {scoreAgenda.total === 1 ? 'evento' : 'eventos'} asistidos
                           </p>
                           <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                            {scoreAgenda.confirmados} {scoreAgenda.confirmados === 1 ? 'confirmación' : 'confirmaciones'} registradas
+                            {scoreAgenda.confirmados} {scoreAgenda.confirmados === 1 ? 'confirmaciÃ³n' : 'confirmaciones'} registradas
                           </p>
                         </div>
                       </div>
                     )
                   })()}
-                  {/* Botón nuevo evento (solo admin) */}
+                  {/* BotÃ³n nuevo evento (solo admin) */}
                   {esAdmin && (
                     <div className="flex justify-end">
                       <button onClick={abrirNuevoEvento} className="btn btn-primary">
@@ -2639,7 +2662,7 @@ export default function PortalPage() {
                         const yaDeclinado = conf?.confirmado === false
                         const yaCheckin = !!conf?.check_in_at
                         const color = '#2563eb'
-                        // Ventana de check-in: hoy, desde la hora del evento (o todo el día si sin hora)
+                        // Ventana de check-in: hoy, desde la hora del evento (o todo el dÃ­a si sin hora)
                         let checkInAbierto = false
                         if (esHoy) {
                           if (!ev.hora) { checkInAbierto = true }
@@ -2666,18 +2689,18 @@ export default function PortalPage() {
                                 {!ev.activo && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>Inactivo</span>}
                                 {yaCheckin && <span className="badge" style={{ background: '#dcfce7', color: '#16a34a', fontSize: 10 }}><Check size={8} className="inline mr-0.5" />Presente</span>}
                                 {yaConfirmado && !yaCheckin && <span className="badge" style={{ background: '#eff6ff', color: color, fontSize: 10 }}><CheckCircle size={8} className="inline mr-0.5" />Confirmado</span>}
-                                {yaDeclinado && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>No asistirá</span>}
+                                {yaDeclinado && <span className="badge" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)', fontSize: 10 }}>No asistirÃ¡</span>}
                               </div>
                               {ev.descripcion && <p className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>{ev.descripcion}</p>}
                               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{ev.hora.slice(0, 5)}{ev.hora_fin ? ` – ${ev.hora_fin.slice(0,5)}` : ''}</span>}
+                                {ev.hora && <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><Clock size={10} />{ev.hora.slice(0, 5)}{ev.hora_fin ? ` â€“ ${ev.hora_fin.slice(0,5)}` : ''}</span>}
                                 {ev.lugar && (
                                   ev.lugar.startsWith('http')
                                     ? <a href={ev.lugar} target="_blank" rel="noopener noreferrer"
                                         className="text-xs flex items-center gap-1 font-medium"
                                         style={{ color: '#3b82f6', textDecoration: 'none' }}
                                         onClick={e => e.stopPropagation()}>
-                                        <MapPin size={10} />Ver ubicación
+                                        <MapPin size={10} />Ver ubicaciÃ³n
                                       </a>
                                     : <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{ev.lugar}</span>
                                 )}
@@ -2693,7 +2716,7 @@ export default function PortalPage() {
                             </div>
                             {/* Acciones */}
                             <div className="flex gap-2 flex-shrink-0 sm:self-start pl-[52px] sm:pl-0 flex-wrap">
-                              {/* Check-in: solo el día del evento, en la ventana de hora */}
+                              {/* Check-in: solo el dÃ­a del evento, en la ventana de hora */}
                               {checkInAbierto && !yaCheckin && (
                                 <button onClick={() => hacerCheckIn(ev.id)} disabled={checkingIn === ev.id}
                                   className="btn btn-sm"
@@ -2706,7 +2729,7 @@ export default function PortalPage() {
                                   <Check size={11} /> Asistencia registrada
                                 </span>
                               )}
-                              {/* RSVP: eventos futuros o hoy sin check-in aún */}
+                              {/* RSVP: eventos futuros o hoy sin check-in aÃºn */}
                               {!esPasado && ev.activo && !yaCheckin && (
                                 <button onClick={() => abrirRsvp(ev)}
                                   disabled={guardandoConf === ev.id}
@@ -2716,10 +2739,10 @@ export default function PortalPage() {
                                     color: yaConfirmado ? color : yaDeclinado ? 'var(--texto-muted)' : 'var(--texto-muted)',
                                     border: `1.5px solid ${yaConfirmado ? color + '44' : 'var(--borde)'}`,
                                   }}>
-                                  {yaConfirmado ? <><Pencil size={11} /> Editar confirmación</> : yaDeclinado ? 'Cambiar respuesta' : 'Confirmar asistencia'}
+                                  {yaConfirmado ? <><Pencil size={11} /> Editar confirmaciÃ³n</> : yaDeclinado ? 'Cambiar respuesta' : 'Confirmar asistencia'}
                                 </button>
                               )}
-                              {/* Compartir — visible para todos */}
+                              {/* Compartir â€” visible para todos */}
                               {(() => {
                                 const base = typeof window !== 'undefined' ? window.location.origin : 'https://centro-votacion-gerardo-barrios.vercel.app'
                                 const url = `${base}/portal?evento=${ev.id}`
@@ -2774,25 +2797,25 @@ export default function PortalPage() {
                               )}
                             </div>
                           </div>{/* fin flex sm:flex-row */}
-                            {/* Panel de asistencia inline — solo admin */}
+                            {/* Panel de asistencia inline â€” solo admin */}
                             {esAdmin && asistenciaEvId === ev.id && (() => {
                               const lista: any[] = asistenciaData[ev.id] ?? []
                               const confirmados  = lista.filter(c => c.confirmado)
                               const declinados   = lista.filter(c => c.confirmado === false)
                               const conTransporte = lista.filter(c => c.necesita_recogida || c.necesita_regreso)
                               const presentes    = lista.filter(c => c.check_in_at)
-                              const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? '—'
+                              const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? 'â€”'
                               return (
                                 <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--borde)', background: 'var(--fondo)' }}>
                                   {/* Cabecera resumen */}
                                   <div className="px-4 py-3 flex flex-wrap gap-4 text-xs font-medium border-b" style={{ borderColor: 'var(--borde)', background: 'var(--superficie)' }}>
-                                    <span style={{ color: '#16a34a' }}>✓ {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
-                                    <span style={{ color: '#2563eb' }}>🚌 {conTransporte.length} con transporte</span>
-                                    <span style={{ color: '#7c3aed' }}>📋 {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
-                                    {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>✗ {declinados.length} no asistirá</span>}
+                                    <span style={{ color: '#16a34a' }}>âœ“ {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
+                                    <span style={{ color: '#2563eb' }}>ðŸšŒ {conTransporte.length} con transporte</span>
+                                    <span style={{ color: '#7c3aed' }}>ðŸ“‹ {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
+                                    {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>âœ— {declinados.length} no asistirÃ¡</span>}
                                   </div>
                                   {lista.length === 0 ? (
-                                    <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--texto-muted)' }}>Sin confirmaciones registradas aún.</div>
+                                    <div className="px-4 py-6 text-center text-xs" style={{ color: 'var(--texto-muted)' }}>Sin confirmaciones registradas aÃºn.</div>
                                   ) : (
                                     <div className="divide-y" style={{ '--tw-divide-opacity': 1 } as any}>
                                       {lista.map((c: any) => {
@@ -2820,10 +2843,10 @@ export default function PortalPage() {
                                                 <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#dcfce7', color: '#16a34a' }}>Presente</span>
                                               )}
                                               {c.confirmado && !tieneCheckin && (
-                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#eff6ff', color: '#2563eb' }}>Confirmó</span>
+                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#eff6ff', color: '#2563eb' }}>ConfirmÃ³</span>
                                               )}
                                               {!c.confirmado && (
-                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)' }}>No asistirá</span>
+                                                <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)' }}>No asistirÃ¡</span>
                                               )}
                                               {conRec && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Recogida</span>}
                                               {conReg && <span className="text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Regreso</span>}
@@ -2888,37 +2911,37 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── MENSAJES ── */}
+          {/* â”€â”€ MENSAJES â”€â”€ */}
           {seccion === 'mensajes' && (
             <MensajesSection usuario={usuario} onNoLeidosChange={setMensajesNoLeidos} />
           )}
 
-          {/* ── TRANSPORTE ── */}
+          {/* â”€â”€ TRANSPORTE â”€â”€ */}
           {seccion === 'transporte' && (
             <TransporteSection usuario={usuario} />
           )}
 
-          {/* ── MOTORISTA ── */}
+          {/* â”€â”€ MOTORISTA â”€â”€ */}
           {seccion === 'motorista' && (
             <MotoristaSection usuario={usuario} />
           )}
 
-          {/* ── ADMIN: REGISTROS (DUI + Usuarios) ── */}
+          {/* â”€â”€ ADMIN: REGISTROS (DUI + Usuarios) â”€â”€ */}
           {seccion === 'admin-registros' && (
             <AdminRegistrosSection />
           )}
 
-          {/* ── ADMIN: ASIGNACIÓN ── */}
+          {/* â”€â”€ ADMIN: ASIGNACIÃ“N â”€â”€ */}
           {seccion === 'admin-asignacion' && (
             <AdminAsignacionSection />
           )}
 
-          {/* ── ADMIN: TRANSPORTE ── */}
+          {/* â”€â”€ ADMIN: TRANSPORTE â”€â”€ */}
           {seccion === 'admin-transporte' && (
             <AdminTransporteSection usuario={usuario ? { id: usuario.id, nombre: usuario.nombre, rol: usuario.rol, foto_perfil_url: usuario.foto_perfil_url } : undefined} />
           )}
 
-          {/* ── ADMIN: CATÁLOGO ── */}
+          {/* â”€â”€ ADMIN: CATÃLOGO â”€â”€ */}
           {seccion === 'admin-catalogo' && (
             <AdminCatalogoSection />
           )}
@@ -2942,8 +2965,8 @@ export default function PortalPage() {
                 <input type="text" value={formEv.nombre} onChange={e => setFormEv(p => ({ ...p, nombre: e.target.value }))} className="input" placeholder="Nombre del evento" />
               </div>
               <div>
-                <label className="field-label">Descripción</label>
-                <textarea value={formEv.descripcion} onChange={e => setFormEv(p => ({ ...p, descripcion: e.target.value }))} className="input" rows={2} placeholder="Descripción opcional" />
+                <label className="field-label">DescripciÃ³n</label>
+                <textarea value={formEv.descripcion} onChange={e => setFormEv(p => ({ ...p, descripcion: e.target.value }))} className="input" rows={2} placeholder="DescripciÃ³n opcional" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2988,14 +3011,14 @@ export default function PortalPage() {
                   </label>
                 )}
               </div>
-              {/* Punto de reunión — solo si algún transporte activo y NO es a domicilio */}
+              {/* Punto de reuniÃ³n â€” solo si algÃºn transporte activo y NO es a domicilio */}
               {(formEv.transporte_recogida || formEv.transporte_regreso) && (!formEv.recogida_domicilio || !formEv.regreso_domicilio) && (
                 <div>
-                  <label className="field-label">Punto de reunión</label>
+                  <label className="field-label">Punto de reuniÃ³n</label>
                   <input type="text" value={formEv.punto_reunion}
                     onChange={e => setFormEv(p => ({ ...p, punto_reunion: e.target.value }))}
-                    className="input" placeholder="Ej: Parque Central de Santa Ana, frente a la alcaldía" />
-                  <p className="text-xs mt-1" style={{ color: 'var(--texto-muted)' }}>Se mostrará a los colaboradores al confirmar asistencia.</p>
+                    className="input" placeholder="Ej: Parque Central de Santa Ana, frente a la alcaldÃ­a" />
+                  <p className="text-xs mt-1" style={{ color: 'var(--texto-muted)' }}>Se mostrarÃ¡ a los colaboradores al confirmar asistencia.</p>
                 </div>
               )}
               <div>
@@ -3016,7 +3039,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* ── MODAL LINK COMPARTIBLE ── */}
+      {/* â”€â”€ MODAL LINK COMPARTIBLE â”€â”€ */}
       {linkEvento && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
@@ -3059,14 +3082,14 @@ export default function PortalPage() {
                 </div>
               </div>
               <p className="text-xs" style={{ color: 'var(--texto-muted)' }}>
-                Al abrir este link, el colaborador verá directamente el formulario de confirmación de asistencia para este evento.
+                Al abrir este link, el colaborador verÃ¡ directamente el formulario de confirmaciÃ³n de asistencia para este evento.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MODAL RSVP ── */}
+      {/* â”€â”€ MODAL RSVP â”€â”€ */}
       {modalRsvp && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{ background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(4px)' }}
@@ -3081,12 +3104,12 @@ export default function PortalPage() {
             </div>
             <div className="p-6 space-y-5">
             {rsvpPaso === 1 && (<>
-              {/* ¿Asistirás? */}
+              {/* Â¿AsistirÃ¡s? */}
               <div>
-                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>¿Podremos contar con usted en este evento?</p>
-                <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Su confirmación nos ayuda a organizar mejor la jornada.</p>
+                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>Â¿Podremos contar con usted en este evento?</p>
+                <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Su confirmaciÃ³n nos ayuda a organizar mejor la jornada.</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {[{ val: true, label: '¡Sí, estaré presente!', icon: CheckCircle, color: '#16a34a' }, { val: false, label: 'No podré asistir', icon: X, color: '#dc2626' }].map(({ val, label, icon: Icon, color }) => (
+                  {[{ val: true, label: 'Â¡SÃ­, estarÃ© presente!', icon: CheckCircle, color: '#16a34a' }, { val: false, label: 'No podrÃ© asistir', icon: X, color: '#dc2626' }].map(({ val, label, icon: Icon, color }) => (
                     <button key={String(val)} onClick={() => setRsvpConf(p => ({ ...p, confirmado: val }))}
                       className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-sm font-medium"
                       style={{
@@ -3099,20 +3122,20 @@ export default function PortalPage() {
                   ))}
                 </div>
               </div>
-              {/* Justificación de ausencia */}
+              {/* JustificaciÃ³n de ausencia */}
               {!rsvpConf.confirmado && (
                 <div>
                   <label className="text-sm font-semibold block mb-1" style={{ color: 'var(--texto)' }}>
-                    ¿Puede indicarnos el motivo? <span style={{ color: '#dc2626' }}>*</span>
+                    Â¿Puede indicarnos el motivo? <span style={{ color: '#dc2626' }}>*</span>
                   </label>
                   <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
-                    Su justificación nos ayuda a planificar mejor. Será tratada con toda discreción.
+                    Su justificaciÃ³n nos ayuda a planificar mejor. SerÃ¡ tratada con toda discreciÃ³n.
                   </p>
                   <textarea
                     rows={3}
                     value={rsvpJustificacion}
                     onChange={e => { setRsvpJustificacion(e.target.value); if (e.target.value.trim()) setRsvpWarnJust(false) }}
-                    placeholder="Ej. Compromisos de salud, trabajo, familia…"
+                    placeholder="Ej. Compromisos de salud, trabajo, familiaâ€¦"
                     className="w-full rounded-xl px-3 py-2 text-sm resize-none"
                     style={{
                       border: `1.5px solid ${rsvpWarnJust ? '#dc2626' : 'var(--borde)'}`,
@@ -3128,11 +3151,11 @@ export default function PortalPage() {
                   )}
                 </div>
               )}
-              {/* Transporte — solo si confirma asistencia y el evento ofrece */}
+              {/* Transporte â€” solo si confirma asistencia y el evento ofrece */}
               {rsvpConf.confirmado && (modalRsvp.transporte_recogida || modalRsvp.transporte_regreso) && (
                 <div>
                   <p className="text-sm font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--texto)' }}>
-                    <Bus size={14} style={{ color: '#2563eb' }} /> ¿Le gustaría que le llevemos?
+                    <Bus size={14} style={{ color: '#2563eb' }} /> Â¿Le gustarÃ­a que le llevemos?
                   </p>
                   <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Con gusto podemos ayudarle con el traslado. Seleccione lo que necesite, es completamente gratuito.</p>
                   <div className="space-y-2">
@@ -3141,13 +3164,13 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_recogida ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_recogida ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">🚐 Llevarme a {modalRsvp.nombre}</div>
+                          <div className="text-sm font-medium">ðŸš Llevarme a {modalRsvp.nombre}</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                             {modalRsvp.recogida_domicilio
-                              ? 'Pasaremos a buscarle directamente en su domicilio. ¡No tiene que moverse!'
+                              ? 'Pasaremos a buscarle directamente en su domicilio. Â¡No tiene que moverse!'
                               : modalRsvp.punto_reunion
-                                ? <>Pasaremos a buscarle en el punto de reunión: <strong>{modalRsvp.punto_reunion}</strong>. Por favor llegue puntualmente a ese lugar.</>
-                                : 'Le trasladaremos desde el punto de reunión que se le indicará.'}
+                                ? <>Pasaremos a buscarle en el punto de reuniÃ³n: <strong>{modalRsvp.punto_reunion}</strong>. Por favor llegue puntualmente a ese lugar.</>
+                                : 'Le trasladaremos desde el punto de reuniÃ³n que se le indicarÃ¡.'}
                           </div>
                         </div>
                       </label>
@@ -3157,19 +3180,19 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_regreso ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_regreso ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">🏠 Llevarme a casa</div>
+                          <div className="text-sm font-medium">ðŸ  Llevarme a casa</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
-                            Al terminar el evento, con mucho gusto le regresamos a su domicilio sin ningún inconveniente.
+                            Al terminar el evento, con mucho gusto le regresamos a su domicilio sin ningÃºn inconveniente.
                           </div>
                         </div>
                       </label>
                     )}
-                  {/* Advertencia: selección de transporte vacía */}
+                  {/* Advertencia: selecciÃ³n de transporte vacÃ­a */}
                   {rsvpWarnTransporte && (
                     <div className="mt-3 p-3 rounded-xl text-xs flex flex-col gap-2"
                       style={{ background: '#fef9c3', border: '1px solid #fde047', color: '#854d0e' }}>
-                      <p className="font-medium">¿Prefiere llegar por sus propios medios?</p>
-                      <p>¡No hay problema! Puede confirmar su asistencia sin solicitar transporte.</p>
+                      <p className="font-medium">Â¿Prefiere llegar por sus propios medios?</p>
+                      <p>Â¡No hay problema! Puede confirmar su asistencia sin solicitar transporte.</p>
                       <button
                         onClick={async () => {
                           setRsvpWarnTransporte(false)
@@ -3210,51 +3233,51 @@ export default function PortalPage() {
               )}
             </>)}
 
-            {/* ── PASO 2: Formulario de transporte inline ── */}
+            {/* â”€â”€ PASO 2: Formulario de transporte inline â”€â”€ */}
             {rsvpPaso === 2 && (
               <div className="space-y-4">
-                {/* Resumen de lo que solicitó */}
+                {/* Resumen de lo que solicitÃ³ */}
                 <div className="p-3 rounded-xl space-y-1.5" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>📋 Resumen de su solicitud</p>
+                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>ðŸ“‹ Resumen de su solicitud</p>
                   {rsvpConf.necesita_recogida && (
                     <p className="text-xs" style={{ color: '#1e40af' }}>
-                      🚐 <strong>Le llevamos a {modalRsvp.nombre}</strong> —{' '}
+                      ðŸš <strong>Le llevamos a {modalRsvp.nombre}</strong> â€”{' '}
                       {modalRsvp.recogida_domicilio
                         ? 'Pasamos a buscarle en su domicilio'
                         : modalRsvp.punto_reunion
                           ? `Pasamos a buscarle en ${modalRsvp.punto_reunion}`
-                          : 'Desde el punto de reunión indicado'}
+                          : 'Desde el punto de reuniÃ³n indicado'}
                     </p>
                   )}
                   {rsvpConf.necesita_regreso && (
-                    <p className="text-xs" style={{ color: '#1e40af' }}>🏠 <strong>Le llevamos a casa</strong> — le regresamos a su domicilio al terminar</p>
+                    <p className="text-xs" style={{ color: '#1e40af' }}>ðŸ  <strong>Le llevamos a casa</strong> â€” le regresamos a su domicilio al terminar</p>
                   )}
                 </div>
 
-                {/* Punto de reunión — si aplica */}
+                {/* Punto de reuniÃ³n â€” si aplica */}
                 {!modalRsvp.recogida_domicilio && modalRsvp.punto_reunion && (
                   <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>📍 Punto de reunión</p>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>ðŸ“ Punto de reuniÃ³n</p>
                     <p className="text-sm font-medium" style={{ color: '#9a3412' }}>{modalRsvp.punto_reunion}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Pasaremos a buscarle aquí. Por favor llegue puntualmente a este lugar.</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Pasaremos a buscarle aquÃ­. Por favor llegue puntualmente a este lugar.</p>
                   </div>
                 )}
 
-                {/* GPS — siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
+                {/* GPS â€” siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>
-                    📍 {modalRsvp.recogida_domicilio ? '¿Dónde pasamos a buscarle?' : '¿A dónde le llevamos de regreso?'}
+                    ðŸ“ {modalRsvp.recogida_domicilio ? 'Â¿DÃ³nde pasamos a buscarle?' : 'Â¿A dÃ³nde le llevamos de regreso?'}
                   </p>
                   <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
                     {modalRsvp.recogida_domicilio
-                      ? 'Por favor comparta su ubicación para que podamos organizar la ruta y pasarle a buscar. ¡Será muy sencillo!'
-                      : 'Registre su ubicación para que el conductor sepa a dónde llevarle cuando terminemos. ¡Estará en buenas manos!'}
+                      ? 'Por favor comparta su ubicaciÃ³n para que podamos organizar la ruta y pasarle a buscar. Â¡SerÃ¡ muy sencillo!'
+                      : 'Registre su ubicaciÃ³n para que el conductor sepa a dÃ³nde llevarle cuando terminemos. Â¡EstarÃ¡ en buenas manos!'}
                   </p>
                   {rsvpGpsLat && rsvpGpsLng ? (
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #bbf7d0' }}>
                       <div style={{ position: 'relative', height: 160 }}>
                         <iframe
-                          title="Ubicación registrada"
+                          title="UbicaciÃ³n registrada"
                           src={`https://www.openstreetmap.org/export/embed.html?bbox=${rsvpGpsLng - 0.004},${rsvpGpsLat - 0.003},${rsvpGpsLng + 0.004},${rsvpGpsLat + 0.003}&layer=mapnik&marker=${rsvpGpsLat},${rsvpGpsLng}`}
                           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                           loading="lazy"
@@ -3269,7 +3292,7 @@ export default function PortalPage() {
                       <div className="flex items-center justify-between px-2.5 py-2" style={{ background: '#f0fdf4' }}>
                         <div className="flex items-center gap-1.5 min-w-0">
                           <MapPin size={12} style={{ color: '#16a34a', flexShrink: 0 }} />
-                          <span className="text-xs font-semibold" style={{ color: '#15803d' }}>Ubicación registrada ✓</span>
+                          <span className="text-xs font-semibold" style={{ color: '#15803d' }}>UbicaciÃ³n registrada âœ“</span>
                           <span className="text-xs" style={{ color: '#166534' }}>{rsvpGpsLat.toFixed(4)}, {rsvpGpsLng.toFixed(4)}</span>
                         </div>
                         <button onClick={capturarGpsRsvp} disabled={rsvpGpsCapturando}
@@ -3288,7 +3311,7 @@ export default function PortalPage() {
                           loading="lazy"
                         />
                         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
-                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>📍 Su ubicación aún no está registrada</span>
+                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>ðŸ“ Su ubicaciÃ³n aÃºn no estÃ¡ registrada</span>
                         </div>
                         <button onClick={() => setRsvpMapaExpandido(true)}
                           className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center"
@@ -3302,8 +3325,8 @@ export default function PortalPage() {
                           className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
                           style={{ background: '#2563eb', color: '#fff' }}>
                           {rsvpGpsCapturando
-                            ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
-                            : <><MapPin size={14} /> Capturar mi ubicación actual</>}
+                            ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicaciÃ³n...</>
+                            : <><MapPin size={14} /> Capturar mi ubicaciÃ³n actual</>}
                         </button>
                       </div>
                     </div>
@@ -3314,11 +3337,11 @@ export default function PortalPage() {
             )}
             </div>
 
-            {/* Footer — cambia según el paso */}
+            {/* Footer â€” cambia segÃºn el paso */}
             <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid var(--borde)', background: 'var(--fondo)', justifyContent: rsvpPaso === 2 ? 'space-between' : 'flex-end' }}>
               {rsvpPaso === 2 ? (
                 <>
-                  <button onClick={() => setRsvpPaso(1)} className="btn btn-ghost text-sm">← Volver</button>
+                  <button onClick={() => setRsvpPaso(1)} className="btn btn-ghost text-sm">â† Volver</button>
                   <button onClick={confirmarRsvpConTransporte} disabled={rsvpSolicitando || !rsvpGpsLat}
                     className="btn btn-primary text-sm font-semibold flex items-center gap-2"
                     style={{ background: '#16a34a' }}>
@@ -3333,7 +3356,7 @@ export default function PortalPage() {
                   <button onClick={guardarRsvp} disabled={!!guardandoConf}
                     className="btn btn-primary"
                     style={{ background: rsvpConf.confirmado ? '#16a34a' : '#dc2626' }}>
-                    {guardandoConf ? '...' : rsvpConf.confirmado ? 'Guardar mi confirmación' : 'Enviar respuesta'}
+                    {guardandoConf ? '...' : rsvpConf.confirmado ? 'Guardar mi confirmaciÃ³n' : 'Enviar respuesta'}
                   </button>
                 </>
               )}
@@ -3342,7 +3365,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* ── MAPA FULLSCREEN ── */}
+      {/* â”€â”€ MAPA FULLSCREEN â”€â”€ */}
       {rsvpMapaExpandido && (
         <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: '#000' }}>
           {/* Barra superior */}
@@ -3350,7 +3373,7 @@ export default function PortalPage() {
             <div className="flex items-center gap-2">
               <MapPin size={14} style={{ color: '#60a5fa' }} />
               <span className="text-sm font-semibold text-white">
-                {rsvpGpsLat && rsvpGpsLng ? 'Su ubicación registrada' : 'Mapa de referencia — Santa Ana'}
+                {rsvpGpsLat && rsvpGpsLng ? 'Su ubicaciÃ³n registrada' : 'Mapa de referencia â€” Santa Ana'}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -3380,8 +3403,8 @@ export default function PortalPage() {
               className="flex-1 py-2 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
               style={{ background: '#2563eb', color: '#fff' }}>
               {rsvpGpsCapturando
-                ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicación...</>
-                : <><MapPin size={14} /> {rsvpGpsLat ? 'Actualizar mi ubicación' : 'Capturar mi ubicación'}</>}
+                ? <><Loader2 size={14} className="animate-spin" /> Obteniendo ubicaciÃ³n...</>
+                : <><MapPin size={14} /> {rsvpGpsLat ? 'Actualizar mi ubicaciÃ³n' : 'Capturar mi ubicaciÃ³n'}</>}
             </button>
             <button onClick={() => setRsvpMapaExpandido(false)}
               className="px-4 py-2 rounded-xl text-sm font-semibold"
@@ -3392,7 +3415,7 @@ export default function PortalPage() {
         </div>
       )}
 
-      {/* ── LIGHTBOX ── */}
+      {/* â”€â”€ LIGHTBOX â”€â”€ */}
       {lightboxUrl && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
@@ -3420,3 +3443,4 @@ export default function PortalPage() {
     </div>
   )
 }
+
