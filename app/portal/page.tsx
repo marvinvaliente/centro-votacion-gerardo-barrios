@@ -2151,103 +2151,243 @@ export default function PortalPage() {
             </div>
           )}
 
-          {/* ── MI PERFIL ── */}
+          {/* ── MI PERFIL (rediseño Android / red social) ── */}
           {seccion === 'perfil' && (
-            <div className="max-w-2xl space-y-5">
-              <div className="card overflow-hidden">
-                <div className="px-6 py-4 flex items-center justify-between"
-                  style={{ background: 'linear-gradient(135deg, var(--navy-dark), var(--navy))', borderBottom: '3px solid var(--gold)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0 group" title="Click para ampliar · Doble click para cambiar foto">
-                      <div
-                        className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center font-bold text-lg"
-                        style={{ background: 'rgba(200,168,75,.2)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.4)', cursor: 'pointer' }}
-                        onClick={() => {
-                          if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; inputFotoRef.current?.click(); return }
-                          clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }, 220)
-                        }}
-                      >
-                        {usuario.foto_perfil_url
-                          ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
-                          : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
-                        }
-                      </div>
-                      <div className="absolute inset-0 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                        style={{ background: 'rgba(0,0,0,.5)' }}>
-                        {subiendoFotoPerfil
-                          ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          : <Camera size={16} color="white" />
-                        }
-                      </div>
-                      <input ref={inputFotoRef} type="file" accept="image/*" className="hidden"
-                        onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoPerfil(f) }} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-white">{registro?.nombre ?? usuario.nombre}</div>
-                      <div className="text-xs font-mono" style={{ color: 'rgba(255,255,255,.6)' }}>{usuario.dui}</div>
-                      {errorFotoPerfil ? (
-                        <label className="cursor-pointer">
-                          <div className="text-xs mt-1 px-2 py-1 rounded-lg flex items-center gap-1.5"
-                            style={{ background: 'rgba(220,38,38,.2)', color: '#fca5a5', border: '1px solid rgba(220,38,38,.3)' }}>
-                            <AlertTriangle size={10} />
-                            <span>{errorFotoPerfil}</span>
-                            <span className="underline ml-1">Cargar otra</span>
-                          </div>
-                          <input type="file" accept="image/*" className="hidden"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoPerfil(f) }} />
-                        </label>
-                      ) : (
-                        <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,.35)' }}>Toca la foto para cambiarla</div>
-                      )}
-                    </div>
-                  </div>
+            <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: 24 }}>
+
+              {/* ── HERO: banner + avatar centrado ── */}
+              <div style={{ position: 'relative', marginBottom: 56 }}>
+                {/* Banner */}
+                <div style={{
+                  height: 120,
+                  background: 'linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 55%, rgba(200,168,75,.35) 100%)',
+                  borderRadius: 20,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
+                  {/* Patrón decorativo */}
+                  <svg style={{ position: 'absolute', right: 0, top: 0, opacity: .08 }} width="180" height="120" viewBox="0 0 180 120" fill="none">
+                    <circle cx="140" cy="20" r="80" fill="var(--gold)" />
+                    <circle cx="20" cy="100" r="50" fill="var(--gold)" />
+                  </svg>
+                  {/* Botón editar en banner */}
                   {!editando && (
-                    <button onClick={() => setEditando(true)} className="btn btn-sm" style={{ background: 'rgba(255,255,255,.1)', color: 'white', border: '1px solid rgba(255,255,255,.2)' }}>
-                      <Pencil size={12} /> Editar
+                    <button onClick={() => setEditando(true)}
+                      style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(255,255,255,.18)', color: 'white', border: '1px solid rgba(255,255,255,.25)', borderRadius: 999, padding: '5px 14px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+                      <Pencil size={11} /> Editar perfil
                     </button>
                   )}
                 </div>
-
-                {!editando ? (
-                  <div className="p-4 md:p-6 grid grid-cols-2 gap-4">
-                    {[
-                      ['Teléfono', registro?.telefono],
-                      ['Correo', registro?.correo],
-                      ['Dirección', registro?.direccion],
-                      ['Cargo', padronInfo?.cargo],
-                      ['JRV', padronInfo?.jrv],
-                      ['Centro', padronInfo?.centro],
-                    ].map(([l, v]) => (
-                      <div key={l as string} className={l === 'Dirección' || l === 'Centro' || l === 'Correo' ? 'col-span-2' : ''}>
-                        <div className="field-label">{l}</div>
-                        <div className="text-sm font-medium" style={{ color: v ? 'var(--texto)' : 'var(--texto-muted)' }}>{v || '—'}</div>
-                      </div>
-                    ))}
-                    {/* Fotos */}
-                    {(registro?.foto_frente_url || registro?.foto_reverso_url) && (
-                      <>
-                        {[{ l: 'Frente del DUI', u: registro?.foto_frente_url }, { l: 'Reverso del DUI', u: registro?.foto_reverso_url }].map(({ l, u }) => (
-                          <div key={l}>
-                            <div className="field-label mb-1.5">{l}</div>
-                            {u ? <a href={u} target="_blank"><img src={u} alt={l} className="w-full rounded-lg object-cover" style={{ border: '1px solid var(--borde)', maxHeight: 110 }} /></a>
-                              : <div className="h-20 rounded-lg flex items-center justify-center text-xs" style={{ background: 'var(--fondo)', border: '1px dashed var(--borde)', color: 'var(--texto-muted)' }}>Sin imagen</div>}
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-4 md:p-6 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="sm:col-span-2"><label className="field-label">Nombre completo</label><input type="text" value={formPerfil.nombre} onChange={e => setFormPerfil(p => ({ ...p, nombre: toNombrePropio(e.target.value) }))} className="input" /></div>
-                      <div><label className="field-label">Teléfono</label><input type="tel" value={formPerfil.telefono} onChange={e => setFormPerfil(p => ({ ...p, telefono: e.target.value }))} className="input" /></div>
-                      <div><label className="field-label">Correo</label><input type="email" value={formPerfil.correo} onChange={e => setFormPerfil(p => ({ ...p, correo: e.target.value }))} className="input" /></div>
-                      <div className="sm:col-span-2"><label className="field-label">Dirección</label><input type="text" value={formPerfil.direccion} onChange={e => setFormPerfil(p => ({ ...p, direccion: e.target.value }))} className="input" /></div>
+                {/* Avatar superpuesto */}
+                <div style={{ position: 'absolute', left: 20, bottom: -48, zIndex: 2 }}>
+                  <div className="relative group" style={{ cursor: 'pointer' }}
+                    title="Toca para ampliar · Doble toque para cambiar foto"
+                    onClick={() => {
+                      if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null; inputFotoRef.current?.click(); return }
+                      clickTimerRef.current = setTimeout(() => { clickTimerRef.current = null; if (usuario.foto_perfil_url) { setLightboxUrl(usuario.foto_perfil_url); setLightboxNombre(usuario.nombre) } }, 220)
+                    }}>
+                    <div style={{
+                      width: 90, height: 90, borderRadius: '50%',
+                      border: '4px solid var(--fondo)',
+                      overflow: 'hidden',
+                      background: 'linear-gradient(135deg, var(--navy) 0%, rgba(200,168,75,.3) 100%)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 30, color: 'var(--gold)',
+                      boxShadow: '0 4px 18px rgba(0,0,0,.22)',
+                      flexShrink: 0,
+                    }}>
+                      {usuario.foto_perfil_url
+                        ? <img src={usuario.foto_perfil_url} alt="perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : usuario.nombre.trim().split(' ').slice(0, 2).map((p: string) => p[0]).join('').toUpperCase()
+                      }
                     </div>
-                    {/* Fotos edición */}
-                    <div>
-                      <label className="field-label mb-3 block">Fotografías del DUI <span className="font-normal" style={{ color: 'var(--texto-muted)' }}>— Opcional</span></label>
-                      <div className="grid grid-cols-2 gap-4">
+                    {/* Overlay cámara */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ borderRadius: '50%', background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {subiendoFotoPerfil
+                        ? <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <Camera size={18} color="white" />
+                      }
+                    </div>
+                    {/* Badge cámara siempre visible en móvil */}
+                    <div style={{ position: 'absolute', bottom: 2, right: 2, width: 26, height: 26, borderRadius: '50%', background: 'var(--navy)', border: '2px solid var(--fondo)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Camera size={12} color="var(--gold)" />
+                    </div>
+                    <input ref={inputFotoRef} type="file" accept="image/*" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoPerfil(f) }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── INFO: nombre + DUI + rol ── */}
+              <div style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 16, borderBottom: '1px solid var(--borde)' }}>
+                <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--texto)', lineHeight: 1.2 }}>
+                  {registro?.nombre ?? usuario.nombre}
+                </div>
+                <div style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--texto-muted)', marginTop: 3 }}>
+                  {usuario.dui}
+                </div>
+                {errorFotoPerfil && (
+                  <label className="cursor-pointer" style={{ display: 'inline-block', marginTop: 6 }}>
+                    <div style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, background: 'rgba(220,38,38,.1)', color: '#ef4444', border: '1px solid rgba(220,38,38,.25)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <AlertTriangle size={10} />{errorFotoPerfil} <span style={{ textDecoration: 'underline' }}>Cargar otra</span>
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) subirFotoPerfil(f) }} />
+                  </label>
+                )}
+                {/* Chips: cargo + rol */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                  {padronInfo?.cargo && (
+                    <span style={{ padding: '4px 12px', borderRadius: 999, background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.3)', fontSize: 12, fontWeight: 600 }}>
+                      {padronInfo.cargo}
+                    </span>
+                  )}
+                  <span style={{ padding: '4px 12px', borderRadius: 999, background: 'var(--azul-light)', color: 'var(--azul)', fontSize: 12, fontWeight: 600 }}>
+                    {usuario.rol === 'administrador' ? 'Administrador' : 'Miembro activo'}
+                  </span>
+                </div>
+              </div>
+
+              {!editando ? (
+                <>
+                  {/* ── DATOS: filas tipo WhatsApp/Android ── */}
+                  <div style={{ margin: '12px 12px 0' }}>
+                    <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
+                      {[
+                        { icon: '📞', label: 'Teléfono', value: registro?.telefono },
+                        { icon: '✉️',  label: 'Correo',   value: registro?.correo   },
+                        { icon: '📍', label: 'Dirección', value: registro?.direccion },
+                        { icon: '🗳️',  label: 'JRV',       value: padronInfo?.jrv    },
+                        { icon: '🏛️',  label: 'Centro de votación', value: padronInfo?.centro },
+                      ].map(({ icon, label, value }, idx, arr) => (
+                        <div key={label} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 14,
+                          padding: '14px 18px',
+                          borderBottom: idx < arr.length - 1 ? '1px solid var(--borde)' : 'none',
+                        }}>
+                          <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, color: 'var(--texto-muted)', fontWeight: 600, letterSpacing: '.03em', textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: value ? 'var(--texto)' : 'var(--texto-muted)', wordBreak: 'break-word' }}>
+                              {value || '—'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── FOTOS DUI (si existen) ── */}
+                  {(registro?.foto_frente_url || registro?.foto_reverso_url) && (
+                    <div style={{ margin: '12px 12px 0' }}>
+                      <div className="card" style={{ borderRadius: 16, padding: '14px 18px' }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>📄 Fotografías del DUI</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          {[{ l: 'Frente', u: registro?.foto_frente_url }, { l: 'Reverso', u: registro?.foto_reverso_url }].map(({ l, u }) => (
+                            <div key={l}>
+                              <div style={{ fontSize: 11, color: 'var(--texto-muted)', fontWeight: 600, marginBottom: 6 }}>{l}</div>
+                              {u
+                                ? <a href={u} target="_blank" style={{ display: 'block' }}><img src={u} alt={l} style={{ width: '100%', borderRadius: 10, objectFit: 'cover', maxHeight: 90, border: '1px solid var(--borde)' }} /></a>
+                                : <div style={{ height: 72, borderRadius: 10, border: '1px dashed var(--borde)', background: 'var(--fondo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--texto-muted)' }}>Sin imagen</div>
+                              }
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── HUELLA DIGITAL (fila tipo ajustes Android) ── */}
+                  <div style={{ margin: '12px 12px 0' }}>
+                    <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
+                      <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: huellaUsuarioRegistrada ? 'none' : '1px solid var(--borde)' }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: huellaUsuarioRegistrada ? 'var(--verde-light)' : 'var(--fondo)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--borde)' }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={huellaUsuarioRegistrada ? 'var(--verde)' : 'var(--texto-muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                          </svg>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--texto)' }}>Acceso con huella</div>
+                          <div style={{ fontSize: 12, color: 'var(--texto-muted)', marginTop: 1 }}>
+                            {huellaUsuarioRegistrada ? 'Registrada en este dispositivo' : 'No configurada'}
+                          </div>
+                        </div>
+                        {huellaUsuarioRegistrada ? (
+                          <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--verde-light)', color: 'var(--verde)', fontSize: 12, fontWeight: 700 }}>Activa</span>
+                        ) : (
+                          <span style={{ padding: '4px 10px', borderRadius: 999, background: 'var(--fondo)', color: 'var(--texto-muted)', border: '1px solid var(--borde)', fontSize: 12 }}>Inactiva</span>
+                        )}
+                      </div>
+                      {!huellaUsuarioRegistrada && (
+                        <div style={{ padding: '10px 18px 14px', background: 'rgba(251,191,36,.05)', borderTop: '1px solid rgba(251,191,36,.12)' }}>
+                          <div style={{ fontSize: 11, color: 'var(--texto-muted)', lineHeight: 1.5, marginBottom: 10 }}>
+                            ⚠️ Necesita un bloqueo de pantalla activo: <strong>Android</strong> → huella / PIN / patrón · <strong>iPhone</strong> → Face ID / Touch ID
+                          </div>
+                          <button onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)} disabled={guardandoBiometria}
+                            style={{ width: '100%', padding: '10px 0', borderRadius: 12, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            {guardandoBiometria
+                              ? <><Loader2 size={14} className="animate-spin" /> Verificando...</>
+                              : <>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                                  Registrar mi huella
+                                </>
+                            }
+                          </button>
+                        </div>
+                      )}
+                      {huellaUsuarioRegistrada && (
+                        <div style={{ padding: '0 18px 14px' }}>
+                          <button onClick={async () => { try { await bioDelete() } catch {} setHuellaUsuarioRegistrada(false); setHuellaUsuarioError('') }}
+                            style={{ fontSize: 13, color: 'var(--rojo)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                            Eliminar huella registrada
+                          </button>
+                        </div>
+                      )}
+                      {huellaUsuarioError && (
+                        <div style={{ padding: '0 18px 12px', fontSize: 12, color: 'var(--rojo)' }}>{huellaUsuarioError}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── BOTÓN EDITAR al pie ── */}
+                  <div style={{ margin: '16px 12px 0' }}>
+                    <button onClick={() => setEditando(true)}
+                      style={{ width: '100%', padding: '13px 0', borderRadius: 14, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <Pencil size={15} /> Editar mis datos
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── MODO EDICIÓN ── */
+                <div style={{ margin: '12px 12px 0' }}>
+                  <div className="card" style={{ borderRadius: 16, padding: '20px 18px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--texto)', marginBottom: 16 }}>Editar información</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div>
+                        <label className="field-label">Nombre completo</label>
+                        <input type="text" value={formPerfil.nombre} onChange={e => setFormPerfil(p => ({ ...p, nombre: toNombrePropio(e.target.value) }))} className="input" />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                          <label className="field-label">Teléfono</label>
+                          <input type="tel" value={formPerfil.telefono} onChange={e => setFormPerfil(p => ({ ...p, telefono: e.target.value }))} className="input" />
+                        </div>
+                        <div>
+                          <label className="field-label">Correo</label>
+                          <input type="email" value={formPerfil.correo} onChange={e => setFormPerfil(p => ({ ...p, correo: e.target.value }))} className="input" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="field-label">Dirección</label>
+                        <input type="text" value={formPerfil.direccion} onChange={e => setFormPerfil(p => ({ ...p, direccion: e.target.value }))} className="input" />
+                      </div>
+                    </div>
+
+                    {/* Fotos DUI */}
+                    <div style={{ marginTop: 20 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>📄 Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>— Opcional</span></div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         {(['frente', 'reverso'] as const).map(lado => {
                           const prev = lado === 'frente' ? frentePreview : reversoPreview
                           const val  = lado === 'frente' ? frenteValido  : reversoValido
@@ -2256,119 +2396,44 @@ export default function PortalPage() {
                           return (
                             <div key={lado}>
                               <div className="field-label mb-1.5">{lado === 'frente' ? 'Frente' : 'Reverso'}</div>
-                              <label className="block rounded-lg cursor-pointer overflow-hidden"
-                                style={{ border: `2px dashed ${val === true ? 'var(--verde)' : val === false ? 'var(--rojo)' : 'var(--borde)'}`, background: val === true ? 'var(--verde-light)' : 'var(--fondo)', minHeight: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {prev ? <img src={prev} alt={lado} className="w-full object-cover" style={{ maxHeight: 100 }} />
-                                  : cur ? <img src={cur} alt={lado} className="w-full object-cover opacity-40" style={{ maxHeight: 100 }} />
-                                  : <div className="text-center p-3"><FileImage size={20} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Clic para cargar</div></div>}
+                              <label className="block rounded-xl cursor-pointer overflow-hidden"
+                                style={{ border: `2px dashed ${val === true ? 'var(--verde)' : val === false ? 'var(--rojo)' : 'var(--borde)'}`, background: val === true ? 'var(--verde-light)' : 'var(--fondo)', minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {prev ? <img src={prev} alt={lado} className="w-full object-cover" style={{ maxHeight: 90 }} />
+                                  : cur ? <img src={cur} alt={lado} className="w-full object-cover opacity-40" style={{ maxHeight: 90 }} />
+                                  : <div style={{ textAlign: 'center', padding: 10 }}><FileImage size={18} style={{ color: 'var(--texto-muted)', margin: '0 auto 4px' }} /><div style={{ fontSize: 11, color: 'var(--texto-muted)' }}>Toca para cargar</div></div>}
                                 <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} />
                               </label>
-                              <div className="flex gap-1.5 mt-1.5">
-                                <label className="btn btn-ghost btn-sm flex-1 justify-center cursor-pointer" style={{ fontSize: 11 }}><Upload size={10} /> Galería<input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
-                                <label className="btn btn-sm flex-1 justify-center cursor-pointer" style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe', fontSize: 11 }}><Camera size={10} /> Cámara<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
+                              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                <label className="btn btn-ghost btn-sm flex-1 justify-center cursor-pointer" style={{ fontSize: 11, borderRadius: 10 }}><Upload size={10} /> Galería<input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
+                                <label className="btn btn-sm flex-1 justify-center cursor-pointer" style={{ background: 'var(--azul-light)', color: 'var(--azul)', border: '1px solid #bfdbfe', fontSize: 11, borderRadius: 10 }}><Camera size={10} /> Cámara<input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => e.target.files?.[0] && handleFoto(e.target.files[0], lado)} /></label>
                               </div>
-                              <div className="text-xs mt-1">
+                              <div style={{ fontSize: 11, marginTop: 4 }}>
                                 {val2 && <span style={{ color: 'var(--amber)' }}>Validando...</span>}
                                 {val === true && <span style={{ color: 'var(--verde)' }}>✓ Válida</span>}
                                 {val === false && <span style={{ color: 'var(--rojo)' }}>✗ No legible</span>}
-                                {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Clic para reemplazar' : 'Sin imagen'}</span>}
+                                {!prev && !val2 && <span style={{ color: 'var(--texto-muted)' }}>{cur ? 'Toca para reemplazar' : 'Sin imagen'}</span>}
                               </div>
                             </div>
                           )
                         })}
                       </div>
                     </div>
+
                     {!usuario.foto_perfil_url && (
-                      <div className="rounded-lg px-3 py-2.5 flex items-center gap-2 text-xs"
-                        style={{ background: 'var(--amber-light)', border: '1px solid #fde68a', color: 'var(--amber)' }}>
-                        <AlertTriangle size={13} style={{ flexShrink: 0 }} />
-                        Debe subir una foto de perfil antes de guardar. Toque su avatar y haga doble clic para cargarla.
+                      <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: 'var(--amber-light)', border: '1px solid #fde68a', color: 'var(--amber)', fontSize: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                        Debe subir una foto de perfil antes de guardar. Toque el avatar en la parte superior.
                       </div>
                     )}
-                    {errorPerfil && <p className="text-xs" style={{ color: 'var(--rojo)' }}>{errorPerfil}</p>}
-                    <div className="flex gap-3">
-                      <button onClick={() => setEditando(false)} className="btn btn-ghost flex-1 justify-center"><X size={13} /> Cancelar</button>
-                      <button onClick={guardarPerfil} disabled={guardandoPerfil} className="btn btn-primary flex-1 justify-center"><Save size={13} />{guardandoPerfil ? 'Guardando...' : 'Guardar'}</button>
+                    {errorPerfil && <p style={{ fontSize: 12, color: 'var(--rojo)', marginTop: 8 }}>{errorPerfil}</p>}
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                      <button onClick={() => setEditando(false)} className="btn btn-ghost flex-1 justify-center" style={{ borderRadius: 12 }}><X size={13} /> Cancelar</button>
+                      <button onClick={guardarPerfil} disabled={guardandoPerfil} className="btn btn-primary flex-1 justify-center" style={{ borderRadius: 12 }}><Save size={13} />{guardandoPerfil ? 'Guardando...' : 'Guardar'}</button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── HUELLA DIGITAL (siempre visible; error se muestra al intentar registrar) ── */}
-          {seccion === 'perfil' && (
-            <div className="card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--azul)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
-                </svg>
-                <h3 className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>Acceso con huella digital</h3>
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium" style={{ color: 'var(--texto)' }}>
-                    {huellaUsuarioRegistrada ? 'Huella registrada en este dispositivo' : 'Huella no registrada'}
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                    {huellaUsuarioRegistrada
-                      ? 'Puede ingresar con su huella en la pantalla de acceso'
-                      : 'Registre su huella para ingresar más rápido la próxima vez'}
-                  </div>
-                  {!huellaUsuarioRegistrada && (
-                    <div className="mt-2 text-xs rounded-lg px-3 py-2" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.2)', color: 'var(--texto-muted)', lineHeight: 1.5 }}>
-                      ⚠️ Debe tener un método de desbloqueo activo en su dispositivo: <strong>iPhone</strong> → Face ID / Touch ID · <strong>Android</strong> → huella / patrón / PIN · <strong>Otros</strong> → cualquier bloqueo de pantalla. Sin ninguno configurado, no active esta función.
-                    </div>
-                  )}
                 </div>
-                <div className="flex-shrink-0">
-                  {huellaUsuarioRegistrada ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                      style={{ background: 'var(--verde-light)', color: 'var(--verde)' }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      Activa
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                      style={{ background: 'var(--fondo)', color: 'var(--texto-muted)', border: '1px solid var(--borde)' }}>
-                      Inactiva
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {huellaUsuarioError && (
-                <p className="text-xs mt-3" style={{ color: 'var(--rojo)' }}>{huellaUsuarioError}</p>
               )}
-
-              <div className="flex gap-2 mt-4">
-                {!huellaUsuarioRegistrada ? (
-                  <button
-                    onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)}
-                    disabled={guardandoBiometria}
-                    className="btn btn-primary btn-sm flex items-center gap-1.5">
-                    {guardandoBiometria
-                      ? <Loader2 width="13" height="13" className="animate-spin" />
-                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
-                        </svg>
-                    }
-                    {guardandoBiometria ? 'Verificando...' : 'Registrar mi huella'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      try { await bioDelete() } catch {}
-                      setHuellaUsuarioRegistrada(false)
-                      setHuellaUsuarioError('')
-                    }}
-                    className="btn btn-ghost btn-sm flex items-center gap-1.5" style={{ color: 'var(--rojo)' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-                    Eliminar huella
-                  </button>
-                )}
-              </div>
             </div>
           )}
 
