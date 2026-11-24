@@ -2052,8 +2052,18 @@ export default function PortalPage() {
                     : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
                   }
                 </div>
-                <div className="font-bold text-lg" style={{ color: 'var(--texto)' }}>
-                  ¡Bienvenido, {usuario.nombre.split(' ')[0]}! 👋
+                <div>
+                  <div className="font-bold text-lg leading-tight" style={{ color: 'var(--texto)' }}>
+                    {(() => {
+                      const h = new Date().getHours()
+                      if (h >= 5 && h < 12) return `¡Buenos días, ${usuario.nombre.split(' ')[0]}! ☀️`
+                      if (h >= 12 && h < 19) return `¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! 🌤️`
+                      return `¡Buenas noches, ${usuario.nombre.split(' ')[0]}! 🌙`
+                    })()}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                    {usuario.rol.charAt(0).toUpperCase() + usuario.rol.slice(1)} · {new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </div>
                 </div>
               </div>
 
