@@ -2939,22 +2939,22 @@ export default function PortalPage() {
               {rsvpConf.confirmado && (modalRsvp.transporte_recogida || modalRsvp.transporte_regreso) && (
                 <div>
                   <p className="text-sm font-semibold mb-1 flex items-center gap-1.5" style={{ color: 'var(--texto)' }}>
-                    <Bus size={14} style={{ color: '#2563eb' }} /> ¿Necesita apoyo de transporte?
+                    <Bus size={14} style={{ color: '#2563eb' }} /> ¿Le gustaría que le llevemos?
                   </p>
-                  <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Seleccione las opciones que necesite. No tiene costo.</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--texto-muted)' }}>Con gusto podemos ayudarle con el traslado. Seleccione lo que necesite, es completamente gratuito.</p>
                   <div className="space-y-2">
                     {modalRsvp.transporte_recogida && (
                       <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
                         style={{ background: rsvpConf.necesita_recogida ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_recogida ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">Transporte de ida</div>
+                          <div className="text-sm font-medium">🚐 Llevarme a {modalRsvp.nombre}</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                             {modalRsvp.recogida_domicilio
-                              ? 'El vehículo pasará a recogerle directamente en su domicilio.'
+                              ? 'Pasaremos a buscarle en su domicilio. ¡No tiene que moverse!'
                               : modalRsvp.punto_reunion
-                                ? <>El vehículo partirá desde el <strong>{modalRsvp.punto_reunion}</strong>. Por favor, preséntese puntualmente en ese lugar.</>
-                                : 'El vehículo le trasladará al evento desde el punto de reunión indicado.'}
+                                ? <>Nos reuniremos en <strong>{modalRsvp.punto_reunion}</strong>. Le esperamos puntualmente en ese lugar.</>
+                                : 'Le trasladaremos desde el punto de reunión que se le indicará.'}
                           </div>
                         </div>
                       </label>
@@ -2964,9 +2964,9 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_regreso ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_regreso ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">Transporte de regreso</div>
+                          <div className="text-sm font-medium">🏠 Llevarme a casa</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
-                            Al finalizar el evento, el vehículo le llevará de regreso hasta su domicilio o el lugar que usted indique.
+                            Al terminar el evento, con mucho gusto le regresamos a su domicilio sin ningún inconveniente.
                           </div>
                         </div>
                       </label>
@@ -2975,8 +2975,8 @@ export default function PortalPage() {
                   {rsvpWarnTransporte && (
                     <div className="mt-3 p-3 rounded-xl text-xs flex flex-col gap-2"
                       style={{ background: '#fef9c3', border: '1px solid #fde047', color: '#854d0e' }}>
-                      <p className="font-medium">¿No necesita apoyo de transporte?</p>
-                      <p>Si no requiere vehículo, puede continuar sin seleccionar ninguna opción.</p>
+                      <p className="font-medium">¿Prefiere llegar por sus propios medios?</p>
+                      <p>¡No hay problema! Puede confirmar su asistencia sin solicitar transporte.</p>
                       <button
                         onClick={async () => {
                           setRsvpWarnTransporte(false)
@@ -3008,7 +3008,7 @@ export default function PortalPage() {
                         }}
                         className="self-start px-3 py-1.5 rounded-lg text-xs font-semibold"
                         style={{ background: '#854d0e', color: '#fff' }}>
-                        Confirmar sin transporte
+                        Confirmar asistencia sin transporte
                       </button>
                     </div>
                   )}
@@ -3025,16 +3025,16 @@ export default function PortalPage() {
                   <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>📋 Resumen de su solicitud</p>
                   {rsvpConf.necesita_recogida && (
                     <p className="text-xs" style={{ color: '#1e40af' }}>
-                      🚐 <strong>Transporte de ida</strong> —{' '}
+                      🚐 <strong>Le llevamos a {modalRsvp.nombre}</strong> —{' '}
                       {modalRsvp.recogida_domicilio
-                        ? 'El vehículo pasará por su domicilio'
+                        ? 'Pasamos a buscarle en su domicilio'
                         : modalRsvp.punto_reunion
                           ? `Punto de reunión: ${modalRsvp.punto_reunion}`
                           : 'Desde el punto de reunión indicado'}
                     </p>
                   )}
                   {rsvpConf.necesita_regreso && (
-                    <p className="text-xs" style={{ color: '#1e40af' }}>🏠 <strong>Transporte de regreso</strong> — hasta su domicilio o lugar indicado</p>
+                    <p className="text-xs" style={{ color: '#1e40af' }}>🏠 <strong>Le llevamos a casa</strong> — le regresamos a su domicilio al terminar</p>
                   )}
                 </div>
 
@@ -3050,12 +3050,12 @@ export default function PortalPage() {
                 {/* GPS — siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>
-                    📍 {modalRsvp.recogida_domicilio ? 'Su ubicación de recogida' : 'Su ubicación de destino (regreso)'}
+                    📍 {modalRsvp.recogida_domicilio ? '¿Dónde pasamos a buscarle?' : '¿A dónde le llevamos de regreso?'}
                   </p>
                   <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
                     {modalRsvp.recogida_domicilio
-                      ? 'Necesitamos saber dónde recogerle para organizar la ruta del vehículo.'
-                      : 'Registre su ubicación para que el vehículo pueda llevarle de regreso a casa.'}
+                      ? 'Por favor comparta su ubicación para que podamos organizar la ruta y pasarle a buscar. ¡Será muy sencillo!'
+                      : 'Registre su ubicación para que el conductor sepa a dónde llevarle cuando terminemos. ¡Estará en buenas manos!'}
                   </p>
                   {rsvpGpsLat && rsvpGpsLng ? (
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #bbf7d0' }}>
