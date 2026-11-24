@@ -23,7 +23,8 @@ interface MensajeJrv {
   id: string; jrv: string; autor_id: string; autor_nombre: string; autor_rol?: string; contenido: string; created_at: string
 }
 interface MensajeDirecto {
-  id: string; remitente_id: string; destinatario_id: string; remitente_nombre: string; contenido: string; leido: boolean; created_at: string
+  id: string; remitente_id: string | null; destinatario_id: string; remitente_nombre: string; contenido: string; leido: boolean; created_at: string
+  tipo?: string; metadata?: { evento_id: string; evento_nombre: string; evento_hora?: string }
 }
 
 type Conversacion =
@@ -160,7 +161,7 @@ export default function MensajesSection({
     setNoLeidosGeneral(cg ?? 0)
     const { data } = await supabase.from('mensajes_directos').select('remitente_id').eq('destinatario_id', usuario.id).eq('leido', false)
     const counts: Record<string, number> = {}
-    for (const m of data ?? []) counts[m.remitente_id] = (counts[m.remitente_id] ?? 0) + 1
+    for (const m of data ?? []) if (m.remitente_id) counts[m.remitente_id] = (counts[m.remitente_id] ?? 0) + 1
     setNoLeidos(counts)
     if (userJrv) {
       const { count } = await supabase.from('mensajes_jrv').select('*', { count: 'exact', head: true }).eq('jrv', userJrv).neq('autor_id', usuario.id).gt('created_at', getLastReadGrupo(userJrv))
@@ -233,6 +234,8 @@ export default function MensajesSection({
       const seen = new Set<string>()
       const convs: { otherId: string; ultimoMsg: string; ultimaHora: string }[] = []
       for (const m of dms) {
+        // Ignorar mensajes de sistema (checkin) que no tienen remitente real
+        if (!m.remitente_id) continue
         const otherId = m.remitente_id === usuario.id ? m.destinatario_id : m.remitente_id
         if (!seen.has(otherId)) { seen.add(otherId); convs.push({ otherId, ultimoMsg: m.contenido, ultimaHora: m.created_at }) }
       }
@@ -607,6 +610,21 @@ export default function MensajesSection({
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() }
   }
 
+  // Confirmar presencia desde tarjeta de check-in
+  const [checkinConfirmados, setCheckinConfirmados] = useState<Set<string>>(new Set())
+  async function confirmarCheckin(eventoId: string, msgId: string) {
+    const { error } = await supabase
+      .from('confirmaciones_evento')
+      .update({ check_in_at: new Date().toISOString() })
+      .eq('evento_id', eventoId)
+      .eq('usuario_id', usuario.id)
+    if (!error) {
+      setCheckinConfirmados(prev => new Set(prev).add(msgId))
+      // marcar DM como leído
+      await supabase.from('mensajes_directos').update({ leido: true }).eq('id', msgId)
+    }
+  }
+
   const userJrv = jrvData?.jrv ?? null
   const esJefeCentro = usuario.rol === 'administrador' || usuario.rol === 'jefe_centro'
   const totalNoLeidos = Object.values(noLeidos).reduce((a, b) => a + b, 0) + noLeidosGrupo + noLeidosGeneral + Object.values(noLeidosJrvs).reduce((a, b) => a + b, 0)
@@ -656,11 +674,52 @@ export default function MensajesSection({
             const mio = esMio(msg), nombre = nombreMsg(msg), admin = esAdminMsg(msg)
             const anterior = msgs[i - 1], mismoAutor = anterior && nombreMsg(anterior) === nombre && esMio(anterior) === mio
             const mostrarNombre = !mio && !mismoAutor && (conversacion.tipo === 'grupo' || conversacion.tipo === 'general')
+
+            // ── Tarjeta especial de check-in ───────────────────
+            const dmMsg = msg as MensajeDirecto
+            if (dmMsg.tipo === 'checkin' && dmMsg.metadata) {
+              const yaConfirmado = checkinConfirmados.has(msg.id)
+              return (
+                <div key={msg.id} className="flex justify-center mt-4">
+                  <div className="w-full max-w-xs rounded-2xl overflow-hidden shadow-md" style={{ background: 'white', border: '1.5px solid #c8a84b' }}>
+                    <div className="px-4 py-3 flex items-center gap-2" style={{ background: '#1e3a5f' }}>
+                      <span className="text-lg">📋</span>
+                      <div>
+                        <p className="text-xs font-bold text-white leading-tight">Confirmación de presencia</p>
+                        <p className="text-[11px] opacity-70 text-white">Portal Electoral</p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3">
+                      <p className="text-sm font-semibold text-gray-800 leading-snug mb-1">{dmMsg.metadata.evento_nombre}</p>
+                      {dmMsg.metadata.evento_hora && (
+                        <p className="text-xs text-gray-500 mb-3">🕐 {dmMsg.metadata.evento_hora}</p>
+                      )}
+                      {yaConfirmado ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <span className="text-green-600 font-semibold text-sm">✅ Presencia confirmada</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => confirmarCheckin(dmMsg.metadata!.evento_id, msg.id)}
+                          className="w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+                          style={{ background: '#1e3a5f', color: 'white' }}>
+                          Confirmar presencia
+                        </button>
+                      )}
+                    </div>
+                    <div className="px-4 pb-2">
+                      <span className="text-[10px]" style={{ color: '#94a3b8' }}>{fmtHora(msg.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <div key={msg.id} className={`group flex ${mio ? 'justify-end' : 'justify-start'} ${mismoAutor ? 'mt-0.5' : 'mt-3'}`}>
                 {!mio && !mismoAutor && (() => {
-                  const autorId = conversacion.tipo === 'dm' ? (msg as MensajeDirecto).remitente_id : (msg as MensajeGeneral | MensajeJrv).autor_id
-                  const fotoUrl = fotosCache[autorId]
+                  const autorId = conversacion.tipo === 'dm' ? ((msg as MensajeDirecto).remitente_id ?? '') : (msg as MensajeGeneral | MensajeJrv).autor_id
+                  const fotoUrl = autorId ? fotosCache[autorId] : null
                   return (
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mr-2 mt-0.5 overflow-hidden"
                       style={!fotoUrl ? (admin ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : { background: '#dbeafe', color: '#1e40af' }) : {}}>
