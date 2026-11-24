@@ -6,7 +6,7 @@ import {
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
   FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
-  MessageCircle, Link2, FolderOpen, ClipboardList
+  MessageCircle, Link2, FolderOpen, ClipboardList, Home
 } from 'lucide-react'
 import LogoUrna from '@/components/LogoUrna'
 import MensajesSection from '@/app/portal/_sections/MensajesSection'
@@ -80,7 +80,7 @@ function iconoMime(mime: string) {
 }
 
 
-type Seccion = 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
+type Seccion = 'inicio' | 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
 
 /* ── Componente de sección Asistencia ── */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
@@ -203,7 +203,7 @@ export default function PortalPage() {
   const [dui, setDui]         = useState('')
   const [errorLogin, setErrorLogin] = useState('')
   const [cargandoLogin, setCargandoLogin] = useState(false)
-  const [seccion, setSeccion] = useState<Seccion>('perfil')
+  const [seccion, setSeccion] = useState<Seccion>('inicio')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0)
   const [lightboxUrl, setLightboxUrl]   = useState<string | null>(null)
@@ -512,7 +512,7 @@ export default function PortalPage() {
       cargarDatos(u)
     }
     // Navegar a la sección indicada en la URL (?s=jrv, ?s=agenda, etc.)
-    if (seccionUrl && ['perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
+    if (seccionUrl && ['inicio','perfil','jrv','agenda','mensajes','transporte','motorista','admin-registros','admin-asignacion','admin-transporte','admin-catalogo'].includes(seccionUrl)) {
       setSeccion(seccionUrl as Seccion)
     }
   }, [])
@@ -1876,6 +1876,7 @@ export default function PortalPage() {
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
   const NAV = [
+    { key: 'inicio',      label: 'Inicio',            icon: Home,          href: null,    badge: 0, adminOnly: false },
     { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0, adminOnly: false },
     { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0, adminOnly: false },
     { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0, adminOnly: false },
@@ -1914,8 +1915,8 @@ export default function PortalPage() {
           </div>
         </div>
         <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
-          {NAV.map(({ key, label, icon: Icon, href, badge, adminOnly }, i) => {
-            const prevAdminOnly = i > 0 && !NAV[i-1].adminOnly && adminOnly
+          {NAV.filter(n => n.key !== 'inicio').map(({ key, label, icon: Icon, href, badge, adminOnly }, i) => {
+            const prevAdminOnly = i > 0 && !NAV.filter(n => n.key !== 'inicio')[i-1].adminOnly && adminOnly
             const navClick = () => {
               if (href) {
                 window.location.href = href
@@ -1964,50 +1965,39 @@ export default function PortalPage() {
         </div>
       </aside>
 
-      {/* ── Barra inferior móvil (< md) ── */}
+      {/* ── Barra inferior móvil (< md) — 4 ítems fijos ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {NAV.map(({ key, label, icon: Icon, href, badge, adminOnly }) => {
-            const activo = !href && seccion === key
-            const navClick = () => {
-              if (href) {
-                window.location.href = href
-              } else {
-                setSeccion(key as Seccion)
-              }
-            }
+        <div className="grid grid-cols-4">
+          {(['inicio','agenda','mensajes','perfil'] as const).map((key) => {
+            const item = NAV.find(n => n.key === key)
+            if (!item) return null
+            const { label, icon: Icon, badge } = item
+            const activo = seccion === key
             return (
               <button key={key}
-                onClick={navClick}
-                className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0 transition-colors relative"
-                style={{ color: activo ? 'var(--gold)' : adminOnly ? 'rgba(200,168,75,.55)' : 'rgba(255,255,255,.4)', minHeight: 62, minWidth: 68, padding: '10px 6px' }}>
+                onClick={() => setSeccion(key)}
+                className="flex flex-col items-center justify-center gap-0.5 relative transition-colors"
+                style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 60, padding: '8px 4px' }}>
                 {activo && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 rounded-full"
-                    style={{ width: 28, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2"
+                    style={{ width: 32, height: 3, background: 'var(--gold)', borderRadius: '0 0 4px 4px' }} />
                 )}
                 <span className="relative">
-                  <Icon size={20} />
-                  {badge > 0 && (
+                  <Icon size={22} />
+                  {(badge ?? 0) > 0 && (
                     <span className="absolute -top-1.5 -right-2 text-[9px] font-bold px-1 rounded-full"
                       style={{ background: '#c8a84b', color: '#1e3a5f', lineHeight: '14px', minWidth: 14 }}>
-                      {badge > 9 ? '9+' : badge}
+                      {(badge ?? 0) > 9 ? '9+' : badge}
                     </span>
                   )}
                 </span>
-                <span style={{ fontSize: 9.5, fontWeight: activo ? 600 : 400, letterSpacing: '-.01em', lineHeight: 1.2, textAlign: 'center', maxWidth: 60 }}>
+                <span style={{ fontSize: 10, fontWeight: activo ? 700 : 400, lineHeight: 1.2, textAlign: 'center' }}>
                   {label}
                 </span>
               </button>
             )
           })}
-          <InstallPWA variant="bottombar" />
-          <button onClick={cerrarSesion}
-            className="flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
-            style={{ color: 'rgba(255,255,255,.35)', minHeight: 58, minWidth: 56, padding: '8px 4px' }}>
-            <LogOut size={20} />
-            <span style={{ fontSize: 9.5, lineHeight: 1.2 }}>Salir</span>
-          </button>
         </div>
       </nav>
 
@@ -2016,9 +2006,17 @@ export default function PortalPage() {
         <header className="flex items-center px-4 md:px-6 flex-shrink-0"
           style={{ background: 'var(--superficie)', borderBottom: '1px solid var(--borde)', height: 52 }}>
           <div className="flex items-center gap-2 text-sm">
-            <span style={{ color: 'var(--texto-muted)' }}>Portal</span>
-            <ChevronRight size={13} style={{ color: 'var(--borde-dark)' }} />
-            <span className="font-medium">{NAV.find(n => n.key === seccion)?.label}</span>
+            {seccion !== 'inicio' ? (
+              <>
+                <button onClick={() => setSeccion('inicio')} className="md:hidden"
+                  style={{ color: 'var(--texto-muted)' }}>Portal</button>
+                <span className="hidden md:inline" style={{ color: 'var(--texto-muted)' }}>Portal</span>
+                <ChevronRight size={13} style={{ color: 'var(--borde-dark)' }} />
+                <span className="font-medium">{NAV.find(n => n.key === seccion)?.label}</span>
+              </>
+            ) : (
+              <span className="font-semibold">Portal Electoral</span>
+            )}
           </div>
           <div className="ml-auto">
             <span className="badge badge-blue text-xs">{usuario.rol}</span>
@@ -2026,6 +2024,94 @@ export default function PortalPage() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6">
+
+          {/* ── INICIO (pantalla principal móvil) ── */}
+          {seccion === 'inicio' && (
+            <div>
+              {/* Saludo */}
+              <div className="mb-5 flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center font-bold text-base flex-shrink-0"
+                  style={{ background: 'rgba(200,168,75,.2)', color: 'var(--gold)', border: '2px solid rgba(200,168,75,.3)' }}
+                >
+                  {usuario.foto_perfil_url
+                    ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
+                    : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+                  }
+                </div>
+                <div>
+                  <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>Bienvenido</div>
+                  <div className="font-bold text-base leading-tight">{usuario.nombre.split(' ').slice(0, 2).join(' ')}</div>
+                  <div className="text-xs font-mono" style={{ color: 'var(--texto-muted)' }}>{usuario.dui}</div>
+                </div>
+              </div>
+
+              {/* Grid de módulos */}
+              <div className="grid grid-cols-3 gap-3">
+                {NAV.filter(n => !n.adminOnly && n.key !== 'inicio').map(({ key, label, icon: Icon, badge }) => {
+                  const colores: Record<string, { bg: string; color: string; border: string }> = {
+                    perfil:    { bg: 'rgba(59,130,246,.12)',  color: '#3b82f6', border: 'rgba(59,130,246,.25)' },
+                    jrv:       { bg: 'rgba(16,185,129,.12)', color: '#10b981', border: 'rgba(16,185,129,.25)' },
+                    agenda:    { bg: 'rgba(245,158,11,.12)', color: '#f59e0b', border: 'rgba(245,158,11,.25)' },
+                    mensajes:  { bg: 'rgba(139,92,246,.12)', color: '#8b5cf6', border: 'rgba(139,92,246,.25)' },
+                    transporte:{ bg: 'rgba(236,72,153,.12)', color: '#ec4899', border: 'rgba(236,72,153,.25)' },
+                    motorista: { bg: 'rgba(249,115,22,.12)', color: '#f97316', border: 'rgba(249,115,22,.25)' },
+                  }
+                  const c = colores[key] ?? { bg: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: 'rgba(200,168,75,.25)' }
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSeccion(key as Seccion)}
+                      className="flex flex-col items-center justify-center gap-2 rounded-2xl p-4 relative transition-transform active:scale-95"
+                      style={{ background: c.bg, border: `1.5px solid ${c.border}`, minHeight: 90 }}
+                    >
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: c.color + '22' }}>
+                        <Icon size={22} style={{ color: c.color }} />
+                      </div>
+                      <span className="text-xs font-semibold text-center leading-tight"
+                        style={{ color: 'var(--texto)', fontSize: 11 }}>
+                        {label}
+                      </span>
+                      {badge > 0 && (
+                        <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 rounded-full"
+                          style={{ background: '#c8a84b', color: '#1e3a5f', lineHeight: '16px', minWidth: 16, textAlign: 'center' }}>
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Módulos admin si aplica */}
+              {esAdmin && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex-1 h-px" style={{ background: 'var(--borde)' }} />
+                    <span className="text-[10px] uppercase tracking-widest font-semibold px-2" style={{ color: 'rgba(200,168,75,.6)' }}>Administración</span>
+                    <div className="flex-1 h-px" style={{ background: 'var(--borde)' }} />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {NAV.filter(n => n.adminOnly).map(({ key, label, icon: Icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setSeccion(key as Seccion)}
+                        className="flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 transition-transform active:scale-95"
+                        style={{ background: 'rgba(200,168,75,.08)', border: '1px solid rgba(200,168,75,.2)', minHeight: 72 }}
+                      >
+                        <Icon size={18} style={{ color: 'rgba(200,168,75,.8)' }} />
+                        <span className="text-center leading-tight"
+                          style={{ color: 'rgba(200,168,75,.8)', fontSize: 9.5, fontWeight: 600 }}>
+                          {label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── MI PERFIL ── */}
           {seccion === 'perfil' && (
