@@ -1384,30 +1384,26 @@ export default function PortalPage() {
         {/* â”€â”€ PANEL DERECHO â€” formulario â”€â”€ */}
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
-          {/* Nombre del centro â€" sÃ³lo mÃ³vil, discreto */}
-          <div className="lg:hidden text-center mb-6">
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,.32)', letterSpacing: '0.03em' }}>
+          {/* Header institucional â€” solo mÃ³vil */}
+          <div className=”lg:hidden text-center mb-8”>
+            <div className=”inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 mx-auto”
+              style={{ background: 'rgba(200,168,75,.14)', border: '1.5px solid rgba(200,168,75,.35)', boxShadow: '0 0 24px rgba(200,168,75,.12)' }}>
+              <LogoGB size={32} />
+            </div>
+            <div className=”text-base font-bold text-white mb-0.5” style={{ letterSpacing: '.01em' }}>SIRCEV</div>
+            <div className=”text-xs” style={{ color: 'rgba(255,255,255,.35)', letterSpacing: '0.02em' }}>
               C.E. CapitÃ¡n General Gerardo Barrios
-            </p>
+            </div>
           </div>
 
         {/* â”€â”€ INGRESO DUI â”€â”€ */}
         {vistaLogin === 'dui' && (
-          <div className="w-full max-w-sm">
-            {/* Badge institucional */}
-            <div className="flex items-center justify-center gap-2 mb-8">
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,.1)' }} />
-              <span className="text-xs px-3 py-1 rounded-full font-medium"
-                style={{ background: 'rgba(200,168,75,.15)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.25)' }}>
-                Acceso seguro
-              </span>
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,.1)' }} />
-            </div>
+          <div className=”w-full max-w-sm”>
 
-            <div className="rounded-2xl p-8" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
-              <h2 className="font-bold text-white text-xl mb-1 text-center">Ingrese su DUI</h2>
-              <p className="text-sm text-center mb-6" style={{ color: 'rgba(255,255,255,.45)' }}>
-                Su nÃºmero de DUI es su credencial de acceso al sistema
+            <div className=”rounded-2xl p-8” style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', backdropFilter: 'blur(12px)' }}>
+              <h2 className=”font-bold text-white text-xl mb-1 text-center”>Ingrese su DUI</h2>
+              <p className=”text-sm text-center mb-6” style={{ color: 'rgba(255,255,255,.45)' }}>
+                Su nÃºmero de DUI es su credencial de acceso
               </p>
 
               <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,.5)' }}>
