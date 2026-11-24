@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/checkin-notify",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
