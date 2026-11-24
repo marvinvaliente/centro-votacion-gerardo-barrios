@@ -44,20 +44,39 @@ export default function RootLayout({
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
               navigator.serviceWorker.register('/sw.js').then(reg => {
-                // Verificar actualizaciones cada vez que la app se enfoca
-                document.addEventListener('visibilitychange', () => {
-                  if (document.visibilityState === 'visible') reg.update()
+
+                // ── RECARGA CORRECTA ──────────────────────────────────────
+                // Esperar a que controllerchange confirme que el nuevo SW
+                // ya tomó control ANTES de recargar. Si se recarga antes,
+                // el navegador sigue usando el SW viejo → ciclo sin update.
+                let refreshing = false
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                  if (refreshing) return
+                  refreshing = true
+                  window.location.reload()
                 })
-                // Si hay una nueva versión esperando, activarla de inmediato
-                reg.addEventListener('updatefound', () => {
-                  const newWorker = reg.installing
-                  if (!newWorker) return
-                  newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      newWorker.postMessage('SKIP_WAITING')
-                      window.location.reload()
+
+                function activarWorker(worker) {
+                  worker.addEventListener('statechange', () => {
+                    if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                      // Pedir al SW que tome control ya (skipWaiting)
+                      // La recarga vendrá sola cuando dispare controllerchange
+                      worker.postMessage('SKIP_WAITING')
                     }
                   })
+                }
+
+                // Si ya había un SW esperando de una visita anterior, activarlo
+                if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING')
+
+                // Nuevas actualizaciones encontradas en esta sesión
+                reg.addEventListener('updatefound', () => {
+                  if (reg.installing) activarWorker(reg.installing)
+                })
+
+                // Revisar si hay actualización cada vez que la app vuelve a primer plano
+                document.addEventListener('visibilitychange', () => {
+                  if (document.visibilityState === 'visible') reg.update()
                 })
               })
             })
