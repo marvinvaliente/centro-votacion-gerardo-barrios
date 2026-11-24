@@ -384,6 +384,7 @@ export default function PortalPage() {
         sessionStorage.setItem(ADMIN_SESSION, '1')
         sessionStorage.setItem('admin_dui', duiFmt)
       }
+      setSeccion('inicio')
       setUsuario(usr); cargarDatos(usr)
     } catch (e: any) {
       const msg = (e as any)?.message ?? ''
@@ -575,6 +576,7 @@ export default function PortalPage() {
 
     // Cargar datos del admin para mostrarlo en el portal (como cualquier usuario)
     const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', duiFmt).single()
+    setSeccion('inicio')
     if (usrAdmin) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
       setUsuario(usrAdmin); cargarDatos(usrAdmin)
@@ -611,6 +613,7 @@ export default function PortalPage() {
     // Usuario autorizado y activo → ingresar al portal
     if (usr?.autorizado && usr?.activo) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(usr))
+      setSeccion('inicio')
       setUsuario(usr); cargarDatos(usr)
       // Ofrecer huella si el dispositivo lo soporta y el usuario no la ha registrado aún
       if (!localStorage.getItem('usuario_webauthn_id') && !localStorage.getItem('bio_native_registered')) {
