@@ -1384,19 +1384,11 @@ export default function PortalPage() {
         {/* â”€â”€ PANEL DERECHO â€” formulario â”€â”€ */}
         <div className="flex flex-col items-center justify-center p-6 lg:p-14 w-full lg:w-[480px] flex-shrink-0">
 
-          {/* Bienvenida mÃ³vil */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center gap-1.5 mb-4 px-3 py-1 rounded-full text-xs font-medium"
-              style={{ background: 'rgba(200,168,75,.12)', color: 'var(--gold)', border: '1px solid rgba(200,168,75,.2)', letterSpacing: '0.05em' }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
-              Elecciones 2027
-            </div>
-            <h1 className="text-white font-bold leading-tight mb-1" style={{ fontSize: '1.15rem' }}>
-              Complejo Educativo
-            </h1>
-            <h1 className="font-bold leading-tight" style={{ fontSize: '1.15rem', color: 'var(--gold)' }}>
-              CapitÃ¡n General<br />Gerardo Barrios
-            </h1>
+          {/* Nombre del centro â€" sÃ³lo mÃ³vil, discreto */}
+          <div className="lg:hidden text-center mb-6">
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,.32)', letterSpacing: '0.03em' }}>
+              C.E. CapitÃ¡n General Gerardo Barrios
+            </p>
           </div>
 
         {/* â”€â”€ INGRESO DUI â”€â”€ */}
