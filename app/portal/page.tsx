@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   User, BookOpen, Calendar, Users, LogOut, Pencil, Save, X, Bus,
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
@@ -8,19 +8,31 @@ import {
   FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
   MessageCircle, Link2, FolderOpen, ClipboardList, Home
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import LogoUrna from '@/components/LogoUrna'
-import MensajesSection from '@/app/portal/_sections/MensajesSection'
-import TransporteSection from '@/app/portal/_sections/TransporteSection'
-import MotoristaSection from '@/app/portal/_sections/MotoristaSection'
-import AdminRegistrosSection from '@/app/portal/_sections/AdminRegistrosSection'
-import AdminAsignacionSection from '@/app/portal/_sections/AdminAsignacionSection'
-import AdminTransporteSection from '@/app/portal/_sections/AdminTransporteSection'
-import AdminCatalogoSection from '@/app/portal/_sections/AdminCatalogoSection'
 import LogoGB from '@/components/LogoGB'
 import InstallPWA from '@/components/InstallPWA'
 import { supabase } from '@/lib/supabase'
 import { bioRegister, bioAuthenticate, bioDelete } from '@/lib/biometric'
 import type { RegistroDUI, Padron } from '@/types'
+
+/* ── Carga diferida de secciones pesadas ─────────────────────────────────
+   El bundle inicial no incluye ninguna de estas secciones.
+   Sólo se descargan la primera vez que el usuario navega a ellas.
+   ─────────────────────────────────────────────────────────────────────── */
+const SectionLoader = () => (
+  <div className="flex items-center justify-center py-20">
+    <Loader2 size={24} className="animate-spin" style={{ color: 'var(--gold)' }} />
+  </div>
+)
+
+const MensajesSection      = dynamic(() => import('@/app/portal/_sections/MensajesSection'),      { loading: SectionLoader, ssr: false })
+const TransporteSection    = dynamic(() => import('@/app/portal/_sections/TransporteSection'),    { loading: SectionLoader, ssr: false })
+const MotoristaSection     = dynamic(() => import('@/app/portal/_sections/MotoristaSection'),     { loading: SectionLoader, ssr: false })
+const AdminRegistrosSection  = dynamic(() => import('@/app/portal/_sections/AdminRegistrosSection'),  { loading: SectionLoader, ssr: false })
+const AdminAsignacionSection = dynamic(() => import('@/app/portal/_sections/AdminAsignacionSection'), { loading: SectionLoader, ssr: false })
+const AdminTransporteSection = dynamic(() => import('@/app/portal/_sections/AdminTransporteSection'), { loading: SectionLoader, ssr: false })
+const AdminCatalogoSection   = dynamic(() => import('@/app/portal/_sections/AdminCatalogoSection'),   { loading: SectionLoader, ssr: false })
 
 const LOGO_BUCKET = 'fotos-dui'
 const LOGO_PATH   = 'configuracion/logo.jpg'
@@ -859,12 +871,12 @@ export default function PortalPage() {
     setMensajesNoLeidos((nlGrupo ?? 0) + (nlDm ?? 0))
   }
 
-  function cerrarSesion() {
+  const cerrarSesion = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY)
     sessionStorage.removeItem(ADMIN_SESSION)
     sessionStorage.removeItem('admin_dui')
     setUsuario(null); setDui('')
-  }
+  }, [])
 
   // ── Validar foto ──
   async function validarFoto(file: File): Promise<boolean> {
@@ -1875,22 +1887,25 @@ export default function PortalPage() {
   /* ── PORTAL ── */
   const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
   const esMotorista = !!registro?.es_motorista
-  const NAV = [
-    { key: 'inicio',      label: 'Inicio',            icon: Home,          href: null,    badge: 0, adminOnly: false },
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0, adminOnly: false },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0, adminOnly: false },
-    { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0, adminOnly: false },
-    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: null, badge: mensajesNoLeidos, adminOnly: false },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: null, badge: 0, adminOnly: false },
+  const NAV = useMemo(() => [
+    { key: 'inicio',      label: 'Inicio',            icon: Home,          href: null,    badge: 0,                adminOnly: false },
+    { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0,                adminOnly: false },
+    { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0,                adminOnly: false },
+    { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0,                adminOnly: false },
+    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: null,    badge: mensajesNoLeidos, adminOnly: false },
+    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: null,    badge: 0,                adminOnly: false },
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
-    // Módulos exclusivos del administrador
     ...(esAdmin ? [
-      { key: 'admin-registros', label: 'Registros',     icon: ShieldAlert,  href: null, badge: 0, adminOnly: true },
-      { key: 'admin-asignacion',label: 'Asignación',    icon: Link2,        href: null, badge: 0, adminOnly: true },
-      { key: 'admin-transporte',label: 'T. Admin',      icon: Truck,        href: null, badge: 0, adminOnly: true },
-      { key: 'admin-catalogo',  label: 'Catálogo',      icon: FolderOpen,   href: null, badge: 0, adminOnly: true },
+      { key: 'admin-registros',  label: 'Registros',  icon: ShieldAlert, href: null, badge: 0, adminOnly: true },
+      { key: 'admin-asignacion', label: 'Asignación', icon: Link2,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-catalogo',   label: 'Catálogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
     ] : []),
-  ]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [mensajesNoLeidos, esMotorista, esAdmin])
+
+  /** Navegación memoizada — referencia estable para evitar re-renders en hijos */
+  const irA = useCallback((s: Seccion) => setSeccion(s), [])
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
@@ -1918,11 +1933,7 @@ export default function PortalPage() {
           {NAV.filter(n => n.key !== 'inicio').map(({ key, label, icon: Icon, href, badge, adminOnly }, i) => {
             const prevAdminOnly = i > 0 && !NAV.filter(n => n.key !== 'inicio')[i-1].adminOnly && adminOnly
             const navClick = () => {
-              if (href) {
-                window.location.href = href
-              } else {
-                setSeccion(key as Seccion)
-              }
+              if (href) { window.location.href = href } else { irA(key as Seccion) }
             }
             return (
               <div key={key}>
@@ -1976,7 +1987,7 @@ export default function PortalPage() {
             const activo = seccion === key
             return (
               <button key={key}
-                onClick={() => setSeccion(key)}
+                onClick={() => irA(key)}
                 className="flex flex-col items-center justify-center gap-0.5 relative transition-colors"
                 style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 60, padding: '8px 4px' }}>
                 {activo && (
@@ -2008,7 +2019,7 @@ export default function PortalPage() {
           <div className="flex items-center gap-2 text-sm">
             {seccion !== 'inicio' ? (
               <>
-                <button onClick={() => setSeccion('inicio')} className="md:hidden"
+                <button onClick={() => irA('inicio')} className="md:hidden"
                   style={{ color: 'var(--texto-muted)' }}>Portal</button>
                 <span className="hidden md:inline" style={{ color: 'var(--texto-muted)' }}>Portal</span>
                 <ChevronRight size={13} style={{ color: 'var(--borde-dark)' }} />
@@ -2025,7 +2036,7 @@ export default function PortalPage() {
               <div
                 className="md:hidden w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs flex-shrink-0"
                 style={{ background: 'var(--navy)', color: 'var(--gold)', border: '2px solid var(--gold)' }}
-                onClick={() => setSeccion('perfil')}
+                onClick={() => irA('perfil')}
               >
                 {usuario.foto_perfil_url
                   ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
@@ -2036,7 +2047,8 @@ export default function PortalPage() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6">
+        <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6 transition-opacity duration-150"
+          key={seccion}>
 
           {/* ── INICIO (pantalla principal móvil) ── */}
           {seccion === 'inicio' && (
@@ -2082,7 +2094,7 @@ export default function PortalPage() {
                   return (
                     <button
                       key={key}
-                      onClick={() => setSeccion(key as Seccion)}
+                      onClick={() => irA(key as Seccion)}
                       className="flex flex-col items-center justify-center gap-3 rounded-2xl py-7 px-4 relative transition-transform active:scale-95 shadow-sm"
                       style={{ background: c.bg, border: '1px solid var(--borde)' }}
                     >
@@ -2118,7 +2130,7 @@ export default function PortalPage() {
                     {NAV.filter(n => n.adminOnly).map(({ key, label, icon: Icon }) => (
                       <button
                         key={key}
-                        onClick={() => setSeccion(key as Seccion)}
+                        onClick={() => irA(key as Seccion)}
                         className="flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 transition-transform active:scale-95"
                         style={{ background: 'rgba(200,168,75,.08)', border: '1px solid rgba(200,168,75,.2)', minHeight: 72 }}
                       >
