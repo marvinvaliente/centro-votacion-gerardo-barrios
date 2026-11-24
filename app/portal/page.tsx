@@ -320,6 +320,7 @@ export default function PortalPage() {
       const { data: usrAdmin } = await supabase.from('usuarios').select('*').eq('dui', ADMIN_DUI).single()
       if (usrAdmin) {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(usrAdmin))
+        setSeccion('inicio')
         setUsuario(usrAdmin); cargarDatos(usrAdmin)
       } else {
         const adminFallback: Usuario = {
