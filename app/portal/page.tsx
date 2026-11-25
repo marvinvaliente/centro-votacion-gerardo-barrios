@@ -550,6 +550,25 @@ export default function PortalPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
+  // Boton atras del celular (Android PWA): volver a inicio desde cualquier seccion
+  useEffect(() => {
+    // Empujar un estado para que el boton atras tenga algo que consumir
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ sircev: true }, '')
+    }
+    const handlePopState = () => {
+      const stored = sessionStorage.getItem(SESSION_KEY)
+      if (stored) {
+        // Volver a inicio en lugar de cerrar la app
+        setSeccion('inicio')
+        // Reempujar estado para que el siguiente "atras" tambien funcione
+        window.history.pushState({ sircev: true }, '')
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   // Si viene ?evento=id en la URL, navegar a Agenda y abrir RSVP
   useEffect(() => {
     if (!eventoIdUrl || !usuario || eventosTransporte.length === 0) return
@@ -2259,11 +2278,11 @@ export default function PortalPage() {
                   <div style={{ margin: '12px 12px 0' }}>
                     <div className="card" style={{ borderRadius: 16, overflow: 'hidden' }}>
                       {[
-                        { icon: 'ðŸ"ž', label: 'Teléfono', value: registro?.telefono },
-                        { icon: '✉ï¸',  label: 'Correo',   value: registro?.correo   },
-                        { icon: 'ðŸ"', label: 'Dirección', value: registro?.direccion },
-                        { icon: 'ðŸ--³ï¸',  label: 'JRV',       value: padronInfo?.jrv    },
-                        { icon: 'ðŸ›ï¸',  label: 'Centro de votación', value: padronInfo?.centro },
+                        { icon: '📞', label: 'Teléfono', value: registro?.telefono },
+                        { icon: '✉️',  label: 'Correo',   value: registro?.correo   },
+                        { icon: '📍', label: 'Dirección', value: registro?.direccion },
+                        { icon: '🏛️',  label: 'JRV',       value: padronInfo?.jrv    },
+                        { icon: '🗳️',  label: 'Centro de votación', value: padronInfo?.centro },
                       ].map(({ icon, label, value }, idx, arr) => (
                         <div key={label} style={{
                           display: 'flex', alignItems: 'flex-start', gap: 14,
@@ -2286,7 +2305,7 @@ export default function PortalPage() {
                   {(registro?.foto_frente_url || registro?.foto_reverso_url) && (
                     <div style={{ margin: '12px 12px 0' }}>
                       <div className="card" style={{ borderRadius: 16, padding: '14px 18px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>ðŸ"„ Fotografías del DUI</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>📄 Fotografías del DUI</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                           {[{ l: 'Frente', u: registro?.foto_frente_url }, { l: 'Reverso', u: registro?.foto_reverso_url }].map(({ l, u }) => (
                             <div key={l}>
@@ -2362,6 +2381,14 @@ export default function PortalPage() {
                       <Pencil size={15} /> Editar mis datos
                     </button>
                   </div>
+
+                  {/* Cerrar sesion */}
+                  <div style={{ margin: '10px 12px 8px' }}>
+                    <button onClick={cerrarSesion}
+                      style={{ width: '100%', padding: '13px 0', borderRadius: 14, background: 'rgba(220,38,38,.08)', color: '#ef4444', fontWeight: 700, fontSize: 15, border: '1px solid rgba(220,38,38,.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      <LogOut size={15} /> Cerrar sesión
+                    </button>
+                  </div>
                 </>
               ) : (
                 /* ── MODO EDICIÃ"N ── */
@@ -2391,7 +2418,7 @@ export default function PortalPage() {
 
                     {/* Fotos DUI */}
                     <div style={{ marginTop: 20 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>ðŸ"„ Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>– Opcional</span></div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 }}>📄 Fotos del DUI <span style={{ fontWeight: 400, textTransform: 'none' }}>– Opcional</span></div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         {(['frente', 'reverso'] as const).map(lado => {
                           const prev = lado === 'frente' ? frentePreview : reversoPreview
