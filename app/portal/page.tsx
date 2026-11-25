@@ -1259,6 +1259,29 @@ export default function PortalPage() {
     acc[mes].push(e); return acc
   }, {} as Record<string, any[]>)
 
+  /* Hooks que deben ejecutarse SIEMPRE (antes del early return de login) */
+  const esAdmin    = usuario?.rol === 'administrador' || (typeof window !== 'undefined' && sessionStorage.getItem(ADMIN_SESSION) === '1')
+  const esMotorista = !!registro?.es_motorista
+  const NAV = useMemo(() => [
+    { key: 'inicio',     label: 'Inicio',     icon: Home,          href: null, badge: 0,                adminOnly: false },
+    { key: 'perfil',     label: 'Mi Perfil',  icon: User,          href: null, badge: 0,                adminOnly: false },
+    { key: 'jrv',        label: 'Mi JRV',      icon: Users,         href: null, badge: 0,                adminOnly: false },
+    { key: 'agenda',     label: 'Agenda',      icon: Calendar,      href: null, badge: 0,                adminOnly: false },
+    { key: 'mensajes',   label: 'Mensajes',    icon: MessageCircle, href: null, badge: mensajesNoLeidos, adminOnly: false },
+    { key: 'transporte', label: 'Transporte',  icon: Bus,           href: null, badge: 0,                adminOnly: false },
+    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
+    ...(esAdmin ? [
+      { key: 'admin-registros',  label: 'Registros',  icon: ShieldAlert, href: null, badge: 0, adminOnly: true },
+      { key: 'admin-asignacion', label: 'Asignacion', icon: Link2,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-catalogo',   label: 'Catalogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
+    ] : []),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [mensajesNoLeidos, esMotorista, esAdmin])
+
+  /** Navegacion memoizada - referencia estable para evitar re-renders en hijos */
+  const irA = useCallback((s: Seccion) => setSeccion(s), [])
+
   /* â"€â"€ LOGIN / PRE-LOGIN â"€â"€ */
   if (!usuario) {
     return (
@@ -1894,29 +1917,6 @@ export default function PortalPage() {
       </>
     )
   }
-
-  /* â"€â"€ PORTAL â"€â"€ */
-  const esAdmin    = usuario?.rol === 'administrador' || sessionStorage.getItem(ADMIN_SESSION) === '1'
-  const esMotorista = !!registro?.es_motorista
-  const NAV = useMemo(() => [
-    { key: 'inicio',      label: 'Inicio',            icon: Home,          href: null,    badge: 0,                adminOnly: false },
-    { key: 'perfil',      label: 'Mi Perfil',        icon: User,          href: null,    badge: 0,                adminOnly: false },
-    { key: 'jrv',         label: 'Mi JRV',            icon: Users,         href: null,    badge: 0,                adminOnly: false },
-    { key: 'agenda',      label: 'Agenda',            icon: Calendar,      href: null,    badge: 0,                adminOnly: false },
-    { key: 'mensajes',    label: 'Mensajes',          icon: MessageCircle, href: null,    badge: mensajesNoLeidos, adminOnly: false },
-    { key: 'transporte',  label: 'Transporte',        icon: Bus,           href: null,    badge: 0,                adminOnly: false },
-    ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
-    ...(esAdmin ? [
-      { key: 'admin-registros',  label: 'Registros',  icon: ShieldAlert, href: null, badge: 0, adminOnly: true },
-      { key: 'admin-asignacion', label: 'AsignaciÃ³n', icon: Link2,       href: null, badge: 0, adminOnly: true },
-      { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
-      { key: 'admin-catalogo',   label: 'CatÃ¡logo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
-    ] : []),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [mensajesNoLeidos, esMotorista, esAdmin])
-
-  /** NavegaciÃ³n memoizada â€" referencia estable para evitar re-renders en hijos */
-  const irA = useCallback((s: Seccion) => setSeccion(s), [])
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--fondo)' }}>
