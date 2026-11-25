@@ -2816,7 +2816,7 @@ export default function PortalPage() {
                                   <div className="px-4 py-3 flex flex-wrap gap-4 text-xs font-medium border-b" style={{ borderColor: 'var(--borde)', background: 'var(--superficie)' }}>
                                     <span style={{ color: '#16a34a' }}>✔ {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}</span>
                                     <span style={{ color: '#2563eb' }}>🚌 {conTransporte.length} con transporte</span>
-                                    <span style={{ color: '#7c3aed' }}>ðŸ"‹ {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
+                                     <span style={{ color: '#7c3aed' }}>📋 {presentes.length} presente{presentes.length !== 1 ? 's' : ''} (check-in)</span>
                                     {declinados.length > 0 && <span style={{ color: 'var(--texto-muted)' }}>✓- {declinados.length} no asistirá</span>}
                                   </div>
                                   {lista.length === 0 ? (
