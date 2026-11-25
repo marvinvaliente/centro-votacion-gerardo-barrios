@@ -2285,6 +2285,26 @@ export default function PortalPage() {
                   </div>
                 </div>
               )}
+
+              {/* ── Ayuda: Video tutorial + Manual ── */}
+              <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
+                <a href="/video-tutorial.html" target="_blank" rel="noopener noreferrer"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '13px 0', borderRadius: 14,
+                    background: 'linear-gradient(135deg,rgba(200,168,75,.12),rgba(200,168,75,.06))',
+                    border: '1px solid rgba(200,168,75,.3)', color: '#c8a84b',
+                    fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                  ▶ Video tutorial
+                </a>
+                <a href="/manual-usuario.html" target="_blank" rel="noopener noreferrer"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '13px 0', borderRadius: 14,
+                    background: 'rgba(255,255,255,.04)',
+                    border: '1px solid rgba(255,255,255,.1)', color: 'rgba(255,255,255,.65)',
+                    fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                  📖 Manual
+                </a>
+              </div>
             </div>
           )}
 
