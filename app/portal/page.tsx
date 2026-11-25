@@ -2093,12 +2093,12 @@ export default function PortalPage() {
           {seccion === 'inicio' && (
             <div className="max-w-lg mx-auto">
               {/* Saludo */}
-              <div className="mb-6">
-                <div className="font-bold text-lg leading-tight" style={{ color: 'var(--texto)' }}>
+              <div className="mb-6 text-center">
+                <div className="font-bold text-xl leading-tight" style={{ color: 'var(--texto)' }}>
                     {(() => {
                       const h = new Date().getHours()
-                      if (h >= 5 && h < 12) return `¡Buenos días, ${usuario.nombre.split(' ')[0]}! ☀ï¸`
-                      if (h >= 12 && h < 19) return `¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! 🌤ï¸`
+                      if (h >= 5 && h < 12) return `¡Buenos días, ${usuario.nombre.split(' ')[0]}! ☀️`
+                      if (h >= 12 && h < 19) return `¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! 🌤️`
                       return `¡Buenas noches, ${usuario.nombre.split(' ')[0]}! 🌙`
                     })()}
                 </div>
