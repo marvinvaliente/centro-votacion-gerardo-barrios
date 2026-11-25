@@ -515,6 +515,19 @@ export default function PortalPage() {
   const [asistenciaEvId, setAsistenciaEvId]     = useState<string | null>(null)
   const [asistenciaData, setAsistenciaData]     = useState<Record<string, any[]>>({})
   const [cargandoAsistencia, setCargandoAsistencia] = useState<string | null>(null)
+  // Toast system
+  const [toast, setToast]           = useState<{ msg: string; tipo: string; hiding: boolean } | null>(null)
+  const toastTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(msg: string, tipo: 'success' | 'error' | 'info' | 'warning' = 'success') {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ msg, tipo, hiding: false })
+    toastTimer.current = setTimeout(() => {
+      setToast(t => t ? { ...t, hiding: true } : null)
+      setTimeout(() => setToast(null), 200)
+    }, 2600)
+  }
+
   // Notificacion virtual capacitacion
   const [enviandoNotif, setEnviandoNotif] = useState<string | null>(null)
   const [notifEnviada, setNotifEnviada]   = useState<Record<string, boolean>>({})
@@ -1081,6 +1094,7 @@ export default function PortalPage() {
     }
     setGuardandoConf(null)
     setModalRsvp(null)
+    showToast(rsvpConf.confirmado ? 'Asistencia confirmada ✔' : 'Respuesta guardada', rsvpConf.confirmado ? 'success' : 'info')
   }
 
   async function capturarGpsRsvp() {
@@ -1166,9 +1180,12 @@ export default function PortalPage() {
     setRsvpSolicitando(false)
     setRsvpPaso(1)
     setModalRsvp(null)
+    showToast(rsvpConf.confirmado ? 'Asistencia confirmada ✔' : 'Respuesta guardada', rsvpConf.confirmado ? 'success' : 'info')
   }
 
   async function hacerCheckIn(eventoId: string) {
+    // Haptic feedback en móvil
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10)
     if (!usuario) return
     setCheckingIn(eventoId)
     const existing = confirmaciones[eventoId]
@@ -1288,10 +1305,11 @@ export default function PortalPage() {
     }
     setGuardandoEv(false)
     setModalEvento(false)
+    showToast(editandoEvento ? 'Evento actualizado' : 'Evento creado', 'success')
   }
 
   async function eliminarEvento(id: string) {
-    if (!confirm('¿Eliminar este evento?')) return
+    if (!window.confirm('¿Eliminar este evento?')) return
     setEliminandoEv(id)
     await supabase.from('eventos_transporte').delete().eq('id', id)
     setEventosTransporte(prev => prev.filter(e => e.id !== id))
@@ -2099,8 +2117,19 @@ export default function PortalPage() {
       </aside>
 
       {/* ── Barra inferior móvil (< md) – 4 ítems fijos ── */}
+      {/* Toast global */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={["toast", toast.tipo, toast.hiding ? "hiding" : ""].join(" ").trim()}
+        >
+          {toast.tipo === "success" ? "✓ " : toast.tipo === "error" ? "✗ " : toast.tipo === "warning" ? "⚠ " : "i "}{toast.msg}
+        </div>
+      )}
+
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
-        style={{ background: 'var(--navy-dark)', borderTop: '1px solid rgba(255,255,255,.1)', paddingBottom: 'env(safe-area-inset-bottom)', pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
+        style={{ background: 'rgba(15,23,42,.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,.08)', paddingBottom: 'env(safe-area-inset-bottom)', pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
         <div className="grid grid-cols-4">
           {(['inicio','agenda','mensajes','perfil'] as const).map((key) => {
             const item = NAV.find(n => n.key === key)
@@ -2110,7 +2139,7 @@ export default function PortalPage() {
             return (
               <button key={key}
                 onClick={() => irA(key)}
-                className="flex flex-col items-center justify-center gap-0.5 relative transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 relative transition-col active:scale-90 select-noneors"
                 style={{ color: activo ? 'var(--gold)' : 'rgba(255,255,255,.4)', minHeight: 60, padding: '8px 4px' }}>
                 {activo && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2"
@@ -2169,7 +2198,7 @@ export default function PortalPage() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6 transition-opacity duration-150"
+        <main key={seccion} className="flex-1 overflow-auto p-4 md:p-6 pb-28 md:pb-6 transition-opacity duration-150"
           key={seccion}
           style={{ pointerEvents: bloqueandoTaps ? 'none' : 'auto' }}>
 
@@ -3353,7 +3382,9 @@ export default function PortalPage() {
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(linkEvento.url).catch(() => {})
+                      navigator.clipboard.writeText(linkEvento.url).then(() => {
+                        showToast('Link copiado', 'success')
+                      }).catch(() => {})
                       setLinkCopiado(true)
                       setTimeout(() => { setLinkEvento(null); setLinkCopiado(false) }, 1800)
                     }}
