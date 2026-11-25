@@ -6,7 +6,7 @@ import {
   Upload, Camera, FileImage, CheckCircle, AlertTriangle, Download,
   ChevronRight, Plus, Trash2, Clock, MapPin, Tag,
   FileText, Video, File, Music, ShieldAlert, Check, Truck, ClipboardCheck, Loader2,
-  MessageCircle, Link2, FolderOpen, ClipboardList, Home
+  MessageCircle, Link2, FolderOpen, ClipboardList, Home, BarChart2, Filter, FileDown
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import LogoUrna from '@/components/LogoUrna'
@@ -92,7 +92,7 @@ function iconoMime(mime: string) {
 }
 
 
-type Seccion = 'inicio' | 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo'
+type Seccion = 'inicio' | 'perfil' | 'jrv' | 'agenda' | 'mensajes' | 'transporte' | 'motorista' | 'materiales' | 'calendario' | 'asistencia' | 'admin-registros' | 'admin-asignacion' | 'admin-transporte' | 'admin-catalogo' | 'admin-asistencia'
 
 /* ── Componente de sección Asistencia ── */
 function AsistenciaSection({ dui, registroId }: { dui: string; registroId: string | null }) { // registroId = registros_dui.id (registro_dui_id)
@@ -515,6 +515,13 @@ export default function PortalPage() {
   const [asistenciaEvId, setAsistenciaEvId]     = useState<string | null>(null)
   const [asistenciaData, setAsistenciaData]     = useState<Record<string, any[]>>({})
   const [cargandoAsistencia, setCargandoAsistencia] = useState<string | null>(null)
+  // Estado para vista global de asistencia admin
+  const [asistFiltro, setAsistFiltro]           = useState<'todos' | 'confirmados' | 'presentes' | 'no-asistira'>('todos')
+  const [asistEventoSel, setAsistEventoSel]     = useState<string>('todos')
+  const [asistEventosData, setAsistEventosData] = useState<Record<string, any[]>>({})
+  const [asistCargando, setAsistCargando]       = useState(false)
+  const [asistCargado, setAsistCargado]         = useState(false)
+
   // Link compartible del último evento creado
   const [linkEvento, setLinkEvento] = useState<{ nombre: string; url: string } | null>(null)
   const [linkCopiado, setLinkCopiado] = useState(false)
@@ -549,6 +556,14 @@ export default function PortalPage() {
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
+
+  // Cargar asistencia global al entrar a la sección admin-asistencia
+  useEffect(() => {
+    if (seccion === 'admin-asistencia' && esAdmin && eventosTransporte.length > 0) {
+      fetchAsistenciaGlobal()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seccion, eventosTransporte])
 
   // Boton atras del celular (Android PWA): volver a inicio desde cualquier seccion
   useEffect(() => {
@@ -1182,6 +1197,22 @@ export default function PortalPage() {
     setAsistenciaEvId(eventoId)
   }
 
+  // Carga asistencia de TODOS los eventos para la vista global admin
+  async function fetchAsistenciaGlobal() {
+    if (asistCargado) return
+    setAsistCargando(true)
+    for (const ev of eventosTransporte) {
+      const { data } = await supabase
+        .from('confirmaciones_evento')
+        .select('id, confirmado, necesita_recogida, necesita_regreso, check_in_at, justificacion_ausencia, fecha_confirmacion, usuario:usuario_id(id, nombre, dui, foto_perfil_url)')
+        .eq('evento_id', ev.id)
+        .order('fecha_confirmacion', { ascending: true })
+      setAsistEventosData(prev => ({ ...prev, [ev.id]: data ?? [] }))
+    }
+    setAsistCargando(false)
+    setAsistCargado(true)
+  }
+
   function abrirRsvp(ev: any) {
     const conf = confirmaciones[ev.id]
     setRsvpConf({
@@ -1294,6 +1325,7 @@ export default function PortalPage() {
       { key: 'admin-asignacion', label: 'Asignación', icon: Link2,       href: null, badge: 0, adminOnly: true },
       { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
       { key: 'admin-catalogo',   label: 'Catálogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
+      { key: 'admin-asistencia', label: 'Asistencia', icon: BarChart2,   href: null, badge: 0, adminOnly: true },
     ] : []),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [mensajesNoLeidos, esMotorista, esAdmin])
@@ -1834,7 +1866,7 @@ export default function PortalPage() {
 
                   {/* Pregunta de transporte */}
                   <div className="rounded-xl p-4 mb-5 text-left" style={{ background: 'rgba(99,102,241,.12)', border: '1px solid rgba(99,102,241,.3)' }}>
-                    <p className="text-sm font-semibold text-white mb-1">ðŸš ¿Necesita transporte al evento?</p>
+                    <p className="text-sm font-semibold text-white mb-1">🚐 ¿Necesita transporte al evento?</p>
                     <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,.5)' }}>
                       Puede solicitar que un motorista lo lleve al evento o lo traiga de regreso.
                     </p>
@@ -1881,7 +1913,7 @@ export default function PortalPage() {
               La próxima vez podrás ingresar con tu huella sin necesidad de escribir tu DUI.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠ï¸ <strong>Requisito:</strong> tu dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tienes ninguno configurado, no actives esta opción.
+              ⚠️ <strong>Requisito:</strong> tu dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tienes ninguno configurado, no actives esta opción.
             </div>
             <button onClick={() => registrarHuellaUsuario(usuario.dui)}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -1918,7 +1950,7 @@ export default function PortalPage() {
               La próxima vez podrá ingresar con su huella sin necesidad de contraseña.
             </p>
             <div className="rounded-xl px-4 py-3 mb-5 text-left text-xs" style={{ background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', color: 'rgba(251,191,36,.85)', lineHeight: 1.6 }}>
-              ⚠ï¸ <strong>Requisito:</strong> el dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tiene ninguno configurado, no active esta opción.
+              ⚠️ <strong>Requisito:</strong> el dispositivo debe tener un método de desbloqueo activo. <strong>iPhone:</strong> Face ID o Touch ID · <strong>Android:</strong> huella, patrón o PIN · <strong>Otros:</strong> cualquier bloqueo de pantalla. Si no tiene ninguno configurado, no active esta opción.
             </div>
             <button onClick={registrarHuella}
               className="w-full py-3.5 rounded-xl font-semibold text-sm mb-3"
@@ -2345,7 +2377,7 @@ export default function PortalPage() {
                       {!huellaUsuarioRegistrada && (
                         <div style={{ padding: '10px 18px 14px', background: 'rgba(251,191,36,.05)', borderTop: '1px solid rgba(251,191,36,.12)' }}>
                           <div style={{ fontSize: 11, color: 'var(--texto-muted)', lineHeight: 1.5, marginBottom: 10 }}>
-                            ⚠ï¸ Necesita un bloqueo de pantalla activo: <strong>Android</strong> → huella / PIN / patrón · <strong>iPhone</strong> → Face ID / Touch ID
+                            ⚠️ Necesita un bloqueo de pantalla activo: <strong>Android</strong> → huella / PIN / patrón · <strong>iPhone</strong> → Face ID / Touch ID
                           </div>
                           <button onClick={() => usuario?.dui && registrarHuellaUsuario(usuario.dui)} disabled={guardandoBiometria}
                             style={{ width: '100%', padding: '10px 0', borderRadius: 12, background: 'var(--navy)', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2951,6 +2983,152 @@ export default function PortalPage() {
             <AdminCatalogoSection />
           )}
 
+
+          {/* ── ADMIN: Vista global de asistencia ── */}
+          {seccion === 'admin-asistencia' && esAdmin && (
+            <div className="p-4 space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart2 size={18} style={{ color: '#2563eb' }} />
+                  <h2 className="text-base font-bold" style={{ color: 'var(--texto)' }}>Asistencia por Evento</h2>
+                </div>
+                <button
+                  onClick={() => { setAsistCargado(false); setAsistEventosData({}); fetchAsistenciaGlobal() }}
+                  className="btn btn-ghost btn-sm text-xs px-2 py-1"
+                  style={{ color: '#2563eb' }}>
+                  Actualizar
+                </button>
+              </div>
+
+              {/* Filtros */}
+              <div className="flex gap-2 flex-wrap">
+                {(['todos', 'confirmados', 'presentes', 'no-asistira'] as const).map(f => (
+                  <button key={f} onClick={() => setAsistFiltro(f)}
+                    className="text-xs px-3 py-1.5 rounded-full font-medium border transition-colors"
+                    style={{
+                      background: asistFiltro === f ? '#2563eb' : 'var(--superficie)',
+                      color: asistFiltro === f ? 'white' : 'var(--texto)',
+                      borderColor: asistFiltro === f ? '#2563eb' : 'var(--borde)',
+                    }}>
+                    {f === 'todos' ? 'Todos' : f === 'confirmados' ? '✔ Confirmados' : f === 'presentes' ? '📋 Check-in' : '✗ No asistirá'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Selector de evento */}
+              <div>
+                <select
+                  value={asistEventoSel}
+                  onChange={e => setAsistEventoSel(e.target.value)}
+                  className="input text-sm"
+                  style={{ width: '100%' }}>
+                  <option value="todos">— Todos los eventos —</option>
+                  {eventosTransporte.map((ev: any) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.titulo ?? ev.nombre} · {ev.fecha ? new Date(ev.fecha + 'T12:00').toLocaleDateString('es-SV', { day: 'numeric', month: 'short' }) : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cargando */}
+              {asistCargando && (
+                <div className="flex items-center justify-center py-8 gap-2 text-sm" style={{ color: 'var(--texto-muted)' }}>
+                  <Loader2 size={16} className="animate-spin" /> Cargando datos...
+                </div>
+              )}
+
+              {/* Tarjetas por evento */}
+              {!asistCargando && (() => {
+                const eventosFiltrados = asistEventoSel === 'todos'
+                  ? eventosTransporte
+                  : eventosTransporte.filter((ev: any) => ev.id === asistEventoSel)
+
+                return eventosFiltrados.map((ev: any) => {
+                  const lista: any[] = asistEventosData[ev.id] ?? []
+                  const fmtNombre = (u: any) => u?.nombre ?? u?.dui ?? '–'
+
+                  const listaFiltrada = lista.filter(c => {
+                    if (asistFiltro === 'confirmados') return c.confirmado && !c.check_in_at
+                    if (asistFiltro === 'presentes')   return !!c.check_in_at
+                    if (asistFiltro === 'no-asistira') return c.confirmado === false
+                    return true
+                  })
+
+                  const confirmados    = lista.filter(c => c.confirmado).length
+                  const presentes      = lista.filter(c => c.check_in_at).length
+                  const noAsistira     = lista.filter(c => c.confirmado === false).length
+                  const conTransporte  = lista.filter(c => c.necesita_recogida || c.necesita_regreso).length
+
+                  return (
+                    <div key={ev.id} className="card overflow-hidden">
+                      {/* Cabecera evento */}
+                      <div className="px-4 py-3" style={{ background: 'var(--superficie)', borderBottom: '1px solid var(--borde)' }}>
+                        <div className="font-semibold text-sm" style={{ color: 'var(--texto)' }}>{ev.titulo ?? ev.nombre}</div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                          {ev.fecha ? new Date(ev.fecha + 'T12:00').toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}{ev.lugar ? ` · ${ev.lugar}` : ''}
+                        </div>
+                        {/* Totales */}
+                        <div className="flex gap-3 mt-2 flex-wrap text-xs font-medium">
+                          <span style={{ color: '#16a34a' }}>✔ {confirmados} confirmados</span>
+                          <span style={{ color: '#7c3aed' }}>📋 {presentes} check-in</span>
+                          {noAsistira > 0 && <span style={{ color: 'var(--texto-muted)' }}>✗ {noAsistira} no asistirá</span>}
+                          {conTransporte > 0 && <span style={{ color: '#a16207' }}>🚐 {conTransporte} transporte</span>}
+                        </div>
+                      </div>
+
+                      {/* Lista filtrada */}
+                      {listaFiltrada.length === 0 ? (
+                        <div className="px-4 py-4 text-center text-xs" style={{ color: 'var(--texto-muted)' }}>
+                          {lista.length === 0 ? 'Sin confirmaciones aún.' : 'Sin registros con este filtro.'}
+                        </div>
+                      ) : (
+                        <div className="divide-y" style={{ '--tw-divide-opacity': 1 } as any}>
+                          {listaFiltrada.map((c: any) => {
+                            const u = c.usuario
+                            const tieneCheckin = !!c.check_in_at
+                            return (
+                              <div key={c.id} className="px-4 py-2.5 flex items-center gap-3" style={{ borderColor: 'var(--borde)' }}>
+                                {/* Avatar */}
+                                <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-xs font-bold"
+                                  style={{ background: tieneCheckin ? '#dcfce7' : c.confirmado ? '#eff6ff' : 'rgba(107,114,128,.1)', color: tieneCheckin ? '#16a34a' : c.confirmado ? '#2563eb' : 'var(--texto-muted)' }}>
+                                  {u?.foto_perfil_url
+                                    ? <img src={u.foto_perfil_url} alt="" className="w-full h-full object-cover" />
+                                    : fmtNombre(u).charAt(0).toUpperCase()}
+                                </div>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-medium truncate" style={{ color: 'var(--texto)' }}>{fmtNombre(u)}</div>
+                                  {c.check_in_at && (
+                                    <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
+                                      Check-in: {new Date(c.check_in_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  )}
+                                  {c.justificacion_ausencia && (
+                                    <div className="text-xs italic truncate" style={{ color: 'var(--texto-muted)' }}>{c.justificacion_ausencia}</div>
+                                  )}
+                                </div>
+                                {/* Badges */}
+                                <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
+                                  {tieneCheckin && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#dcfce7', color: '#16a34a' }}>Presente</span>}
+                                  {c.confirmado && !tieneCheckin && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#eff6ff', color: '#2563eb' }}>Confirmó</span>}
+                                  {c.confirmado === false && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(107,114,128,.1)', color: 'var(--texto-muted)' }}>No asistirá</span>}
+                                  {c.necesita_recogida && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Recogida</span>}
+                                  {c.necesita_regreso  && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#fef9c3', color: '#a16207' }}>Regreso</span>}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              })()}
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -3169,7 +3347,7 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_recogida ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_recogida ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_recogida} onChange={e => setRsvpConf(p => ({ ...p, necesita_recogida: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">ðŸš Llevarme a {modalRsvp.nombre}</div>
+                          <div className="text-sm font-medium">🚐 Llevarme a {modalRsvp.nombre}</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                             {modalRsvp.recogida_domicilio
                               ? 'Pasaremos a buscarle directamente en su domicilio. ¡No tiene que moverse!'
@@ -3185,7 +3363,7 @@ export default function PortalPage() {
                         style={{ background: rsvpConf.necesita_regreso ? '#eff6ff' : 'var(--fondo)', border: `1.5px solid ${rsvpConf.necesita_regreso ? '#93c5fd' : 'var(--borde)'}` }}>
                         <input type="checkbox" checked={rsvpConf.necesita_regreso} onChange={e => setRsvpConf(p => ({ ...p, necesita_regreso: e.target.checked }))} className="w-4 h-4 rounded" />
                         <div>
-                          <div className="text-sm font-medium">ðŸ  Llevarme a casa</div>
+                          <div className="text-sm font-medium">🏠 Llevarme a casa</div>
                           <div className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                             Al terminar el evento, con mucho gusto le regresamos a su domicilio sin ningún inconveniente.
                           </div>
@@ -3243,10 +3421,10 @@ export default function PortalPage() {
               <div className="space-y-4">
                 {/* Resumen de lo que solicitó */}
                 <div className="p-3 rounded-xl space-y-1.5" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>ðŸ"‹ Resumen de su solicitud</p>
+                  <p className="text-xs font-semibold" style={{ color: '#1d4ed8' }}>📋 Resumen de su solicitud</p>
                   {rsvpConf.necesita_recogida && (
                     <p className="text-xs" style={{ color: '#1e40af' }}>
-                      ðŸš <strong>Le llevamos a {modalRsvp.nombre}</strong> –{' '}
+                      🚐 <strong>Le llevamos a {modalRsvp.nombre}</strong> –{' '}
                       {modalRsvp.recogida_domicilio
                         ? 'Pasamos a buscarle en su domicilio'
                         : modalRsvp.punto_reunion
@@ -3255,14 +3433,14 @@ export default function PortalPage() {
                     </p>
                   )}
                   {rsvpConf.necesita_regreso && (
-                    <p className="text-xs" style={{ color: '#1e40af' }}>ðŸ  <strong>Le llevamos a casa</strong> – le regresamos a su domicilio al terminar</p>
+                    <p className="text-xs" style={{ color: '#1e40af' }}>🏠 <strong>Le llevamos a casa</strong> – le regresamos a su domicilio al terminar</p>
                   )}
                 </div>
 
                 {/* Punto de reunión – si aplica */}
                 {!modalRsvp.recogida_domicilio && modalRsvp.punto_reunion && (
                   <div className="p-3 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>ðŸ" Punto de reunión</p>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#c2410c' }}>📍 Punto de reunión</p>
                     <p className="text-sm font-medium" style={{ color: '#9a3412' }}>{modalRsvp.punto_reunion}</p>
                     <p className="text-xs mt-0.5" style={{ color: '#c2410c' }}>Pasaremos a buscarle aquí. Por favor llegue puntualmente a este lugar.</p>
                   </div>
@@ -3271,7 +3449,7 @@ export default function PortalPage() {
                 {/* GPS – siempre al solicitar transporte (sirve para ida a domicilio y para el regreso) */}
                 <div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--texto)' }}>
-                    ðŸ" {modalRsvp.recogida_domicilio ? '¿Dónde pasamos a buscarle?' : '¿A dónde le llevamos de regreso?'}
+                    📍 {modalRsvp.recogida_domicilio ? '¿Dónde pasamos a buscarle?' : '¿A dónde le llevamos de regreso?'}
                   </p>
                   <p className="text-xs mb-2" style={{ color: 'var(--texto-muted)' }}>
                     {modalRsvp.recogida_domicilio
@@ -3316,7 +3494,7 @@ export default function PortalPage() {
                           loading="lazy"
                         />
                         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.25)' }}>
-                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>ðŸ" Su ubicación aún no está registrada</span>
+                          <span className="text-white text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>📍 Su ubicación aún no está registrada</span>
                         </div>
                         <button onClick={() => setRsvpMapaExpandido(true)}
                           className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center"
