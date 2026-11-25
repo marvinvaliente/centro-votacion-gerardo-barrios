@@ -2245,7 +2245,7 @@ export default function PortalPage() {
                         <Icon size={30} style={{ color: c.color }} />
                       </div>
                       <span className="font-semibold text-sm text-center leading-tight"
-                        style={{ color: 'var(--texto)' }}>
+                        style={{ color: '#1a2e4a' }}>
                         {label}
                       </span>
                       {badge > 0 && (
