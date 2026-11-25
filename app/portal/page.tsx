@@ -2074,28 +2074,17 @@ export default function PortalPage() {
           {seccion === 'inicio' && (
             <div className="max-w-lg mx-auto">
               {/* Saludo */}
-              <div className="mb-6 flex items-center gap-3">
-                <div
-                  className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm flex-shrink-0"
-                  style={{ background: 'var(--navy)', color: 'var(--gold)', border: '2px solid var(--gold)' }}
-                >
-                  {usuario.foto_perfil_url
-                    ? <img src={usuario.foto_perfil_url} alt="perfil" className="w-full h-full object-cover" />
-                    : usuario.nombre.trim().split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
-                  }
-                </div>
-                <div>
-                  <div className="font-bold text-lg leading-tight" style={{ color: 'var(--texto)' }}>
+              <div className="mb-6">
+                <div className="font-bold text-lg leading-tight" style={{ color: 'var(--texto)' }}>
                     {(() => {
                       const h = new Date().getHours()
                       if (h >= 5 && h < 12) return `¡Buenos días, ${usuario.nombre.split(' ')[0]}! ☀ï¸`
                       if (h >= 12 && h < 19) return `¡Buenas tardes, ${usuario.nombre.split(' ')[0]}! 🌤ï¸`
                       return `¡Buenas noches, ${usuario.nombre.split(' ')[0]}! 🌙`
                     })()}
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
-                    {usuario.rol.charAt(0).toUpperCase() + usuario.rol.slice(1)} · {new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </div>
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: 'var(--texto-muted)' }}>
+                  {usuario.rol.charAt(0).toUpperCase() + usuario.rol.slice(1)} · {new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </div>
               </div>
 
