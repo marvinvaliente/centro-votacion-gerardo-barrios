@@ -1272,14 +1272,14 @@ export default function PortalPage() {
     ...(esMotorista ? [{ key: 'motorista', label: 'Motorista', icon: Truck, href: null, badge: 0, adminOnly: false }] : []),
     ...(esAdmin ? [
       { key: 'admin-registros',  label: 'Registros',  icon: ShieldAlert, href: null, badge: 0, adminOnly: true },
-      { key: 'admin-asignacion', label: 'Asignacion', icon: Link2,       href: null, badge: 0, adminOnly: true },
+      { key: 'admin-asignacion', label: 'Asignación', icon: Link2,       href: null, badge: 0, adminOnly: true },
       { key: 'admin-transporte', label: 'T. Admin',   icon: Truck,       href: null, badge: 0, adminOnly: true },
-      { key: 'admin-catalogo',   label: 'Catalogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
+      { key: 'admin-catalogo',   label: 'Catálogo',   icon: FolderOpen,  href: null, badge: 0, adminOnly: true },
     ] : []),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [mensajesNoLeidos, esMotorista, esAdmin])
 
-  /** Navegacion memoizada - referencia estable para evitar re-renders en hijos */
+  /** Navegación memoizada - referencia estable para evitar re-renders en hijos */
   const irA = useCallback((s: Seccion) => setSeccion(s), [])
 
   /* â"€â"€ LOGIN / PRE-LOGIN â"€â"€ */
