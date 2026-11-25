@@ -1263,7 +1263,7 @@ export default function PortalPage() {
       fecha: formEv.fecha,
       hora: formEv.hora || null,
       hora_fin: formEv.hora_fin || null,
-      lugar: formEv.lugar || null,
+      lugar: formEv.tipo === 'virtual' ? null : (formEv.lugar || null),
       transporte_recogida: formEv.transporte_recogida,
       transporte_regreso: formEv.transporte_regreso,
       punto_reunion: formEv.punto_reunion || null,
@@ -3253,15 +3253,17 @@ export default function PortalPage() {
                 <label className="field-label">Descripción</label>
                 <textarea value={formEv.descripcion} onChange={e => setFormEv(p => ({ ...p, descripcion: e.target.value }))} className="input" rows={2} placeholder="Descripción opcional" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className={formEv.tipo === 'virtual' ? '' : 'grid grid-cols-2 gap-4'}>
                 <div>
                   <label className="field-label">Fecha *</label>
                   <input type="date" value={formEv.fecha} onChange={e => setFormEv(p => ({ ...p, fecha: e.target.value }))} className="input" />
                 </div>
-                <div>
-                  <label className="field-label">Lugar</label>
-                  <input type="text" value={formEv.lugar} onChange={e => setFormEv(p => ({ ...p, lugar: e.target.value }))} className="input" placeholder="Lugar" />
-                </div>
+                {formEv.tipo !== 'virtual' && (
+                  <div>
+                    <label className="field-label">Lugar</label>
+                    <input type="text" value={formEv.lugar} onChange={e => setFormEv(p => ({ ...p, lugar: e.target.value }))} className="input" placeholder="Lugar" />
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
