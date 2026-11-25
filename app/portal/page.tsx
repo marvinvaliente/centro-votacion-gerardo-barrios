@@ -505,7 +505,7 @@ export default function PortalPage() {
   // Score asistencia a eventos
   const [scoreAgenda, setScoreAgenda] = useState<{ confirmados: number; checkins: number; total: number } | null>(null)
   // CRUD eventos (admin)
-  const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, punto_reunion: '', recogida_domicilio: false, regreso_domicilio: false, activo: true }
+  const FORM_EV_VACIO = { nombre: '', descripcion: '', fecha: '', hora: '', hora_fin: '', lugar: '', transporte_recogida: true, transporte_regreso: true, punto_reunion: '', recogida_domicilio: false, regreso_domicilio: false, activo: true, tipo: 'presencial', link_virtual: '' }
   const [modalEvento, setModalEvento] = useState(false)
   const [editandoEvento, setEditandoEvento] = useState<any | null>(null)
   const [formEv, setFormEv] = useState(FORM_EV_VACIO)
@@ -515,6 +515,10 @@ export default function PortalPage() {
   const [asistenciaEvId, setAsistenciaEvId]     = useState<string | null>(null)
   const [asistenciaData, setAsistenciaData]     = useState<Record<string, any[]>>({})
   const [cargandoAsistencia, setCargandoAsistencia] = useState<string | null>(null)
+  // Notificacion virtual capacitacion
+  const [enviandoNotif, setEnviandoNotif] = useState<string | null>(null)
+  const [notifEnviada, setNotifEnviada]   = useState<Record<string, boolean>>({})
+
   // Estado para vista global de asistencia admin
   const [asistFiltro, setAsistFiltro]           = useState<'todos' | 'confirmados' | 'presentes' | 'no-asistira'>('todos')
   const [asistEventoSel, setAsistEventoSel]     = useState<string>('todos')
@@ -1266,6 +1270,8 @@ export default function PortalPage() {
       recogida_domicilio: formEv.recogida_domicilio,
       regreso_domicilio: formEv.regreso_domicilio,
       activo: formEv.activo,
+      tipo: formEv.tipo,
+      link_virtual: formEv.tipo === 'virtual' ? (formEv.link_virtual.trim() || null) : null,
     }
     if (editandoEvento) {
       await supabase.from('eventos_transporte').update(payload).eq('id', editandoEvento.id)
@@ -1290,6 +1296,52 @@ export default function PortalPage() {
     await supabase.from('eventos_transporte').delete().eq('id', id)
     setEventosTransporte(prev => prev.filter(e => e.id !== id))
     setEliminandoEv(null)
+  }
+
+  // Envía notificación de capacitación virtual a todos los confirmados (y al resto del equipo)
+  async function sendNotificacionVirtual(ev: any) {
+    if (enviandoNotif) return
+    setEnviandoNotif(ev.id)
+    try {
+      // Obtener todos los usuarios activos con sus correos
+      const { data: usuarios } = await supabase
+        .from('usuarios')
+        .select('id, nombre, email')
+        .eq('activo', true)
+
+      if (!usuarios || usuarios.length === 0) {
+        setEnviandoNotif(null)
+        return
+      }
+
+      const fechaFmt = ev.fecha
+        ? new Date(ev.fecha + 'T12:00').toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })
+        : ''
+      const horaFmt = ev.hora ? ev.hora.slice(0, 5) : ''
+      const linkPortal = typeof window !== 'undefined'
+        ? `${window.location.origin}/portal?evento=${ev.id}`
+        : `https://centro-votacion-gerardo-barrios.vercel.app/portal?evento=${ev.id}`
+
+      const mensajeTexto = `📹 *Capacitación Virtual*\n*${ev.titulo ?? ev.nombre}*\n📅 ${fechaFmt}${horaFmt ? ` a las ${horaFmt}` : ''}\n🔗 Link: ${ev.link_virtual}\n\nConfirma tu asistencia en el sistema: ${linkPortal}`
+
+      // Insertar DM en el chat de cada usuario
+      const dms = usuarios.map((u: any) => ({
+        remitente_id: usuario!.id,
+        destinatario_id: u.id,
+        contenido: mensajeTexto,
+        tipo: 'capacitacion_virtual',
+        leido: false,
+      }))
+
+      await supabase.from('mensajes').insert(dms)
+
+      // Incrementar badge de mensajes no leídos localmente
+      setMensajesNoLeidos(prev => prev + 1)
+      setNotifEnviada(prev => ({ ...prev, [ev.id]: true }))
+    } catch (e) {
+      console.error('Error enviando notificación:', e)
+    }
+    setEnviandoNotif(null)
   }
 
   // Categorías de materiales
@@ -2742,6 +2794,18 @@ export default function PortalPage() {
                                     : <span className="text-xs flex items-center gap-1" style={{ color: 'var(--texto-muted)' }}><MapPin size={10} />{ev.lugar}</span>
                                 )}
                                 {ev.transporte_recogida && <span className="badge" style={{ background: color + '18', color, fontSize: 10 }}><Bus size={8} className="inline mr-0.5" />Transporte disponible</span>}
+                                 {/* Badge virtual/mixto */}
+                                 {(ev.tipo === 'virtual' || ev.tipo === 'mixto') && (
+                                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: '#ede9fe', color: '#7c3aed' }}>📹 {ev.tipo === 'mixto' ? 'Mixto' : 'Virtual'}</span>
+                                 )}
+                                 {(ev.tipo === 'virtual' || ev.tipo === 'mixto') && ev.link_virtual && (
+                                   <a href={ev.link_virtual} target="_blank" rel="noopener noreferrer"
+                                     className="text-xs font-semibold"
+                                     style={{ color: '#7c3aed', textDecoration: 'none' }}
+                                     onClick={e => e.stopPropagation()}>
+                                     Unirse →
+                                   </a>
+                                 )}
                               </div>
                               {/* Info transporte confirmado */}
                               {yaConfirmado && conf && (conf.necesita_recogida || conf.necesita_regreso) && (
@@ -2819,6 +2883,16 @@ export default function PortalPage() {
                                       : <ClipboardList size={11} />}
                                     {asistenciaEvId === ev.id ? 'Ocultar' : 'Asistencia'}
                                   </button>
+                                  {/* Botón notificar capacitación virtual */}
+                                  {(ev.tipo === 'virtual' || ev.tipo === 'mixto') && ev.link_virtual && (
+                                    <button
+                                      onClick={() => sendNotificacionVirtual(ev)}
+                                      disabled={!!enviandoNotif || !!notifEnviada[ev.id]}
+                                      style={{ background: notifEnviada[ev.id] ? '#dcfce7' : '#7c3aed', color: notifEnviada[ev.id] ? '#16a34a' : 'white', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                      {enviandoNotif === ev.id ? <Loader2 size={11} className="animate-spin" /> : notifEnviada[ev.id] ? <Check size={11} /> : '📢'}
+                                      {notifEnviada[ev.id] ? 'Enviado' : enviandoNotif === ev.id ? '...' : 'Notificar'}
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => {
                                       const url = `${window.location.origin}/transporte/asistencia/${ev.id}`
@@ -3147,6 +3221,34 @@ export default function PortalPage() {
                 <label className="field-label">Nombre *</label>
                 <input type="text" value={formEv.nombre} onChange={e => setFormEv(p => ({ ...p, nombre: e.target.value }))} className="input" placeholder="Nombre del evento" />
               </div>
+              {/* Tipo de evento */}
+              <div>
+                <label className="field-label">Tipo de evento</label>
+                <div className="flex gap-2">
+                  {(['presencial', 'virtual', 'mixto'] as const).map(t => (
+                    <button key={t} type="button"
+                      onClick={() => setFormEv(p => ({ ...p, tipo: t }))}
+                      className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors capitalize"
+                      style={{
+                        background: formEv.tipo === t ? (t === 'virtual' ? '#7c3aed' : t === 'mixto' ? '#0369a1' : '#16a34a') : 'var(--superficie)',
+                        color: formEv.tipo === t ? 'white' : 'var(--texto)',
+                        borderColor: formEv.tipo === t ? 'transparent' : 'var(--borde)',
+                      }}>
+                      {t === 'presencial' ? '🏛️ Presencial' : t === 'virtual' ? '📹 Virtual' : '🔀 Mixto'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Link virtual – solo si es virtual o mixto */}
+              {(formEv.tipo === 'virtual' || formEv.tipo === 'mixto') && (
+                <div>
+                  <label className="field-label">Link de la reunión *</label>
+                  <input type="url" value={formEv.link_virtual}
+                    onChange={e => setFormEv(p => ({ ...p, link_virtual: e.target.value }))}
+                    className="input" placeholder="https://meet.google.com/xxx o https://zoom.us/j/xxx" />
+                  <p className="text-xs mt-1" style={{ color: 'var(--texto-muted)' }}>Se compartirá con todos los colaboradores al enviar la notificación.</p>
+                </div>
+              )}
               <div>
                 <label className="field-label">Descripción</label>
                 <textarea value={formEv.descripcion} onChange={e => setFormEv(p => ({ ...p, descripcion: e.target.value }))} className="input" rows={2} placeholder="Descripción opcional" />
@@ -3267,6 +3369,21 @@ export default function PortalPage() {
               <p className="text-xs" style={{ color: 'var(--texto-muted)' }}>
                 Al abrir este link, el colaborador verá directamente el formulario de confirmación de asistencia para este evento.
               </p>
+              {/* WhatsApp */}
+              <div>
+                <p className="text-xs font-semibold mb-2" style={{ color: 'var(--texto-muted)' }}>Compartir por WhatsApp</p>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`🗳️ *${linkEvento.nombre}*
+
+Confirma tu asistencia en el sistema del Centro de Votación:
+${linkEvento.url}`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn w-full flex items-center justify-center gap-2 text-sm font-semibold"
+                  style={{ background: '#25D366', color: 'white', border: 'none', padding: '10px 0', borderRadius: 10 }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  Enviar por WhatsApp
+                </a>
+              </div>
             </div>
           </div>
         </div>
